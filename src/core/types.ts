@@ -21,6 +21,8 @@ export interface Persona {
   expertise: string;
   /** Claude Agent SDK の systemPrompt に渡す、この役割の人格・視点・話し方。 */
   systemPrompt: string;
+  /** src/renderer/assets/personas/ 配下のファイル名（拡張子込み）。 */
+  avatar: string;
 }
 
 /** 会議に招集された、あるペルソナの実体（ACTIVE/INACTIVEを持つ）。 */

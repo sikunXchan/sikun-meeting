@@ -1,5 +1,5 @@
 // @ts-nocheck
-// レンダラー側の最小限のUIロジック（機能優先・デザインは後回し）。
+// レンダラー側のUIロジック。
 // window.api は preload.ts が contextBridge 経由で公開する。
 //
 // 全体をIIFEで包んでいるのは、contextBridge.exposeInMainWorld が
@@ -24,14 +24,46 @@ function meetingTypeById(id) {
   return meetingTypes.find((t) => t.id === id);
 }
 
+function avatarSrc(fileName) {
+  return `assets/personas/${fileName}`;
+}
+
+function personaAvatarSrc(personaId) {
+  const p = personaById(personaId);
+  return p ? avatarSrc(p.avatar) : avatarSrc('default.png');
+}
+
 function personaLabel(id) {
   const p = personaById(id);
   return p ? `${p.emoji} ${p.name}` : id;
 }
 
+function participantById(meeting, participantId) {
+  return meeting.participants.find((p) => p.id === participantId);
+}
+
 function participantLabel(meeting, participantId) {
-  const participant = meeting.participants.find((p) => p.id === participantId);
+  const participant = participantById(meeting, participantId);
   return participant ? personaLabel(participant.personaId) : participantId;
+}
+
+const STANCE_CLASS = {
+  '賛成': 'agree',
+  '反対': 'disagree',
+  '条件付き賛成': 'conditional',
+  '推奨案': 'suggest',
+  'リスク指摘': 'risk',
+};
+
+/** 各参加者の「最新の立場」をトランスクリプトから逐次計算する（円陣の吹き出し表示用）。 */
+function latestStanceByParticipant(meeting) {
+  const map = new Map();
+  for (const msg of meeting.transcript) {
+    if (msg.speakerType !== 'AI') continue;
+    const participantId = msg.speakerId.split('#')[1];
+    if (msg.stance) map.set(participantId, msg.stance);
+  }
+  return map;
 }
 
 async function init() {
@@ -95,7 +127,11 @@ function wireStaticEvents() {
   });
   document.getElementById('nm-cancel').addEventListener('click', () => {
     hideAll();
-    document.getElementById('empty-state').classList.remove('hidden');
+    if (currentMeeting) {
+      document.getElementById('meeting-view').classList.remove('hidden');
+    } else {
+      document.getElementById('empty-state').classList.remove('hidden');
+    }
   });
   document.getElementById('nm-choose-dir').addEventListener('click', async () => {
     const dir = await api.system.chooseDirectory();
@@ -187,7 +223,7 @@ function wireStaticEvents() {
     const minutes = await api.minutes.get(currentMeeting.id);
     const view = document.getElementById('minutes-view');
     view.textContent = minutes.markdown;
-    view.classList.remove('hidden');
+    view.classList.toggle('hidden');
   });
 }
 
@@ -226,7 +262,10 @@ async function selectMeeting(id) {
   renderMeetingList();
   hideAll();
   document.getElementById('meeting-view').classList.remove('hidden');
+  document.getElementById('sidebar-roster').classList.remove('hidden');
+  document.getElementById('sidebar-chief').classList.remove('hidden');
   document.getElementById('minutes-view').classList.add('hidden');
+  document.getElementById('minutes-view').textContent = '';
   renderMeetingView();
 }
 
@@ -240,11 +279,15 @@ function renderMeetingView() {
   const m = currentMeeting;
   const type = meetingTypeById(m.meetingTypeId);
 
-  document.getElementById('mv-title').textContent = `${type ? type.emoji : ''} ${m.title}`;
-  document.getElementById('mv-agenda').textContent = m.agenda;
-  document.getElementById('mv-status').textContent = m.status;
+  document.getElementById('tb-title').textContent = `${type ? type.emoji : ''} ${m.title}`;
+  document.getElementById('tb-agenda').textContent = m.agenda;
+  const statusBadge = document.getElementById('tb-status');
+  statusBadge.textContent = { CREATED: '未開始', IN_PROGRESS: '進行中', CONCLUDED: '終了' }[m.status] || m.status;
+  statusBadge.className = `status-badge ${m.status}`;
+  statusBadge.classList.remove('hidden');
 
   renderRoster(m);
+  renderCircle(m);
   renderTranscript(m);
   renderDecision(m);
 
@@ -262,16 +305,33 @@ function renderRoster(m) {
   const activeList = document.getElementById('roster-active-list');
   const inactiveList = document.getElementById('roster-inactive-list');
   activeList.innerHTML = '';
+  activeList.className = 'roster-list active';
   inactiveList.innerHTML = '';
+  inactiveList.className = 'roster-list inactive';
+
+  let activeCount = 0;
+  let inactiveCount = 0;
 
   for (const p of m.participants) {
     const li = document.createElement('li');
-    const label = document.createElement('span');
-    label.textContent = personaLabel(p.personaId);
-    li.appendChild(label);
+
+    const dot = document.createElement('span');
+    dot.className = 'status-dot';
+    li.appendChild(dot);
+
+    const avatar = document.createElement('img');
+    avatar.className = 'roster-avatar';
+    avatar.src = personaAvatarSrc(p.personaId);
+    li.appendChild(avatar);
+
+    const name = document.createElement('span');
+    name.className = 'roster-name';
+    name.textContent = personaLabel(p.personaId);
+    li.appendChild(name);
 
     const btn = document.createElement('button');
     if (p.status === 'ACTIVE') {
+      activeCount++;
       btn.textContent = '除籍';
       btn.className = 'secondary';
       btn.addEventListener('click', async () => {
@@ -281,6 +341,7 @@ function renderRoster(m) {
       li.appendChild(btn);
       activeList.appendChild(li);
     } else {
+      inactiveCount++;
       btn.textContent = '再招集';
       btn.addEventListener('click', async () => {
         await api.meetings.reactivateParticipant(m.id, p.id);
@@ -290,6 +351,9 @@ function renderRoster(m) {
       inactiveList.appendChild(li);
     }
   }
+
+  document.getElementById('active-count').textContent = `(${activeCount})`;
+  document.getElementById('inactive-count').textContent = `(${inactiveCount})`;
 
   const inviteSelect = document.getElementById('invite-persona-select');
   const askSelect = document.getElementById('ask-specific-select');
@@ -312,31 +376,111 @@ function renderRoster(m) {
   }
 }
 
+function renderCircle(m) {
+  const stage = document.getElementById('circle-stage');
+  // 既存の座席要素だけ削除し、中央の chief カードは残す。
+  stage.querySelectorAll('.seat').forEach((el) => el.remove());
+
+  const activeParticipants = m.participants.filter((p) => p.status === 'ACTIVE');
+  const stanceMap = latestStanceByParticipant(m);
+
+  const cx = 280;
+  const cy = 240;
+  const rx = 220;
+  const ry = 190;
+  const n = activeParticipants.length;
+
+  activeParticipants.forEach((p, i) => {
+    const angle = (-90 + (360 / Math.max(n, 1)) * i) * (Math.PI / 180);
+    const x = cx + rx * Math.cos(angle);
+    const y = cy + ry * Math.sin(angle);
+
+    const persona = personaById(p.personaId);
+    const seat = document.createElement('div');
+    seat.className = 'seat';
+    seat.style.left = `${x}px`;
+    seat.style.top = `${y}px`;
+    seat.title = `${personaLabel(p.personaId)}を指名して質問する`;
+
+    const img = document.createElement('img');
+    img.src = personaAvatarSrc(p.personaId);
+    seat.appendChild(img);
+
+    const name = document.createElement('div');
+    name.className = 'seat-name';
+    name.textContent = persona ? persona.name : p.personaId;
+    seat.appendChild(name);
+
+    const role = document.createElement('div');
+    role.className = 'seat-role';
+    role.textContent = persona ? persona.roleTitle : '';
+    seat.appendChild(role);
+
+    const stance = stanceMap.get(p.id);
+    if (stance) {
+      const tag = document.createElement('div');
+      tag.className = `seat-stance ${STANCE_CLASS[stance] || ''}`;
+      tag.textContent = stance;
+      seat.appendChild(tag);
+    }
+
+    seat.addEventListener('click', () => {
+      document.getElementById('ask-specific-select').value = p.id;
+      const q = document.getElementById('ask-specific-question');
+      q.focus();
+    });
+
+    stage.appendChild(seat);
+  });
+}
+
 function renderTranscript(m) {
   const list = document.getElementById('transcript-list');
+  const empty = document.getElementById('transcript-empty');
   list.innerHTML = '';
+  empty.classList.toggle('hidden', m.transcript.length > 0);
+
   for (const msg of m.transcript) {
     const div = document.createElement('div');
     div.className = 'msg' + (msg.speakerType === 'HUMAN' ? ' human' : '');
 
+    const img = document.createElement('img');
+    if (msg.speakerType === 'HUMAN') {
+      img.src = avatarSrc('chief.png');
+    } else if (msg.speakerType === 'SYSTEM') {
+      img.src = avatarSrc('default.png');
+    } else {
+      const participantId = msg.speakerId.split('#')[1];
+      const participant = participantById(m, participantId);
+      img.src = participant ? personaAvatarSrc(participant.personaId) : avatarSrc('default.png');
+    }
+    div.appendChild(img);
+
+    const body = document.createElement('div');
+    body.className = 'body';
+
+    const speakerRow = document.createElement('div');
     const speaker = document.createElement('span');
     speaker.className = 'speaker';
-    if (msg.speakerType === 'HUMAN') speaker.textContent = '👤 最高開発者';
-    else if (msg.speakerType === 'SYSTEM') speaker.textContent = '🗒 system';
+    if (msg.speakerType === 'HUMAN') speaker.textContent = '最高開発者';
+    else if (msg.speakerType === 'SYSTEM') speaker.textContent = 'system';
     else speaker.textContent = participantLabel(m, msg.speakerId.split('#')[1]);
-    div.appendChild(speaker);
+    speakerRow.appendChild(speaker);
 
     if (msg.stance) {
       const stance = document.createElement('span');
-      stance.className = 'stance';
+      stance.className = `stance-tag ${STANCE_CLASS[msg.stance] || ''}`;
       stance.textContent = msg.stance;
-      div.appendChild(stance);
+      speakerRow.appendChild(stance);
     }
+    body.appendChild(speakerRow);
 
     const content = document.createElement('div');
+    content.className = 'content';
     content.textContent = msg.content;
-    div.appendChild(content);
+    body.appendChild(content);
 
+    div.appendChild(body);
     list.appendChild(div);
   }
   list.scrollTop = list.scrollHeight;

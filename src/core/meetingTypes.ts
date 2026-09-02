@@ -11,7 +11,7 @@ export const MEETING_TYPES: MeetingType[] = [
     emoji: '🏛',
     description: '経営・戦略・KPI・投資判断・リスクを扱う会議',
     focusAreas: ['経営', '戦略', 'KPI', '投資判断', 'リスク'],
-    defaultPersonaIds: ['analyst', 'finance', 'critic', 'security'],
+    defaultPersonaIds: ['analyst', 'finance', 'legal', 'critic', 'visionary'],
     protocol: {
       id: 'steering_committee_protocol',
       name: '構造化ラウンド + 最終判断',
@@ -28,7 +28,7 @@ export const MEETING_TYPES: MeetingType[] = [
     emoji: '💻',
     description: 'システム設計・技術選定・アーキテクチャレビューを扱う会議',
     focusAreas: ['システム設計', '技術選定', 'アーキテクチャレビュー'],
-    defaultPersonaIds: ['architect', 'critic', 'security', 'product'],
+    defaultPersonaIds: ['architect', 'critic', 'security', 'backend', 'engineer'],
     protocol: {
       id: 'architecture_review_protocol',
       name: '技術討論ラウンド',
@@ -45,7 +45,7 @@ export const MEETING_TYPES: MeetingType[] = [
     emoji: '🚀',
     description: 'プロダクト・UX・機能優先度・ユーザー価値を扱う会議',
     focusAreas: ['プロダクト', 'UX', '機能優先度', 'ユーザー価値'],
-    defaultPersonaIds: ['product', 'researcher', 'analyst', 'critic'],
+    defaultPersonaIds: ['product', 'designer', 'marketing', 'researcher', 'critic'],
     protocol: {
       id: 'product_review_protocol',
       name: 'ユーザー価値ラウンド',
@@ -62,7 +62,7 @@ export const MEETING_TYPES: MeetingType[] = [
     emoji: '🐛',
     description: '障害分析・原因究明・再発防止を扱う会議',
     focusAreas: ['障害分析', '原因究明', '再発防止'],
-    defaultPersonaIds: ['devops', 'security', 'architect', 'analyst'],
+    defaultPersonaIds: ['devops', 'security', 'qa', 'architect', 'cloud'],
     protocol: {
       id: 'incident_review_protocol',
       name: '原因究明ラウンド',
@@ -79,7 +79,7 @@ export const MEETING_TYPES: MeetingType[] = [
     emoji: '🧪',
     description: 'アイデア創出・アイデア評価・発散と収束を扱う会議',
     focusAreas: ['アイデア創出', 'アイデア評価', '発散・収束'],
-    defaultPersonaIds: ['product', 'researcher', 'architect', 'critic'],
+    defaultPersonaIds: ['innovator', 'visionary', 'product', 'researcher', 'critic'],
     protocol: {
       id: 'brainstorming_protocol',
       name: '自由発言（発散→収束）',
@@ -96,7 +96,7 @@ export const MEETING_TYPES: MeetingType[] = [
     emoji: '💰',
     description: '投資判断・財務分析・市場分析・リスク評価を扱う会議',
     focusAreas: ['投資判断', '財務分析', '市場分析', 'リスク評価'],
-    defaultPersonaIds: ['finance', 'analyst', 'researcher', 'security'],
+    defaultPersonaIds: ['finance', 'analyst', 'researcher', 'legal', 'security'],
     protocol: {
       id: 'investment_committee_protocol',
       name: '財務構造化ラウンド + 投票',

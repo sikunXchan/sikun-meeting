@@ -1,4 +1,4 @@
-// レンダラーの静的ファイル(html/css)を dist/renderer にコピーする。
+// レンダラーの静的ファイル(html/css/画像)を dist/renderer にコピーする。
 // tsc はスクリプトファイルのみをコンパイルするため、静的アセットは別途配置が必要。
 const fs = require('fs');
 const path = require('path');
@@ -13,5 +13,7 @@ for (const entry of fs.readdirSync(srcDir)) {
     fs.copyFileSync(path.join(srcDir, entry), path.join(destDir, entry));
   }
 }
+
+fs.cpSync(path.join(srcDir, 'assets'), path.join(destDir, 'assets'), { recursive: true });
 
 console.log(`[copy-static] copied renderer assets -> ${destDir}`);
