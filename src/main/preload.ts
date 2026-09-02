@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from './ipc';
 import { CreateMeetingInput } from '../core/services/meetingService';
 import { FinalizeDecisionInput } from '../core/services/decisionService';
+import { TurnEvent } from '../core/services/discussionService';
 
 /**
  * レンダラーに公開するAPI（window.api）。
@@ -18,6 +19,9 @@ const api = {
   projects: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.projectsList),
     create: (name: string, description: string) => ipcRenderer.invoke(IPC_CHANNELS.projectsCreate, name, description),
+    get: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.projectsGet, id),
+    toggleActionItem: (projectId: string, actionItemId: string, done: boolean) =>
+      ipcRenderer.invoke(IPC_CHANNELS.projectsToggleActionItem, projectId, actionItemId, done),
   },
   meetings: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.meetingsList),
@@ -29,6 +33,8 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.meetingsDeactivate, meetingId, participantId),
     reactivateParticipant: (meetingId: string, participantId: string) =>
       ipcRenderer.invoke(IPC_CHANNELS.meetingsReactivate, meetingId, participantId),
+    setWorkingDirectory: (meetingId: string, dir: string | null) =>
+      ipcRenderer.invoke(IPC_CHANNELS.meetingsSetWorkingDirectory, meetingId, dir),
   },
   discussion: {
     askAll: (meetingId: string) => ipcRenderer.invoke(IPC_CHANNELS.discussionAskAll, meetingId),
@@ -37,6 +43,12 @@ const api = {
     rebuttal: (meetingId: string) => ipcRenderer.invoke(IPC_CHANNELS.discussionRebuttal, meetingId),
     humanSpeak: (meetingId: string, content: string) =>
       ipcRenderer.invoke(IPC_CHANNELS.discussionHumanSpeak, meetingId, content),
+    /** ターン開始/終了イベントを購読する。呼び出すと購読解除関数を返す。 */
+    onProgress: (callback: (event: TurnEvent) => void) => {
+      const listener = (_e: unknown, event: TurnEvent) => callback(event);
+      ipcRenderer.on(IPC_CHANNELS.discussionProgress, listener);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.discussionProgress, listener);
+    },
   },
   decision: {
     finalize: (meetingId: string, input: FinalizeDecisionInput) =>

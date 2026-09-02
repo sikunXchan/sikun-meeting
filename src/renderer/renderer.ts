@@ -14,7 +14,9 @@ const api = window.api;
 let personas = [];
 let meetingTypes = [];
 let meetings = [];
+let projects = [];
 let currentMeeting = null;
+let currentProjectId = null;
 
 function personaById(id) {
   return personas.find((p) => p.id === id);
@@ -55,6 +57,20 @@ const STANCE_CLASS = {
   'リスク指摘': 'risk',
 };
 
+/** コード解析に向いている（実装寄りの）ペルソナの優先順位。 */
+const CODE_ANALYST_PERSONA_PRIORITY = [
+  'architect', 'engineer', 'backend', 'devops', 'cloud', 'data_engineer', 'security', 'qa',
+];
+
+/** 会議のACTIVE参加者から、コード解析を任せるのに最も適したAIを1体選ぶ。 */
+function pickCodeAnalystParticipant(meeting) {
+  for (const personaId of CODE_ANALYST_PERSONA_PRIORITY) {
+    const found = meeting.participants.find((p) => p.personaId === personaId && p.status === 'ACTIVE');
+    if (found) return found;
+  }
+  return meeting.participants.find((p) => p.status === 'ACTIVE') || null;
+}
+
 /** 各参加者の「最新の立場」をトランスクリプトから逐次計算する（円陣の吹き出し表示用）。 */
 function latestStanceByParticipant(meeting) {
   const map = new Map();
@@ -67,14 +83,34 @@ function latestStanceByParticipant(meeting) {
 }
 
 async function init() {
-  [personas, meetingTypes, meetings] = await Promise.all([
+  [personas, meetingTypes, meetings, projects] = await Promise.all([
     api.personas.list(),
     api.meetingTypes.list(),
     api.meetings.list(),
+    api.projects.list(),
   ]);
   renderMeetingList();
+  renderProjectSelect();
   populateMeetingTypeSelect();
   wireStaticEvents();
+  api.discussion.onProgress(handleDiscussionProgress);
+}
+
+function handleDiscussionProgress(event) {
+  if (!currentMeeting || event.meetingId !== currentMeeting.id) return;
+  if (event.type === 'turn-start') {
+    const seat = document.querySelector(`.seat[data-participant-id="${event.participantId}"]`);
+    if (!seat) return;
+    seat.classList.add('speaking');
+    if (!seat.querySelector('.seat-thinking')) {
+      const label = document.createElement('div');
+      label.className = 'seat-thinking';
+      label.textContent = '💭 考え中…';
+      seat.appendChild(label);
+    }
+  } else if (event.type === 'turn-end') {
+    reloadCurrentMeeting();
+  }
 }
 
 function renderMeetingList() {
@@ -139,6 +175,32 @@ function wireStaticEvents() {
   });
   document.getElementById('nm-submit').addEventListener('click', submitNewMeeting);
 
+  document.getElementById('project-select').addEventListener('change', (e) => {
+    currentProjectId = e.target.value || null;
+    document.getElementById('project-dashboard-btn').classList.toggle('hidden', !currentProjectId);
+  });
+  document.getElementById('project-new-btn').addEventListener('click', () => {
+    document.getElementById('project-new-form').classList.toggle('hidden');
+  });
+  document.getElementById('pj-cancel').addEventListener('click', () => {
+    document.getElementById('project-new-form').classList.add('hidden');
+  });
+  document.getElementById('pj-submit').addEventListener('click', async () => {
+    const name = document.getElementById('pj-name').value.trim();
+    const description = document.getElementById('pj-desc').value.trim();
+    if (!name) return;
+    const project = await api.projects.create(name, description);
+    projects = await api.projects.list();
+    renderProjectSelect();
+    document.getElementById('project-select').value = project.id;
+    currentProjectId = project.id;
+    document.getElementById('project-dashboard-btn').classList.remove('hidden');
+    document.getElementById('pj-name').value = '';
+    document.getElementById('pj-desc').value = '';
+    document.getElementById('project-new-form').classList.add('hidden');
+  });
+  document.getElementById('project-dashboard-btn').addEventListener('click', () => openProjectView(currentProjectId));
+
   document.getElementById('invite-btn').addEventListener('click', async () => {
     const personaId = document.getElementById('invite-persona-select').value;
     if (!personaId || !currentMeeting) return;
@@ -165,6 +227,42 @@ function wireStaticEvents() {
       await reloadCurrentMeeting();
     } catch (err) {
       alert(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  });
+
+  document.getElementById('mv-codebase-change').addEventListener('click', async () => {
+    if (!currentMeeting) return;
+    const dir = await api.system.chooseDirectory();
+    if (!dir) return;
+    await api.meetings.setWorkingDirectory(currentMeeting.id, dir);
+    await reloadCurrentMeeting();
+  });
+
+  document.getElementById('analyze-code-btn').addEventListener('click', async () => {
+    if (!currentMeeting) return;
+    let dir = currentMeeting.workingDirectory;
+    if (!dir) {
+      dir = await api.system.chooseDirectory();
+      if (!dir) return;
+      currentMeeting = await api.meetings.setWorkingDirectory(currentMeeting.id, dir);
+    }
+
+    const participant = pickCodeAnalystParticipant(currentMeeting);
+    if (!participant) {
+      alert('コードを解析できる専門家（Architect/Engineer/Backend等）が会議に参加していません。AI ROSTERから招集してください。');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await api.discussion.askSpecific(
+        currentMeeting.id,
+        participant.id,
+        'コード解析対象ディレクトリの実際のコードを読んで、現在の実装状況・アーキテクチャ・気になる点を具体的に説明してください。',
+      );
+      await reloadCurrentMeeting();
     } finally {
       setBusy(false);
     }
@@ -242,7 +340,14 @@ async function submitNewMeeting() {
     alert('タイトルと議題を入力してください。');
     return;
   }
-  const meeting = await api.meetings.create({ title, agenda, meetingTypeId, workingDirectory, personaIds });
+  const meeting = await api.meetings.create({
+    title,
+    agenda,
+    meetingTypeId,
+    workingDirectory,
+    personaIds,
+    projectId: currentProjectId,
+  });
   meetings = await api.meetings.list();
   renderMeetingList();
   document.getElementById('nm-title').value = '';
@@ -255,6 +360,70 @@ function hideAll() {
   document.getElementById('empty-state').classList.add('hidden');
   document.getElementById('new-meeting-form').classList.add('hidden');
   document.getElementById('meeting-view').classList.add('hidden');
+  document.getElementById('project-view').classList.add('hidden');
+}
+
+function renderProjectSelect() {
+  const select = document.getElementById('project-select');
+  const prevValue = select.value;
+  select.innerHTML = '';
+  const noneOpt = document.createElement('option');
+  noneOpt.value = '';
+  noneOpt.textContent = '（プロジェクトなし）';
+  select.appendChild(noneOpt);
+  for (const p of projects) {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name;
+    select.appendChild(opt);
+  }
+  if (prevValue && projects.some((p) => p.id === prevValue)) {
+    select.value = prevValue;
+  }
+}
+
+async function openProjectView(projectId) {
+  if (!projectId) return;
+  const project = await api.projects.get(projectId);
+  hideAll();
+  document.getElementById('project-view').classList.remove('hidden');
+  document.getElementById('pv-name').textContent = `📋 ${project.name}`;
+  document.getElementById('pv-description').textContent = project.description || '';
+
+  const list = document.getElementById('pv-action-items');
+  list.innerHTML = '';
+  document.getElementById('pv-empty').classList.toggle('hidden', project.actionItems.length > 0);
+
+  for (const item of project.actionItems) {
+    const li = document.createElement('li');
+    li.className = item.done ? 'done' : '';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = item.done;
+    checkbox.addEventListener('change', async () => {
+      await api.projects.toggleActionItem(project.id, item.id, checkbox.checked);
+      li.classList.toggle('done', checkbox.checked);
+    });
+    li.appendChild(checkbox);
+
+    const body = document.createElement('div');
+    const assignee = document.createElement('div');
+    assignee.className = 'ai-assignee';
+    assignee.textContent = item.assignee;
+    body.appendChild(assignee);
+    const desc = document.createElement('div');
+    desc.className = 'ai-desc';
+    desc.textContent = item.description;
+    body.appendChild(desc);
+    const source = document.createElement('div');
+    source.className = 'ai-source';
+    source.textContent = `from: ${item.sourceMeetingTitle}`;
+    body.appendChild(source);
+    li.appendChild(body);
+
+    list.appendChild(li);
+  }
 }
 
 async function selectMeeting(id) {
@@ -286,6 +455,10 @@ function renderMeetingView() {
   statusBadge.className = `status-badge ${m.status}`;
   statusBadge.classList.remove('hidden');
 
+  const codebasePath = document.getElementById('mv-codebase-path');
+  codebasePath.textContent = m.workingDirectory || '未設定（「変更…」から設定するとコードを読んで解析できます）';
+  codebasePath.classList.toggle('muted', !m.workingDirectory);
+
   renderRoster(m);
   renderCircle(m);
   renderTranscript(m);
@@ -295,7 +468,7 @@ function renderMeetingView() {
   rebuttalBtn.disabled = !type || !type.protocol.allowRebuttal || m.status === 'CONCLUDED';
 
   const controlsDisabled = m.status === 'CONCLUDED';
-  for (const id of ['ask-all-btn', 'ask-specific-btn', 'human-speak-btn', 'invite-btn']) {
+  for (const id of ['ask-all-btn', 'ask-specific-btn', 'human-speak-btn', 'invite-btn', 'analyze-code-btn']) {
     document.getElementById(id).disabled = controlsDisabled;
   }
   document.getElementById('df-submit').disabled = controlsDisabled;
@@ -398,6 +571,7 @@ function renderCircle(m) {
     const persona = personaById(p.personaId);
     const seat = document.createElement('div');
     seat.className = 'seat';
+    seat.dataset.participantId = p.id;
     seat.style.left = `${x}px`;
     seat.style.top = `${y}px`;
     seat.title = `${personaLabel(p.personaId)}を指名して質問する`;

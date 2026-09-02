@@ -8,6 +8,13 @@ import { buildTurnPrompt } from '../agent/promptBuilder';
 import { runAgentTurn } from '../agent/claudeAgent';
 import { parseStance } from '../agent/stanceParser';
 
+/** 議論の進行状況をUIへリアルタイムに伝えるためのイベント。 */
+export type TurnEvent =
+  | { type: 'turn-start'; meetingId: string; participantId: string }
+  | { type: 'turn-end'; meetingId: string; message: Message };
+
+export type TurnEventListener = (event: TurnEvent) => void;
+
 /**
  * 議論エンジン本体。
  * protocol が決めた発言順に沿って、AI参加者を1体ずつ逐次で発言させる。
@@ -30,6 +37,7 @@ export class DiscussionService {
     meetingId: string,
     trigger: DiscussionTrigger,
     directQuestion?: string,
+    onEvent?: TurnEventListener,
   ): Promise<Message[]> {
     const meetingSnapshot = this.repo.getMeeting(meetingId);
     if (!meetingSnapshot) throw new Error(`Meeting not found: ${meetingId}`);
@@ -51,6 +59,8 @@ export class DiscussionService {
 
       const persona = getPersonaById(participant.personaId);
       if (!persona) continue;
+
+      onEvent?.({ type: 'turn-start', meetingId, participantId: participant.id });
 
       const prompt = buildTurnPrompt({
         meeting,
@@ -77,30 +87,36 @@ export class DiscussionService {
         m.transcript.push(message);
       });
       produced.push(message);
+      onEvent?.({ type: 'turn-end', meetingId, message });
     }
 
     return produced;
   }
 
   /** 現在ACTIVEな全AIに、招集順で意見を求める。 */
-  async askAllActiveToSpeak(meetingId: string): Promise<Message[]> {
-    return this.runTurns(meetingId, { kind: 'ASK_ALL_ACTIVE' });
+  async askAllActiveToSpeak(meetingId: string, onEvent?: TurnEventListener): Promise<Message[]> {
+    return this.runTurns(meetingId, { kind: 'ASK_ALL_ACTIVE' }, undefined, onEvent);
   }
 
   /** 特定のAIを指名して質問する。 */
-  async askSpecific(meetingId: string, participantId: string, question: string): Promise<Message[]> {
-    return this.runTurns(meetingId, { kind: 'ASK_SPECIFIC', participantId }, question);
+  async askSpecific(
+    meetingId: string,
+    participantId: string,
+    question: string,
+    onEvent?: TurnEventListener,
+  ): Promise<Message[]> {
+    return this.runTurns(meetingId, { kind: 'ASK_SPECIFIC', participantId }, question, onEvent);
   }
 
   /** 反論ラウンド。会議タイプが反論を許可していない場合は何もしない。 */
-  async requestRebuttalRound(meetingId: string): Promise<Message[]> {
+  async requestRebuttalRound(meetingId: string, onEvent?: TurnEventListener): Promise<Message[]> {
     const meeting = this.repo.getMeeting(meetingId);
     if (!meeting) throw new Error(`Meeting not found: ${meetingId}`);
     const meetingType = getMeetingTypeById(meeting.meetingTypeId);
     if (!meetingType?.protocol.allowRebuttal) {
       throw new Error(`会議タイプ「${meetingType?.name}」は反論ラウンドをサポートしていません。`);
     }
-    return this.runTurns(meetingId, { kind: 'REBUTTAL_ROUND' });
+    return this.runTurns(meetingId, { kind: 'REBUTTAL_ROUND' }, undefined, onEvent);
   }
 
   /** 最高開発者（人間）の発言を議事録に追加する。 */

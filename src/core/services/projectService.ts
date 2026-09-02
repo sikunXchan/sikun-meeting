@@ -44,4 +44,13 @@ export class ProjectService {
       }
     });
   }
+
+  /** Action Itemの完了状態を切り替える（Projectダッシュボードのチェックボックス用）。 */
+  async setActionItemDone(projectId: string, actionItemId: string, done: boolean): Promise<Project> {
+    return this.repo.updateProject(projectId, (project) => {
+      const item = project.actionItems.find((a) => a.id === actionItemId);
+      if (!item) throw new Error(`ActionItem not found: ${actionItemId}`);
+      item.done = done;
+    });
+  }
 }

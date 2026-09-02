@@ -78,6 +78,21 @@ body {
 .chief-card img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
 .chief-name { font-weight: 700; font-size: 13px; }
 
+/* --- Project section --- */
+#sidebar select { width: 100%; padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px; font: inherit; background: #fff; }
+.project-actions { margin-top: 6px; }
+.small-btn { padding: 4px 8px; font-size: 11px; }
+#project-new-form { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+#project-new-form input { padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
+
+/* --- Project dashboard --- */
+#pv-action-items { list-style: none; padding: 0; margin: 8px 0; }
+#pv-action-items li { display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f2efe6; font-size: 13px; }
+#pv-action-items li.done .ai-desc { text-decoration: line-through; color: var(--muted); }
+#pv-action-items .ai-desc { word-break: normal; overflow-wrap: anywhere; line-height: 1.5; margin-top: 2px; }
+#pv-action-items .ai-assignee { font-weight: 700; font-size: 12px; color: var(--accent-dark); }
+#pv-action-items .ai-source { font-size: 11px; color: var(--muted); }
+
 /* --- Main --- */
 #main { flex: 1; overflow-y: auto; padding: 20px; min-width: 0; }
 #empty-state { color: var(--muted); text-align: center; margin-top: 60px; }
@@ -102,6 +117,9 @@ fieldset { border: 1px solid #ddd; border-radius: 6px; margin-top: 10px; }
 fieldset label { display: inline-flex; align-items: center; gap: 4px; width: auto; margin-right: 12px; }
 fieldset input[type="checkbox"] { width: auto; }
 
+#mv-codebase { margin-bottom: 10px; font-size: 12px; }
+#mv-codebase-path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
 /* --- Circle stage --- */
 #circle-wrap { display: flex; justify-content: center; padding: 10px 0 24px; }
 #circle-stage {
@@ -122,7 +140,12 @@ fieldset input[type="checkbox"] { width: auto; }
 .seat { cursor: pointer; }
 .seat img { transition: transform 0.15s; }
 .seat:hover img { transform: scale(1.08); }
-.seat.speaking img { border-color: var(--active-green); box-shadow: 0 0 0 4px rgba(63,174,91,0.25); }
+.seat.speaking img { border-color: var(--active-green); box-shadow: 0 0 0 4px rgba(63,174,91,0.25); animation: pulse 1.2s ease-in-out infinite; }
+.seat-thinking { font-size: 10px; color: var(--active-green); font-weight: 700; margin-top: 2px; }
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(63,174,91,0.25); }
+  50% { box-shadow: 0 0 0 8px rgba(63,174,91,0.12); }
+}
 .seat-stance {
   margin-top: 3px; font-size: 10px; padding: 1px 7px; border-radius: 10px; background: #eee; color: #555;
 }

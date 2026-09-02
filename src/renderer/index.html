@@ -28,6 +28,23 @@
     <div id="body-layout">
       <aside id="sidebar">
         <section>
+          <h2>PROJECT</h2>
+          <select id="project-select"></select>
+          <div class="row project-actions">
+            <button id="project-new-btn" class="secondary small-btn" type="button">＋ 新規プロジェクト</button>
+            <button id="project-dashboard-btn" class="secondary small-btn hidden" type="button">📋 Action Items</button>
+          </div>
+          <div id="project-new-form" class="hidden">
+            <input id="pj-name" type="text" placeholder="プロジェクト名" />
+            <input id="pj-desc" type="text" placeholder="説明（任意）" />
+            <div class="row">
+              <button id="pj-submit" type="button">作成</button>
+              <button id="pj-cancel" type="button" class="secondary">キャンセル</button>
+            </div>
+          </div>
+        </section>
+
+        <section>
           <h2>会議一覧</h2>
           <ul id="meeting-list"></ul>
           <button id="new-meeting-btn">＋ 新しい会議を作成</button>
@@ -59,6 +76,14 @@
       <main id="main">
         <div id="empty-state">左のリストから会議を選択するか、新しい会議を作成してください。</div>
 
+        <div id="project-view" class="panel hidden">
+          <h2 id="pv-name"></h2>
+          <p id="pv-description" class="muted"></p>
+          <h3>Action Items</h3>
+          <ul id="pv-action-items"></ul>
+          <p id="pv-empty" class="muted small hidden">この会議で決定されたAction Itemsはまだありません。</p>
+        </div>
+
         <div id="new-meeting-form" class="panel hidden">
           <h2>新しい会議を作成</h2>
           <label>タイトル <input id="nm-title" type="text" /></label>
@@ -80,6 +105,12 @@
         </div>
 
         <div id="meeting-view" class="hidden">
+          <div id="mv-codebase" class="row">
+            <span class="small muted">🔍 コード解析対象:</span>
+            <span id="mv-codebase-path" class="small"></span>
+            <button id="mv-codebase-change" class="secondary small-btn" type="button">変更…</button>
+          </div>
+
           <div id="circle-wrap">
             <div id="circle-stage">
               <div id="circle-chief" title="最高開発者（あなた）">
@@ -94,6 +125,7 @@
             <div class="control-row">
               <button id="ask-all-btn">🔔 全員に発言を求める</button>
               <button id="rebuttal-btn">🔁 反論ラウンド</button>
+              <button id="analyze-code-btn" class="secondary" title="コード解析対象ディレクトリを実際に読み、専門家に解析・説明してもらいます">🔎 コードを解析して説明してもらう</button>
             </div>
             <div class="control-row">
               <select id="ask-specific-select"></select>

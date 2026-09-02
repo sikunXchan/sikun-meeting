@@ -1,11 +1,10 @@
 # AI Team Meeting OS
 
-人間を「最高開発者（Chief Developer）」とし、複数のAI専門家（Architect / Critic / Product /
-Security / Analyst / Researcher / Finance / DevOps）を会議に招集して議論させ、最終的な意思決定は
-常に人間が行う——という体験のためのデスクトップアプリ（Electron + TypeScript）です。
-
-UI/UXは意図的に最小限にしてあり、今回のスコープはバックエンド（会議モデル・AI参加者モデル・
-議論エンジン・意思決定・議事録）とネイティブアプリとしてのビルド導線です。
+人間を「最高開発者（Chief Developer）」とし、21体のAI専門家（Architect / Engineer / Backend /
+Product / Researcher / Critic / Security / Innovator / Analyst / Finance / Legal / Designer /
+Marketing / DevOps / QA / TechnicalWriter / AIResearcher / CustomerSupport / DataEngineer /
+CloudEngineer / Visionary）を円陣型の会議に招集して議論させ、最終的な意思決定は常に人間が行う
+——という体験のためのデスクトップアプリ（Electron + TypeScript）です。
 
 ## アーキテクチャ
 
@@ -22,6 +21,12 @@ UI/UXは意図的に最小限にしてあり、今回のスコープはバック
   できるようにしています。
 - **永続化**: `src/core/store` に単一JSONファイルへのアトミック書き込みストア。DBサーバー不要で、
   Electronの `userData` ディレクトリ配下に保存されます。
+- **円陣UI**: `src/renderer` にElectronレンダラー一式。ACTIVEな参加者を円周上に自動配置し、
+  各AIには専用のクマのアバター（`src/renderer/assets/personas/`）を割り当てています。AIが発言中は
+  `discussion:progress` イベント（`src/core/services/discussionService.ts` の `TurnEvent`）を
+  メインプロセスからレンダラーへリアルタイムにpushし、該当の座席をハイライトします。
+- **Project連携**: サイドバーでプロジェクトを作成・選択すると、以降作成する会議がそのプロジェクトに
+  紐づき、決定で生まれたAction Itemsをプロジェクトのダッシュボードで一覧・完了チェックできます。
 
 ## セットアップ
 
@@ -68,9 +73,11 @@ npm run dist   # electron-builder（mac: dmg / win: nsis / linux: AppImage）
 
 ## 現状のスコープ
 
-- ✅ 会議モデル / AI参加者モデル（招集・一時除籍・再招集）
+- ✅ 会議モデル / AI参加者モデル（招集・一時除籍・再招集、21種の専門家ペルソナ）
 - ✅ 発言・議論エンジン（会議タイプごとの進行プロトコル、反論ラウンド）
 - ✅ 意思決定（Decision: 理由・各AIの立場・Action Items）と議事録生成
-- ✅ Project ↔ Meeting 連携（Decisionで生まれたAction ItemsをProjectに転記）
+- ✅ Project ↔ Meeting 連携（Project作成・選択、Decisionで生まれたAction ItemsのProjectダッシュボード）
+- ✅ 円陣型UI（クマのアバター、AI発言中のリアルタイムハイライト表示）
 - ✅ ネイティブアプリとしてのビルド導線（electron-builder）
-- 🚧 円陣型UI・デザイン（今回は最小限の機能的UIのみ）
+- 🚧 会議一覧のプロジェクト別フィルタ（現状は全会議を横断表示）
+- 🚧 AI同士の対立関係の可視化（円陣内の「対立中」リンク表示）

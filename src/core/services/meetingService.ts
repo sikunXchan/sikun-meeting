@@ -115,4 +115,14 @@ export class MeetingService {
       p.deactivatedAt = undefined;
     });
   }
+
+  /**
+   * AIがコードを読んで発言する対象ディレクトリを、会議開始後でも設定・変更できるようにする。
+   * ここで設定した値は、以後のAI発言（claudeAgent.ts の cwd）にそのまま使われる。
+   */
+  async setWorkingDirectory(meetingId: string, workingDirectory: string | null): Promise<Meeting> {
+    return this.repo.updateMeeting(meetingId, (meeting) => {
+      meeting.workingDirectory = workingDirectory;
+    });
+  }
 }
