@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';" />
+  <title>AI Team Meeting OS</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <h1>AI Team Meeting OS <span class="beta">Beta</span></h1>
+
+      <section>
+        <h2>会議一覧</h2>
+        <ul id="meeting-list"></ul>
+        <button id="new-meeting-btn">＋ 新しい会議を作成</button>
+      </section>
+    </aside>
+
+    <main id="main">
+      <div id="empty-state">左のリストから会議を選択するか、新しい会議を作成してください。</div>
+
+      <div id="new-meeting-form" class="panel hidden">
+        <h2>新しい会議を作成</h2>
+        <label>タイトル <input id="nm-title" type="text" /></label>
+        <label>議題 <textarea id="nm-agenda" rows="2"></textarea></label>
+        <label>会議タイプ <select id="nm-type"></select></label>
+        <label>プロジェクト対象ディレクトリ（任意。Architect等がコードを読む対象）
+          <div class="row">
+            <input id="nm-dir" type="text" readonly placeholder="未指定" />
+            <button id="nm-choose-dir" type="button">選択…</button>
+          </div>
+        </label>
+        <fieldset id="nm-personas">
+          <legend>招集するAI（会議タイプのデフォルトから編集可能）</legend>
+        </fieldset>
+        <div class="row">
+          <button id="nm-submit">会議を作成</button>
+          <button id="nm-cancel" type="button" class="secondary">キャンセル</button>
+        </div>
+      </div>
+
+      <div id="meeting-view" class="panel hidden">
+        <header id="mv-header">
+          <div>
+            <h2 id="mv-title"></h2>
+            <p id="mv-agenda" class="muted"></p>
+          </div>
+          <div id="mv-status"></div>
+        </header>
+
+        <div id="mv-body">
+          <section id="mv-roster">
+            <h3>AI ROSTER</h3>
+            <div id="roster-active">
+              <h4>ACTIVE</h4>
+              <ul id="roster-active-list"></ul>
+            </div>
+            <div id="roster-inactive">
+              <h4>INACTIVE</h4>
+              <ul id="roster-inactive-list"></ul>
+            </div>
+            <label>AIを追加招集
+              <select id="invite-persona-select"></select>
+              <button id="invite-btn">招集</button>
+            </label>
+          </section>
+
+          <section id="mv-transcript">
+            <h3>DISCUSSION</h3>
+            <div id="transcript-list"></div>
+
+            <div id="mv-controls">
+              <div class="row">
+                <button id="ask-all-btn">全員に発言を求める</button>
+                <button id="rebuttal-btn">反論ラウンド</button>
+              </div>
+              <div class="row">
+                <select id="ask-specific-select"></select>
+                <input id="ask-specific-question" type="text" placeholder="このAIに直接質問する内容" />
+                <button id="ask-specific-btn">指名して質問</button>
+              </div>
+              <div class="row">
+                <input id="human-speak-input" type="text" placeholder="最高開発者として発言する" />
+                <button id="human-speak-btn">発言する</button>
+              </div>
+            </div>
+          </section>
+
+          <section id="mv-decision">
+            <h3>FINAL DECISION</h3>
+            <div id="decision-view"></div>
+
+            <div id="decision-form">
+              <label>決定内容 <textarea id="df-text" rows="2"></textarea></label>
+              <label>理由（1行1項目） <textarea id="df-reasoning" rows="3"></textarea></label>
+              <label>Action Items（1行 "担当: 内容"） <textarea id="df-actions" rows="3"></textarea></label>
+              <button id="df-submit">最高開発者として決定する</button>
+            </div>
+
+            <button id="mv-minutes-btn">議事録を表示</button>
+            <pre id="minutes-view" class="hidden"></pre>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

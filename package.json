@@ -1,0 +1,49 @@
+{
+  "name": "sikun-meeting",
+  "productName": "AI Team Meeting OS",
+  "version": "0.1.0",
+  "description": "人間が最高開発者としてAI専門家チームを円陣に招集し、議論させ、意思決定を行うデスクトップアプリ",
+  "private": true,
+  "main": "dist/main/index.js",
+  "author": "sikunlily",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-static.js",
+    "build:watch": "tsc -p tsconfig.json --watch",
+    "start": "npm run build && electron .",
+    "dev": "npm run build && electron . --dev",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dist": "npm run build && electron-builder"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.258"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.7.2"
+  },
+  "build": {
+    "appId": "com.sikunlily.aiteammeetingos",
+    "productName": "AI Team Meeting OS",
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": ["dmg"]
+    },
+    "win": {
+      "target": ["nsis"]
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Development"
+    }
+  }
+}
