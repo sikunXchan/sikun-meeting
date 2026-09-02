@@ -57,6 +57,26 @@ const STANCE_CLASS = {
   'リスク指摘': 'risk',
 };
 
+/**
+ * 議題欄のMarkdownテンプレート。
+ * 議題(agenda)は毎ターン全AIのプロンプトにそのまま入る（promptBuilder.ts）ため、
+ * ここに「コードを読んでも分からない文脈」（目的・背景・制約）を
+ * 最高開発者があらかじめ書いておけるようにしておく。
+ */
+const AGENDA_TEMPLATE = `## プロジェクト概要
+
+
+## 目的・ゴール
+
+
+## 背景・制約（コードだけでは分からない事情）
+
+
+## 今回の会議で決めたいこと
+
+
+`;
+
 /** コード解析に向いている（実装寄りの）ペルソナの優先順位。 */
 const CODE_ANALYST_PERSONA_PRIORITY = [
   'architect', 'engineer', 'backend', 'devops', 'cloud', 'data_engineer', 'security', 'qa',
@@ -160,6 +180,8 @@ function wireStaticEvents() {
   document.getElementById('new-meeting-btn').addEventListener('click', () => {
     hideAll();
     document.getElementById('new-meeting-form').classList.remove('hidden');
+    const agenda = document.getElementById('nm-agenda');
+    if (!agenda.value.trim()) agenda.value = AGENDA_TEMPLATE;
   });
   document.getElementById('nm-cancel').addEventListener('click', () => {
     hideAll();

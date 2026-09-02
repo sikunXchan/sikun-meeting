@@ -87,7 +87,9 @@
         <div id="new-meeting-form" class="panel hidden">
           <h2>新しい会議を作成</h2>
           <label>タイトル <input id="nm-title" type="text" /></label>
-          <label>議題 <textarea id="nm-agenda" rows="2"></textarea></label>
+          <label>議題（Markdownで記述可。プロジェクト概要・目的・制約を書いておくと全AIの発言に毎回反映されます）
+            <textarea id="nm-agenda" rows="12"></textarea>
+          </label>
           <label>会議タイプ <select id="nm-type"></select></label>
           <label>プロジェクト対象ディレクトリ（任意。Architect等がコードを読む対象）
             <div class="row">
