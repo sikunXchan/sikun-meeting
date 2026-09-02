@@ -9,7 +9,7 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
-    title: 'AI Team Meeting OS',
+    title: 'Sikun Meeting',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

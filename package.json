@@ -1,6 +1,6 @@
 {
   "name": "sikun-meeting",
-  "productName": "AI Team Meeting OS",
+  "productName": "Sikun Meeting",
   "version": "0.1.0",
   "description": "人間が最高開発者としてAI専門家チームを円陣に招集し、議論させ、意思決定を行うデスクトップアプリ",
   "private": true,
@@ -25,8 +25,8 @@
     "typescript": "^5.7.2"
   },
   "build": {
-    "appId": "com.sikunlily.aiteammeetingos",
-    "productName": "AI Team Meeting OS",
+    "appId": "com.sikunlily.sikunmeeting",
+    "productName": "Sikun Meeting",
     "files": [
       "dist/**/*",
       "package.json"

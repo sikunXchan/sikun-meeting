@@ -1,4 +1,4 @@
-# AI Team Meeting OS
+# Sikun Meeting
 
 人間を「最高開発者（Chief Developer）」とし、21体のAI専門家（Architect / Engineer / Backend /
 Product / Researcher / Critic / Security / Innovator / Analyst / Finance / Legal / Designer /
