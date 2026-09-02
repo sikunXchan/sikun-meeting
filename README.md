@@ -78,6 +78,8 @@ npm run dist   # electron-builder（mac: dmg / win: nsis / linux: AppImage）
 - ✅ 意思決定（Decision: 理由・各AIの立場・Action Items）と議事録生成
 - ✅ Project ↔ Meeting 連携（Project作成・選択、Decisionで生まれたAction ItemsのProjectダッシュボード）
 - ✅ 円陣型UI（クマのアバター、AI発言中のリアルタイムハイライト表示）
+- ✅ AI対立マップ（最新の立場が賛成寄り⇔反対寄りのAI同士を円陣上で点線接続）
+- ✅ コード解析対象ディレクトリの会議中の表示・変更、ワンクリック解析
+- ✅ 議題欄のMarkdownテンプレート自動挿入（プロジェクト概要・目的・制約を書ける）
 - ✅ ネイティブアプリとしてのビルド導線（electron-builder）
 - 🚧 会議一覧のプロジェクト別フィルタ（現状は全会議を横断表示）
-- 🚧 AI同士の対立関係の可視化（円陣内の「対立中」リンク表示）

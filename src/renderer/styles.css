@@ -155,6 +155,15 @@ fieldset input[type="checkbox"] { width: auto; }
 .seat-stance.risk { background: #ffe6d1; color: #a4530a; }
 .seat-stance.suggest { background: #e3ecfb; color: #2a4f9e; }
 
+/* --- AI対立マップ --- */
+#conflict-svg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+.conflict-line { stroke: var(--danger); stroke-width: 1.5; stroke-dasharray: 5 4; opacity: 0.6; }
+.conflict-label {
+  fill: var(--danger); font-size: 10px; font-weight: 700; text-anchor: middle;
+  paint-order: stroke; stroke: #fff; stroke-width: 3px;
+}
+.seat { z-index: 1; }
+
 /* --- Controls --- */
 #mv-controls { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 .control-row { display: flex; gap: 8px; }

@@ -17,6 +17,14 @@ let meetings = [];
 let projects = [];
 let currentMeeting = null;
 let currentProjectId = null;
+/**
+ * discussion系の操作(askAll等)が進行中かどうか。
+ * ターン完了ごとにreloadCurrentMeeting()がrenderMeetingView()を呼び直すため、
+ * m.status(CONCLUDEDかどうか)だけでボタンの有効/無効を決めると、
+ * ラウンド途中の再読み込みでボタンが誤って再有効化されてしまう。
+ * その再有効化を防ぐためのフラグ。
+ */
+let isBusy = false;
 
 function personaById(id) {
   return personas.find((p) => p.id === id);
@@ -348,6 +356,7 @@ function wireStaticEvents() {
 }
 
 function setBusy(busy) {
+  isBusy = busy;
   document.body.style.cursor = busy ? 'progress' : 'default';
   for (const btn of document.querySelectorAll('button')) btn.disabled = busy;
 }
@@ -487,9 +496,9 @@ function renderMeetingView() {
   renderDecision(m);
 
   const rebuttalBtn = document.getElementById('rebuttal-btn');
-  rebuttalBtn.disabled = !type || !type.protocol.allowRebuttal || m.status === 'CONCLUDED';
+  rebuttalBtn.disabled = isBusy || !type || !type.protocol.allowRebuttal || m.status === 'CONCLUDED';
 
-  const controlsDisabled = m.status === 'CONCLUDED';
+  const controlsDisabled = isBusy || m.status === 'CONCLUDED';
   for (const id of ['ask-all-btn', 'ask-specific-btn', 'human-speak-btn', 'invite-btn', 'analyze-code-btn']) {
     document.getElementById(id).disabled = controlsDisabled;
   }
@@ -571,10 +580,21 @@ function renderRoster(m) {
   }
 }
 
+/** 立場の極性。対立ペア判定に使う（賛成寄り⇔反対寄りの組み合わせだけを「対立中」とする）。 */
+const STANCE_POLARITY = {
+  '賛成': 'positive',
+  '推奨案': 'positive',
+  '反対': 'negative',
+  'リスク指摘': 'negative',
+  '条件付き賛成': 'neutral',
+};
+
 function renderCircle(m) {
   const stage = document.getElementById('circle-stage');
-  // 既存の座席要素だけ削除し、中央の chief カードは残す。
+  // 既存の座席・対立マップ要素だけ削除し、中央の chief カードは残す。
   stage.querySelectorAll('.seat').forEach((el) => el.remove());
+  const oldSvg = document.getElementById('conflict-svg');
+  if (oldSvg) oldSvg.remove();
 
   const activeParticipants = m.participants.filter((p) => p.status === 'ACTIVE');
   const stanceMap = latestStanceByParticipant(m);
@@ -585,10 +605,13 @@ function renderCircle(m) {
   const ry = 190;
   const n = activeParticipants.length;
 
+  const positions = new Map(); // participantId -> {x, y}
+
   activeParticipants.forEach((p, i) => {
     const angle = (-90 + (360 / Math.max(n, 1)) * i) * (Math.PI / 180);
     const x = cx + rx * Math.cos(angle);
     const y = cy + ry * Math.sin(angle);
+    positions.set(p.id, { x, y });
 
     const persona = personaById(p.personaId);
     const seat = document.createElement('div');
@@ -628,6 +651,56 @@ function renderCircle(m) {
 
     stage.appendChild(seat);
   });
+
+  renderConflictMap(stage, activeParticipants, stanceMap, positions);
+}
+
+/**
+ * AI対立マップ: 最新の立場が「賛成寄り」のAIと「反対寄り」のAIを、
+ * 円陣上で点線で結んで可視化する。SVGを座席の背面(z-index)に重ねて描画する。
+ */
+function renderConflictMap(stage, activeParticipants, stanceMap, positions) {
+  const positiveIds = [];
+  const negativeIds = [];
+  for (const p of activeParticipants) {
+    const stance = stanceMap.get(p.id);
+    const polarity = STANCE_POLARITY[stance];
+    if (polarity === 'positive') positiveIds.push(p.id);
+    else if (polarity === 'negative') negativeIds.push(p.id);
+  }
+  if (positiveIds.length === 0 || negativeIds.length === 0) return;
+
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.id = 'conflict-svg';
+  svg.setAttribute('viewBox', '0 0 560 480');
+
+  for (const posId of positiveIds) {
+    for (const negId of negativeIds) {
+      const a = positions.get(posId);
+      const b = positions.get(negId);
+      if (!a || !b) continue;
+
+      const line = document.createElementNS(svgNS, 'line');
+      line.setAttribute('x1', a.x);
+      line.setAttribute('y1', a.y);
+      line.setAttribute('x2', b.x);
+      line.setAttribute('y2', b.y);
+      line.setAttribute('class', 'conflict-line');
+      svg.appendChild(line);
+
+      const midX = (a.x + b.x) / 2;
+      const midY = (a.y + b.y) / 2;
+      const label = document.createElementNS(svgNS, 'text');
+      label.setAttribute('x', midX);
+      label.setAttribute('y', midY);
+      label.setAttribute('class', 'conflict-label');
+      label.textContent = '対立中';
+      svg.appendChild(label);
+    }
+  }
+
+  stage.insertBefore(svg, stage.firstChild);
 }
 
 function renderTranscript(m) {
