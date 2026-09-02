@@ -29,13 +29,27 @@ UI/UXは意図的に最小限にしてあり、今回のスコープはバック
 npm install
 ```
 
-AI参加者を実際に発言させるには、Claude Agent SDK が利用する認証情報が必要です
-（`ANTHROPIC_API_KEY` 環境変数、または `claude` CLI でのログイン）。
-出典: [Agent SDK Reference - TypeScript](https://code.claude.com/docs/en/agent-sdk/typescript)
+### 認証について（APIキーは必須ではありません）
+
+AI参加者は `@anthropic-ai/claude-agent-sdk` の `query()` を、`pathToClaudeCodeExecutable` を
+指定しない**デフォルト設定**で呼び出しています。SDKの型定義（`sdk.d.ts`）のコメントによると、
+これは「指定がなければ組み込みのClaude Code実行ファイルを使う」動作であり、`env` を指定しない
+限り「サブプロセスは `process.env` をそのまま引き継ぐ」ため、**このアプリを起動するパソコンで
+`claude` に一度ログイン済み（`claude login` / 初回起動時の `/login`、Claude Pro/Max等の
+サブスクリプション認証）であれば、追加のAPIキー設定は不要でそのまま動作します**。
+認証元を表す `ApiKeySource` 型にも `'none'`（コメント: "no API key in use - e.g. claude.ai OAuth
+login"）が明記されており、APIキーなし運用は公式にサポートされています。
+出典: `node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts`（インストール済みパッケージ本体、
+`pathToClaudeCodeExecutable`/`ApiKeySource`/`env` オプションの定義コメント）
+
+まだ `claude` にログインしていない場合は先にログインしてください。
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+claude login
 ```
+
+（`ANTHROPIC_API_KEY` 環境変数や Anthropic Console のAPIキーを使う運用も可能です。その場合は
+Agent SDKがそちらを優先して使用します。）
 
 ## 開発・起動
 
