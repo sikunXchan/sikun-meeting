@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
+  <title>Sikun Meeting</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <div class="topbar-left">
+        <img class="logo" src="assets/logo.png" alt="Sikun Meeting" />
+        <div>
+          <div class="app-title">Sikun Meeting <span class="beta">Beta</span></div>
+          <div class="app-tagline">AIチームを率いる。未来を決める。</div>
+        </div>
+      </div>
+      <div class="topbar-center">
+        <div id="tb-title">会議を選択してください</div>
+        <div id="tb-agenda" class="muted"></div>
+      </div>
+      <div class="topbar-right">
+        <span id="tb-build" class="build-badge" title=""></span>
+        <span id="tb-elapsed" class="elapsed-badge hidden">⏱ <span id="tb-elapsed-value">00:00:00</span></span>
+        <span id="tb-status" class="status-badge hidden"></span>
+        <button id="topbar-toggle" class="topbar-toggle" type="button" title="ヘッダーを折りたたむ">︿</button>
+      </div>
+    </header>
+
+    <div id="body-layout">
+      <aside id="sidebar">
+        <section>
+          <h2>PROJECT</h2>
+          <select id="project-select"></select>
+          <div class="row project-actions">
+            <button id="project-new-btn" class="secondary small-btn" type="button">＋ 新規プロジェクト</button>
+            <button id="project-dashboard-btn" class="secondary small-btn hidden" type="button">📋 Action Items</button>
+          </div>
+          <div id="project-new-form" class="hidden">
+            <input id="pj-name" type="text" placeholder="プロジェクト名" />
+            <input id="pj-desc" type="text" placeholder="説明（任意）" />
+            <div class="row">
+              <button id="pj-submit" type="button">作成</button>
+              <button id="pj-cancel" type="button" class="secondary">キャンセル</button>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2>会議一覧</h2>
+          <ul id="meeting-list"></ul>
+          <button id="new-meeting-btn">＋ 新しい会議を作成</button>
+        </section>
+
+        <section id="sidebar-roster" class="hidden">
+          <h2>AI ROSTER</h2>
+          <h3>ACTIVE <span id="active-count" class="count"></span></h3>
+          <ul id="roster-active-list" class="roster-list"></ul>
+          <h3>INACTIVE <span id="inactive-count" class="count"></span></h3>
+          <ul id="roster-inactive-list" class="roster-list"></ul>
+          <div class="invite-row">
+            <select id="invite-persona-select"></select>
+            <button id="invite-btn">招集</button>
+          </div>
+        </section>
+
+        <section id="sidebar-chief" class="hidden">
+          <div class="chief-card">
+            <img src="assets/personas/chief.png" alt="" />
+            <div>
+              <div class="chief-name">最高開発者（あなた）</div>
+              <div class="muted small">Chief Developer / 最終意思決定者</div>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <main id="main">
+        <div id="empty-state">左のリストから会議を選択するか、新しい会議を作成してください。</div>
+
+        <div id="project-view" class="panel hidden">
+          <h2 id="pv-name"></h2>
+          <p id="pv-description" class="muted"></p>
+          <h3>Action Items</h3>
+          <ul id="pv-action-items"></ul>
+          <p id="pv-empty" class="muted small hidden">この会議で決定されたAction Itemsはまだありません。</p>
+        </div>
+
+        <div id="new-meeting-form" class="panel hidden">
+          <h2>新しい会議を作成</h2>
+          <label>タイトル <input id="nm-title" type="text" /></label>
+          <label>議題（Markdownで記述可。プロジェクト概要・目的・制約を書いておくと全AIの発言に毎回反映されます）
+            <textarea id="nm-agenda" rows="12"></textarea>
+          </label>
+          <label>会議タイプ <select id="nm-type"></select></label>
+          <label>プロジェクト対象ディレクトリ（任意。Architect等がコードを読む対象）
+            <div class="row">
+              <input id="nm-dir" type="text" readonly placeholder="未指定" />
+              <button id="nm-choose-dir" type="button">選択…</button>
+            </div>
+          </label>
+          <fieldset id="nm-personas">
+            <legend>招集するAI（会議タイプのデフォルトから編集可能）</legend>
+          </fieldset>
+          <div class="row">
+            <button id="nm-submit">会議を作成</button>
+            <button id="nm-cancel" type="button" class="secondary">キャンセル</button>
+          </div>
+        </div>
+
+        <div id="meeting-view" class="hidden">
+          <div id="mv-codebase" class="row">
+            <span class="small muted">🔍 コード解析対象:</span>
+            <span id="mv-codebase-path" class="small"></span>
+            <button id="mv-codebase-change" class="secondary small-btn" type="button">変更…</button>
+          </div>
+
+          <div id="circle-wrap">
+            <div id="circle-stage">
+              <div id="circle-chief" title="最高開発者（あなた）">
+                <img src="assets/personas/chief.png" alt="" />
+                <div class="seat-name">あなた</div>
+                <div class="seat-role">最終意思決定者</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="mv-controls">
+            <div class="control-row">
+              <button id="rebuttal-btn" class="secondary">🔁 反論ラウンド</button>
+              <button id="analyze-code-btn" class="secondary" title="コード解析対象ディレクトリを実際に読み、専門家に解析・説明してもらいます">🔎 コードを解析して説明してもらう</button>
+            </div>
+          </div>
+
+          <div id="mv-decision" class="panel">
+            <h3>FINAL DECISION</h3>
+            <div id="decision-view"></div>
+
+            <div id="decision-form">
+              <label>決定内容 <textarea id="df-text" rows="2"></textarea></label>
+              <label>理由（1行1項目） <textarea id="df-reasoning" rows="3"></textarea></label>
+              <label>Action Items（1行 "担当: 内容"） <textarea id="df-actions" rows="3"></textarea></label>
+              <button id="df-submit">最高開発者として決定する</button>
+            </div>
+
+            <button id="mv-minutes-btn" class="secondary">議事録を表示</button>
+
+            <div id="minutes-panel" class="hidden">
+              <div id="minutes-toolbar">
+                <span class="small muted">議事録は発言ログ・決定内容から自動生成される記録です（編集不可）</span>
+                <span class="spacer"></span>
+                <button id="minutes-download-btn" class="secondary small-btn">⬇️ ダウンロード</button>
+              </div>
+              <pre id="minutes-view"></pre>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <aside id="discussion-panel">
+        <div id="discussion-panel-header">
+          <h2>DISCUSSION</h2>
+          <button id="discussion-expand-btn" type="button" title="フル画面で表示">⛶ フル画面</button>
+        </div>
+        <div id="transcript-list"></div>
+        <p id="transcript-empty" class="muted small">まだ発言はありません。</p>
+
+        <div id="thinking-banner" class="thinking-banner hidden">
+          <span class="thinking-avatar-wrap"><img id="thinking-avatar" src="" alt="" /></span>
+          <span id="thinking-text"></span>
+          <span class="thinking-dots"><span></span><span></span><span></span></span>
+        </div>
+
+        <div id="composer">
+          <button id="ask-all-btn" class="composer-broadcast">🔔 全員に発言を求める</button>
+          <div class="composer-row">
+            <select id="ask-specific-select"></select>
+            <input id="ask-specific-question" type="text" placeholder="このAIに直接質問する内容" />
+            <button id="ask-specific-btn" class="secondary">指名して聞く</button>
+          </div>
+          <div class="composer-row">
+            <input id="human-speak-input" type="text" placeholder="最高開発者として発言する" />
+            <button id="human-speak-btn">🎤 発言する</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="build-info.js"></script>
+  <script src="vendor/marked.umd.js"></script>
+  <script src="vendor/mermaid.min.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "stages": {
+    "requirements": {
+      "status": "pending",
+      "hash": "6dd8968147c37c3bcebda0a2cd6a21c2bca81fec9ad0786f05708927e3e21e1e",
+      "submittedAt": "2026-09-23T21:37:06.701Z",
+      "feedback": null
+    }
+  },
+  "events": [
+    {
+      "stage": "requirements",
+      "type": "submitted",
+      "hash": "6dd8968147c37c3bcebda0a2cd6a21c2bca81fec9ad0786f05708927e3e21e1e",
+      "at": "2026-09-23T21:37:06.702Z"
+    }
+  ],
+  "terminalHandle": null
+}

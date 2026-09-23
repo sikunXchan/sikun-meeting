@@ -1,0 +1,9 @@
+node_modules/
+dist/
+release/
+*.log
+.DS_Store
+data/
+.env
+.mcp.json
+.codex/config.toml
