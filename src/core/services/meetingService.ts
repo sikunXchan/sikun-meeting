@@ -42,6 +42,18 @@ export class MeetingService {
       invitedAt: now,
     }));
 
+    const project = input.projectId ? this.repo.getProject(input.projectId) : undefined;
+    if (input.projectId && !project) throw new Error('プロジェクトが見つかりません');
+    const artifactCardSnapshot = (project?.artifactCards || []).map((card) => {
+      const latest = card.versions.at(-1)!;
+      const goals = latest.goals.map((goal) =>
+        `${goal.label}: ${goal.current ?? '未測定'} / ${goal.target}${goal.unit}（根拠: ${goal.evidence || '未記録'}）`).join('; ');
+      return {
+        cardId: card.id, version: latest.version,
+        summary: `${card.name}｜現状: ${latest.status}｜${latest.summary.slice(0, 600)}｜既知の問題: ${latest.knownIssues.join('、').slice(0, 500) || 'なし'}｜改善: ${latest.backlog.join('、').slice(0, 500) || 'なし'}｜KGI: ${goals.slice(0, 500) || '未設定'}｜過去の決定: ${latest.decisionIds.slice(-5).join('、') || 'なし'}`,
+      };
+    });
+
     const meeting: Meeting = {
       id: newId(),
       projectId: input.projectId ?? null,
@@ -56,6 +68,7 @@ export class MeetingService {
       startedAt: null,
       endedAt: null,
       workingDirectory: input.workingDirectory ?? null,
+      artifactCardSnapshot,
     };
 
     await this.repo.saveMeeting(meeting);
@@ -77,6 +90,7 @@ export class MeetingService {
 
     let result: Participant | undefined;
     await this.repo.updateMeeting(meetingId, (meeting) => {
+      if (meeting.initialRound?.status === 'collecting') throw new Error('初回意見の収集中は参加者を変更できません');
       const existing = meeting.participants.find((p) => p.personaId === personaId);
       if (existing) {
         existing.status = 'ACTIVE';
@@ -99,6 +113,7 @@ export class MeetingService {
   /** AIを一時除籍する（ACTIVE→INACTIVE）。削除はしない。 */
   async deactivateParticipant(meetingId: string, participantId: string): Promise<void> {
     await this.repo.updateMeeting(meetingId, (meeting) => {
+      if (meeting.initialRound?.status === 'collecting') throw new Error('初回意見の収集中は参加者を変更できません');
       const p = meeting.participants.find((x) => x.id === participantId);
       if (!p) throw new Error(`Participant not found: ${participantId}`);
       p.status = 'INACTIVE';
@@ -109,6 +124,7 @@ export class MeetingService {
   /** 一時除籍したAIを再招集する（INACTIVE→ACTIVE）。 */
   async reactivateParticipant(meetingId: string, participantId: string): Promise<void> {
     await this.repo.updateMeeting(meetingId, (meeting) => {
+      if (meeting.initialRound?.status === 'collecting') throw new Error('初回意見の収集中は参加者を変更できません');
       const p = meeting.participants.find((x) => x.id === participantId);
       if (!p) throw new Error(`Participant not found: ${participantId}`);
       p.status = 'ACTIVE';

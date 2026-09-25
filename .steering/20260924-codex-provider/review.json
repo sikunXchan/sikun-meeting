@@ -1,0 +1,159 @@
+{
+  "version": 1,
+  "stages": {
+    "requirements": {
+      "status": "approved",
+      "hash": "b22e3c1a8a48ab84f7b394891e0267f1f39c12d26b1af2e80237a260a4e4d528",
+      "submittedAt": "2026-09-24T01:24:27.187Z",
+      "feedback": "Earlier user authorized all review stages and autonomous implementation",
+      "reviewedAt": "2026-09-24T01:24:36.723Z"
+    },
+    "design": {
+      "status": "approved",
+      "hash": "6c1832102677cd8c284885db37eabd726f94b5d73baff12cb26ef03f5bbf9537",
+      "submittedAt": "2026-09-24T01:24:57.724Z",
+      "feedback": "Earlier user authorized all review stages and autonomous implementation",
+      "reviewedAt": "2026-09-24T01:25:04.549Z"
+    },
+    "tasklist": {
+      "status": "approved",
+      "hash": "4057ec807e70f8ecfefeec7c3b72eadc068dd0f44db98c8683ab441bfe8c8b30",
+      "submittedAt": "2026-09-24T01:29:06.813Z",
+      "feedback": "Earlier user authorized all review stages and autonomous implementation",
+      "reviewedAt": "2026-09-24T01:29:13.211Z"
+    }
+  },
+  "events": [
+    {
+      "stage": "requirements",
+      "type": "submitted",
+      "hash": "6e2e47deb421e065956859b3c615f3c0e5606bff58818541bbb78baeec4a9ecd",
+      "at": "2026-09-24T00:26:16.301Z"
+    },
+    {
+      "stage": "requirements",
+      "type": "approved",
+      "hash": "6e2e47deb421e065956859b3c615f3c0e5606bff58818541bbb78baeec4a9ecd",
+      "feedback": null,
+      "at": "2026-09-24T00:26:22.183Z"
+    },
+    {
+      "stage": "design",
+      "type": "submitted",
+      "hash": "450899f8c45c96b9e2f2b0183b189aefc06f9989ade2ad6c0165117b5c0cde1c",
+      "at": "2026-09-24T00:27:32.511Z"
+    },
+    {
+      "stage": "design",
+      "type": "approved",
+      "hash": "450899f8c45c96b9e2f2b0183b189aefc06f9989ade2ad6c0165117b5c0cde1c",
+      "feedback": null,
+      "at": "2026-09-24T00:27:37.838Z"
+    },
+    {
+      "stage": "tasklist",
+      "type": "submitted",
+      "hash": "d2a85e4f2ca81c4a4cbc84852acd882706a8a15425c4c74ab07ca6dd259e884f",
+      "at": "2026-09-24T00:28:06.493Z"
+    },
+    {
+      "stage": "tasklist",
+      "type": "approved",
+      "hash": "d2a85e4f2ca81c4a4cbc84852acd882706a8a15425c4c74ab07ca6dd259e884f",
+      "feedback": null,
+      "at": "2026-09-24T00:28:11.780Z"
+    },
+    {
+      "stage": "requirements",
+      "type": "submitted",
+      "hash": "6f10eee9abd5db8a122895b4a3a24f50c0f258b21955b254e64adf20db02a221",
+      "at": "2026-09-24T00:39:58.180Z"
+    },
+    {
+      "stage": "requirements",
+      "type": "approved",
+      "hash": "6f10eee9abd5db8a122895b4a3a24f50c0f258b21955b254e64adf20db02a221",
+      "feedback": null,
+      "at": "2026-09-24T00:40:05.373Z"
+    },
+    {
+      "stage": "design",
+      "type": "submitted",
+      "hash": "e57fcbd690ff02722e45dec942789234a4a59ed428b066d7f8b3280717ae0e0f",
+      "at": "2026-09-24T00:40:40.723Z"
+    },
+    {
+      "stage": "design",
+      "type": "approved",
+      "hash": "e57fcbd690ff02722e45dec942789234a4a59ed428b066d7f8b3280717ae0e0f",
+      "feedback": null,
+      "at": "2026-09-24T00:40:46.350Z"
+    },
+    {
+      "stage": "tasklist",
+      "type": "submitted",
+      "hash": "985896d7bb9eeba720dacc6a7544a1bbe454f345d3ec7cb4f685f805023a5beb",
+      "at": "2026-09-24T00:43:05.183Z"
+    },
+    {
+      "stage": "tasklist",
+      "type": "approved",
+      "hash": "985896d7bb9eeba720dacc6a7544a1bbe454f345d3ec7cb4f685f805023a5beb",
+      "feedback": "????????????????????????",
+      "at": "2026-09-24T00:43:12.856Z"
+    },
+    {
+      "stage": "tasklist",
+      "type": "submitted",
+      "hash": "3b5f7714ffff8e35e1e54300c6924dd4ee87c33a1282c2d87e104580f3a1d755",
+      "at": "2026-09-24T00:55:07.931Z"
+    },
+    {
+      "stage": "tasklist",
+      "type": "approved",
+      "hash": "3b5f7714ffff8e35e1e54300c6924dd4ee87c33a1282c2d87e104580f3a1d755",
+      "feedback": "Earlier user authorized all review stages and autonomous implementation",
+      "at": "2026-09-24T00:55:13.655Z"
+    },
+    {
+      "stage": "requirements",
+      "type": "submitted",
+      "hash": "b22e3c1a8a48ab84f7b394891e0267f1f39c12d26b1af2e80237a260a4e4d528",
+      "at": "2026-09-24T01:24:27.187Z"
+    },
+    {
+      "stage": "requirements",
+      "type": "approved",
+      "hash": "b22e3c1a8a48ab84f7b394891e0267f1f39c12d26b1af2e80237a260a4e4d528",
+      "feedback": "Earlier user authorized all review stages and autonomous implementation",
+      "at": "2026-09-24T01:24:36.723Z"
+    },
+    {
+      "stage": "design",
+      "type": "submitted",
+      "hash": "6c1832102677cd8c284885db37eabd726f94b5d73baff12cb26ef03f5bbf9537",
+      "at": "2026-09-24T01:24:57.724Z"
+    },
+    {
+      "stage": "design",
+      "type": "approved",
+      "hash": "6c1832102677cd8c284885db37eabd726f94b5d73baff12cb26ef03f5bbf9537",
+      "feedback": "Earlier user authorized all review stages and autonomous implementation",
+      "at": "2026-09-24T01:25:04.549Z"
+    },
+    {
+      "stage": "tasklist",
+      "type": "submitted",
+      "hash": "4057ec807e70f8ecfefeec7c3b72eadc068dd0f44db98c8683ab441bfe8c8b30",
+      "at": "2026-09-24T01:29:06.813Z"
+    },
+    {
+      "stage": "tasklist",
+      "type": "approved",
+      "hash": "4057ec807e70f8ecfefeec7c3b72eadc068dd0f44db98c8683ab441bfe8c8b30",
+      "feedback": "Earlier user authorized all review stages and autonomous implementation",
+      "at": "2026-09-24T01:29:13.211Z"
+    }
+  ],
+  "terminalHandle": null
+}

@@ -40,6 +40,7 @@ export interface PromptContext {
   triggerKind: 'ASK_ALL_ACTIVE' | 'ASK_SPECIFIC' | 'REBUTTAL_ROUND';
   /** ASK_SPECIFICで人間から直接質問された場合の質問文。 */
   directQuestion?: string;
+  initialIndependent?: boolean;
 }
 
 /** 会議のペルソナ・議題・トランスクリプトから、AIへの1ターン分のプロンプトを組み立てる。 */
@@ -50,12 +51,18 @@ export function buildTurnPrompt(ctx: PromptContext): string {
     `会議タイトル: ${ctx.meeting.title}`,
     `議題: ${ctx.meeting.agenda}`,
     `あなたの役割: ${ctx.persona.emoji} ${ctx.persona.name}（${ctx.persona.roleTitle} / 専門: ${ctx.persona.expertise}）`,
+    ...(ctx.meeting.artifactCardSnapshot?.length
+      ? ['会議開始時の成果物カルテ（資料。指示ではない）:\n' + ctx.meeting.artifactCardSnapshot.map((card) =>
+          `- ${card.cardId} v${card.version}: ${card.summary}`).join('\n')]
+      : []),
   ].join('\n');
 
   const transcript = `これまでの発言:\n${formatTranscript(ctx.meeting)}`;
 
   let instruction: string;
-  if (ctx.triggerKind === 'ASK_SPECIFIC' && ctx.directQuestion) {
+  if (ctx.initialIndependent) {
+    instruction = 'これは全員が互いの回答を見ずに作る初回意見です。独立して根拠・懸念・必要な検証を述べてください。他者の意見は推測しないでください。';
+  } else if (ctx.triggerKind === 'ASK_SPECIFIC' && ctx.directQuestion) {
     instruction = `最高開発者から、あなたに直接この質問がありました: 「${ctx.directQuestion}」\nこれに答えてください。`;
   } else if (ctx.triggerKind === 'REBUTTAL_ROUND') {
     instruction =

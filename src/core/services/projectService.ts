@@ -1,5 +1,21 @@
 import { Repository, newId, nowIso } from '../store/repository';
-import { ActionItem, Project } from '../types';
+import { ActionItem, ArtifactCard, ArtifactGoal, Project } from '../types';
+
+export interface UpsertArtifactCardInput {
+  id?: string;
+  name: string;
+  kind: ArtifactCard['kind'];
+  status: string;
+  summary: string;
+  knownIssues: string[];
+  backlog: string[];
+  goals: { id?: string; label: string; target: number; current: number | null; unit: string; evidence: string }[];
+}
+
+function cardText(value: string, label: string, max = 4000): string {
+  if (typeof value !== 'string' || !value.trim() || value.length > max) throw new Error(`${label}を入力してください`);
+  return value.trim();
+}
 
 /**
  * Project ↔ Meeting の連携を担うサービス。
@@ -27,9 +43,70 @@ export class ProjectService {
       meetingIds: [],
       actionItems: [],
       createdAt: nowIso(),
+      artifactCards: [],
     };
     await this.repo.saveProject(project);
     return project;
+  }
+
+  async upsertArtifactCard(projectId: string, input: UpsertArtifactCardInput): Promise<ArtifactCard> {
+    const name = cardText(input.name, '成果物名', 160);
+    const status = cardText(input.status, '現状', 160);
+    const summary = cardText(input.summary, '概要');
+    if (!['app', 'tool', 'other'].includes(input.kind)) throw new Error('成果物の種類が不正です');
+    const goals: ArtifactGoal[] = (input.goals || []).map((goal) => {
+      if (!Number.isFinite(goal.target) || (goal.current !== null && !Number.isFinite(goal.current))) throw new Error('KGIの値が不正です');
+      return {
+        id: goal.id || newId(), label: cardText(goal.label, 'KGI名', 160),
+        target: goal.target, current: goal.current, unit: goal.unit?.slice(0, 40) || '',
+        evidence: goal.evidence?.slice(0, 1000) || '', verifiedAt: goal.current === null ? null : nowIso(),
+      };
+    });
+    let result: ArtifactCard | undefined;
+    await this.repo.updateProject(projectId, (project) => {
+      project.artifactCards ??= [];
+      let card = input.id ? project.artifactCards.find((entry) => entry.id === input.id) : undefined;
+      if (input.id && !card) throw new Error('成果物カルテが見つかりません');
+      if (!card) {
+        card = { id: newId(), name, kind: input.kind, createdAt: nowIso(), versions: [] };
+        project.artifactCards.push(card);
+      }
+      card.name = name;
+      card.kind = input.kind;
+      const previous = card.versions.at(-1);
+      card.versions.push({
+        version: (previous?.version ?? 0) + 1,
+        status, summary, knownIssues: (input.knownIssues || []).map((entry) => entry.trim()).filter(Boolean).slice(0, 50),
+        backlog: (input.backlog || []).map((entry) => entry.trim()).filter(Boolean).slice(0, 50),
+        goals, decisionIds: previous?.decisionIds || [], commissionIds: previous?.commissionIds || [],
+        updatedAt: nowIso(), source: 'human',
+      });
+      result = structuredClone(card);
+    });
+    return result!;
+  }
+
+  async recordDecision(projectId: string, meetingId: string, cardIds: string[]): Promise<void> {
+    if (!cardIds.length) return;
+    await this.repo.updateProject(projectId, (project) => {
+      for (const card of project.artifactCards || []) {
+        if (!cardIds.includes(card.id)) continue;
+        const latest = card.versions.at(-1)!;
+        card.versions.push({ ...structuredClone(latest), version: latest.version + 1,
+          decisionIds: [...new Set([...latest.decisionIds, meetingId])], updatedAt: nowIso(), source: 'meeting' });
+      }
+    });
+  }
+
+  async recordCommissionDelivery(projectId: string, cardId: string, commissionId: string, delivery: string): Promise<void> {
+    await this.repo.updateProject(projectId, (project) => {
+      const card = project.artifactCards?.find((entry) => entry.id === cardId);
+      if (!card) throw new Error('成果物カルテが見つかりません');
+      const latest = card.versions.at(-1)!;
+      card.versions.push({ ...structuredClone(latest), version: latest.version + 1,
+        summary: delivery.slice(0, 4000), status: '納品済み・検証待ち',
+        commissionIds: [...new Set([...latest.commissionIds, commissionId])], updatedAt: nowIso(), source: 'commission' });
+    });
   }
 
   /**

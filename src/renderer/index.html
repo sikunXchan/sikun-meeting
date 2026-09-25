@@ -36,6 +36,7 @@
           <div class="row project-actions">
             <button id="project-new-btn" class="secondary small-btn" type="button">＋ 新規プロジェクト</button>
             <button id="project-dashboard-btn" class="secondary small-btn hidden" type="button">📋 Action Items</button>
+            <button id="community-open-btn" class="secondary small-btn hidden" type="button">🧩 AIコミュニティ</button>
           </div>
           <div id="project-new-form" class="hidden">
             <input id="pj-name" type="text" placeholder="プロジェクト名" />
@@ -51,6 +52,12 @@
           <h2>会議一覧</h2>
           <ul id="meeting-list"></ul>
           <button id="new-meeting-btn">＋ 新しい会議を作成</button>
+        </section>
+
+        <section>
+          <h2>委託案件</h2>
+          <ul id="commission-list" class="commission-sidebar-list"></ul>
+          <button id="commission-new-btn" type="button">＋ AIチームに依頼</button>
         </section>
 
         <section id="sidebar-roster" class="hidden">
@@ -85,6 +92,148 @@
           <h3>Action Items</h3>
           <ul id="pv-action-items"></ul>
           <p id="pv-empty" class="muted small hidden">この会議で決定されたAction Itemsはまだありません。</p>
+          <h3>成果物カルテ</h3>
+          <p class="muted small">アプリ・ツールごとの現状とKGIを記録します。新しい会議は開始時点の版を読みます。</p>
+          <div id="pv-card-list"></div>
+          <details id="pv-card-editor">
+            <summary>＋ カルテを作成・編集</summary>
+            <label>成果物名 <input id="pv-card-name" maxlength="160" /></label>
+            <label>種類 <select id="pv-card-kind"><option value="app">アプリ</option><option value="tool">ツール</option><option value="other">その他</option></select></label>
+            <label>現状 <input id="pv-card-status" maxlength="160" placeholder="開発中・運用中・要検証など" /></label>
+            <label>概要 <textarea id="pv-card-summary" rows="3"></textarea></label>
+            <label>既知の問題（1行1件） <textarea id="pv-card-issues" rows="3"></textarea></label>
+            <label>改善バックログ（1行1件） <textarea id="pv-card-backlog" rows="3"></textarea></label>
+            <label>KGI（1行に「指標 | 目標値 | 現在値 | 単位 | 測定根拠」。現在値は空欄可） <textarea id="pv-card-goals" rows="3" placeholder="初回利用完了率 | 80 | 65 | % | 2026-09-25の計測"></textarea></label>
+            <div class="row"><button id="pv-card-save" type="button">カルテを保存</button><button id="pv-card-reset" class="secondary" type="button">新規入力に戻す</button></div>
+          </details>
+          <h3>会議の結論をメールで実行</h3>
+          <p class="muted small">確定した会議から下書きを作り、内容を確認してから送信します。送信にはメール用MCPサーバーが必要です。</p>
+          <details id="email-config-details">
+            <summary>メールMCP接続設定</summary>
+            <label>MCPサーバーURL <input id="email-endpoint" placeholder="https://example.com/mcp" /></label>
+            <label>送信ツール名 <input id="email-tool" placeholder="send_email" /></label>
+            <label>認証トークンを格納した環境変数名（任意） <input id="email-auth-env" placeholder="EMAIL_MCP_TOKEN" /></label>
+            <label>ツール引数テンプレート（JSON） <textarea id="email-template" rows="4">{"to":"{{toArray}}","subject":"{{subject}}","body":"{{body}}"}</textarea></label>
+            <div class="row"><button id="email-config-save" type="button">設定を保存</button><button id="email-test" class="secondary" type="button">接続してツールを確認</button></div>
+            <p id="email-connection-result" class="muted small"></p>
+          </details>
+          <label>元の会議 <select id="email-meeting"></select></label>
+          <label>宛先（カンマ区切り） <input id="email-to" placeholder="name@example.com" /></label>
+          <label>件名 <input id="email-subject" maxlength="300" /></label>
+          <label>本文 <textarea id="email-body" rows="6"></textarea></label>
+          <button id="email-draft-create" type="button">送信前の下書きを作る</button>
+          <div id="email-drafts"></div>
+          <h3>社外取締役による独立監査</h3>
+          <p class="muted small">通常会議から独立して、議決とKGI実測値を照合します。決定済み会議があるプロジェクトは、アプリ稼働中に30日ごとに監査します。</p>
+          <button id="audit-run" class="secondary" type="button">今すぐ監査</button>
+          <p id="audit-status" class="muted small"></p>
+          <div id="audit-records"></div>
+        </div>
+
+        <div id="community-view" class="panel hidden community-panel">
+          <div class="community-header">
+            <div><h2 id="community-project-name">AIコミュニティ</h2><p class="muted">専門AIが課題を議論し、委託案件の仕事と採用された知識につなげます。</p></div>
+            <button id="community-suggest-btn" class="secondary" type="button">AIに次の課題を提案させる</button>
+          </div>
+          <p id="community-error" class="commission-error hidden"></p>
+          <details id="community-new-details" class="community-new">
+            <summary>＋ 課題を投稿</summary>
+            <label>タイトル <input id="community-title" type="text" maxlength="160" placeholder="解決したい課題" /></label>
+            <label>目的・背景・完了条件 <textarea id="community-body" rows="5" maxlength="8000" placeholder="AIに相談したい内容と、使える結果の条件を書いてください"></textarea></label>
+            <label>参照する作業ディレクトリ（任意）
+              <div class="row"><input id="community-dir" type="text" readonly placeholder="未指定" /><button id="community-choose-dir" class="secondary" type="button">選択…</button></div>
+            </label>
+            <details class="community-roster"><summary>参加AIを選ぶ（1〜8人）</summary><div id="community-personas"></div></details>
+            <button id="community-create-btn" type="button">投稿する</button>
+          </details>
+          <div class="community-columns">
+            <section class="community-feed">
+              <h3>課題と活動</h3>
+              <div id="community-post-list"></div>
+              <h3>採用された知識</h3>
+              <div id="community-memory-list"></div>
+            </section>
+            <section class="community-thread">
+              <p id="community-thread-empty" class="muted">課題を投稿するか、左の一覧から選んでください。</p>
+              <div id="community-thread-content" class="hidden">
+                <div class="community-thread-header"><h3 id="community-post-title"></h3><span id="community-post-status" class="status-badge"></span></div>
+                <p id="community-post-body"></p>
+                <p id="community-post-roster" class="muted small"></p>
+                <div class="row community-actions">
+                  <button id="community-run-btn" type="button">AIに意見を求める</button>
+                  <button id="community-commission-btn" class="secondary" type="button">AIチームに委託</button>
+                  <button id="community-open-commission-btn" class="secondary hidden" type="button">案件を開く</button>
+                </div>
+                <p id="community-progress" class="muted small"></p>
+                <h4>議論</h4>
+                <div id="community-messages"></div>
+                <label>あなたのコメント <textarea id="community-comment" rows="3" maxlength="4000" placeholder="補足、質問、方針の修正を伝える"></textarea></label>
+                <button id="community-comment-btn" class="secondary" type="button">コメントする</button>
+                <div id="community-linked-work" class="hidden">
+                  <h4>委託案件の進行</h4><div id="community-work-list"></div>
+                  <h4>納品</h4><pre id="community-delivery"></pre>
+                </div>
+                <div class="community-accept">
+                  <h4>知識として採用</h4>
+                  <label>次の案件に引き継ぐ内容 <textarea id="community-accept-note" rows="3" maxlength="2000" placeholder="採用した結論・成果・注意点"></textarea></label>
+                  <button id="community-accept-btn" class="secondary" type="button">採用して共有する</button>
+                  <p id="community-accepted-note" class="muted small"></p>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div id="commission-create" class="panel hidden commission-panel">
+          <h2>AIチームへ依頼する</h2>
+          <p class="muted">最初にITコンサルタントAIと企画を相談します。企画を確定すると、AIチームが実装から納品まで進めます。</p>
+          <p id="commission-create-error" class="commission-error hidden"></p>
+          <label>達成したい目標 <textarea id="commission-goal" rows="5" placeholder="何を作り、どう使いたいかを書いてください"></textarea></label>
+          <label>完成と判断する条件 <textarea id="commission-criteria" rows="3" placeholder="検証できる完了条件やKGIを書いてください。未入力なら目標文を使います"></textarea></label>
+          <label>関連する成果物カルテ <select id="commission-card"><option value="">指定しない</option></select></label>
+          <label>作業ディレクトリ
+            <div class="row"><input id="commission-dir" type="text" readonly placeholder="未指定なら案件専用フォルダを作成" /><button id="commission-choose-dir" class="secondary" type="button">選択…</button></div>
+          </label>
+          <label>実行エンジン <select id="commission-provider"><option value="claude">Claude</option><option value="codex">Codex</option></select></label>
+          <details class="commission-settings"><summary>モデルと利用上限</summary>
+            <div class="commission-settings-grid">
+              <label class="claude-only">相談 <input id="commission-model-consultant" value="claude-sonnet-5" /></label>
+              <label class="claude-only">計画・担当決定（重要） <input id="commission-model-planner" value="claude-opus-5-5" /></label>
+              <label class="claude-only">実作業 <input id="commission-model-worker" value="claude-sonnet-5" /></label>
+              <label class="claude-only">内部確認 <input id="commission-model-reviewer" value="claude-sonnet-5" /></label>
+              <label class="claude-only">重要判断 <input id="commission-model-critical" value="claude-opus-5-5" /></label>
+              <label class="claude-only">混雑・利用不可時の代替 <input id="commission-model-fallback" value="claude-haiku-4-5-20251001" /></label>
+              <label class="codex-only hidden">Codexモデル <input id="commission-model-codex" value="gpt-6-sol" /></label>
+              <label>最大呼び出し回数 <input id="commission-max-calls" type="number" min="1" max="200" value="24" /></label>
+              <label class="claude-only">1回の最大ターン数 <input id="commission-max-turns" type="number" min="1" max="100" value="12" /></label>
+            </div>
+            <label class="claude-only">役割別モデル（1行につき personaId=model）<textarea id="commission-model-by-persona" rows="3" placeholder="engineer=claude-sonnet-5&#10;qa=claude-haiku-4-5-20251001"></textarea></label>
+          </details>
+          <div class="row"><button id="commission-create-btn" type="button">ITコンサルタントと相談を始める</button><button id="commission-create-cancel" class="secondary" type="button">キャンセル</button></div>
+        </div>
+
+        <div id="commission-view" class="panel hidden commission-panel">
+          <div class="commission-header"><div><h2 id="commission-title"></h2><p id="commission-subtitle" class="muted"></p></div><span id="commission-status" class="status-badge"></span></div>
+          <p id="commission-error" class="commission-error hidden"></p>
+          <section id="commission-consult-section">
+            <h3>ITコンサルタントと企画</h3>
+            <div id="commission-chat" class="commission-chat"></div>
+            <label>相談する内容 <textarea id="commission-message" rows="3" placeholder="目的や希望、質問を伝えてください"></textarea></label>
+            <button id="commission-send-btn" type="button">相談する</button>
+            <label>確定する企画 <textarea id="commission-plan" rows="7" placeholder="コンサルタントの案を確認・編集してください"></textarea></label>
+            <button id="commission-confirm-btn" type="button">この企画でAIチームに任せる</button>
+          </section>
+          <section id="commission-progress-section" class="hidden">
+            <h3>AIチームの進行</h3>
+            <div class="row"><button id="commission-pause-btn" class="secondary" type="button">一時停止</button><button id="commission-stop-btn" class="secondary" type="button">停止</button><button id="commission-resume-btn" class="secondary" type="button">再開</button></div>
+            <div id="commission-work-list" class="commission-work-list"></div>
+            <h3>成果ファイルと内部判断</h3><div id="commission-artifacts" class="commission-work-list"></div>
+            <h3>目標の達成確認</h3><div id="commission-goal-checks" class="commission-work-list"></div>
+            <h3>AI実行履歴・モデル</h3><div id="commission-runs" class="commission-events"></div>
+            <h3>活動記録</h3><div id="commission-events" class="commission-events"></div>
+            <h3>納品</h3><pre id="commission-delivery" class="commission-delivery"></pre>
+            <div id="commission-revision-section" class="hidden"><label>修正・調整 <textarea id="commission-revision" rows="3" placeholder="直したい点を伝えてください"></textarea></label><button id="commission-revise-btn" type="button">修正を依頼する</button></div>
+          </section>
         </div>
 
         <div id="new-meeting-form" class="panel hidden">
@@ -138,9 +287,11 @@
             <div id="decision-view"></div>
 
             <div id="decision-form">
+              <p id="df-gate" class="muted small">議決条件を確認中…</p>
               <label>決定内容 <textarea id="df-text" rows="2"></textarea></label>
               <label>理由（1行1項目） <textarea id="df-reasoning" rows="3"></textarea></label>
               <label>Action Items（1行 "担当: 内容"） <textarea id="df-actions" rows="3"></textarea></label>
+              <label>議決条件を満たさず決定する場合の理由 <textarea id="df-override" rows="2" placeholder="例外として決定する理由を記録"></textarea></label>
               <button id="df-submit">最高開発者として決定する</button>
             </div>
 
@@ -192,5 +343,7 @@
   <script src="vendor/marked.umd.js"></script>
   <script src="vendor/mermaid.min.js"></script>
   <script src="renderer.js"></script>
+  <script src="commission.js"></script>
+  <script src="community.js"></script>
 </body>
 </html>

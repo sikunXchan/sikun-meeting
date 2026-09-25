@@ -100,6 +100,10 @@ app.whenReady().then(async () => {
   const dataDir = path.join(app.getPath('userData'), 'data');
   const ctx = createAppContext(dataDir);
   registerIpcHandlers(ctx, () => mainWindow);
+  // 通常会議とは別の監査を、アプリ起動時と稼働中の1日ごとに確認する。
+  void ctx.auditService.runDue();
+  const auditTimer = setInterval(() => void ctx.auditService.runDue(), 24 * 60 * 60 * 1000);
+  app.once('before-quit', () => clearInterval(auditTimer));
 
   const [pendingMeetingId] = await Promise.all([
     createPendingMeetingFromArgs(ctx),

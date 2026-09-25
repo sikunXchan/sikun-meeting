@@ -22,7 +22,63 @@ export type TurnEventListener = (event: TurnEvent) => void;
  * 賛成/反対/反論できるようにするため（並列に呼ぶと相互参照できない）。
  */
 export class DiscussionService {
-  constructor(private repo: Repository) {}
+  private active = new Set<string>();
+  constructor(private repo: Repository, private agent: typeof runAgentTurn = runAgentTurn) {}
+
+  private async runInitialRound(meetingId: string, onEvent?: TurnEventListener): Promise<Message[]> {
+    let meeting = this.repo.getMeeting(meetingId)!;
+    if (!meeting.initialRound) {
+      const ids = meeting.participants.filter((p) => p.status === 'ACTIVE').map((p) => p.id);
+      await this.repo.updateMeeting(meetingId, (current) => {
+        current.initialRound = {
+          status: 'collecting', participantIds: ids,
+          baseTranscriptLength: current.transcript.length, responses: [], startedAt: nowIso(),
+        };
+      });
+    }
+    meeting = this.repo.getMeeting(meetingId)!;
+    const round = meeting.initialRound!;
+    if (round.status === 'published') return [];
+    for (const participantId of round.participantIds) {
+      meeting = this.repo.getMeeting(meetingId)!;
+      const current = meeting.initialRound!;
+      if (current.responses.some((message) => message.speakerId.endsWith(`#${participantId}`))) continue;
+      const participant = meeting.participants.find((item) => item.id === participantId);
+      if (!participant || participant.status !== 'ACTIVE') throw new Error('初回意見の収集中は参加者を変更できません');
+      const persona = getPersonaById(participant.personaId);
+      if (!persona) throw new Error('参加AIの定義が見つかりません');
+      onEvent?.({ type: 'turn-start', meetingId, participantId });
+      const prompt = buildTurnPrompt({
+        meeting: { ...meeting, transcript: meeting.transcript.slice(0, current.baseTranscriptLength) },
+        persona, participant, triggerKind: 'ASK_ALL_ACTIVE', initialIndependent: true,
+      });
+      const result = await this.agent(persona, prompt, meeting.workingDirectory);
+      if (result.isError) throw new Error(`${persona.name}: ${result.text}`);
+      const { stance, content } = parseStance(result.text);
+      const message: Message = {
+        id: newId(), meetingId, speakerType: 'AI', speakerId: `${persona.id}#${participant.id}`,
+        content, stance, createdAt: nowIso(), roundKind: 'initial',
+        requestedModel: result.requestedModel, effectiveModel: result.effectiveModel,
+      };
+      await this.repo.updateMeeting(meetingId, (updated) => {
+        if (!updated.initialRound || updated.initialRound.status !== 'collecting') throw new Error('初回意見の状態が変わりました');
+        updated.initialRound.responses.push(message);
+      });
+    }
+    let published: Message[] = [];
+    await this.repo.updateMeeting(meetingId, (updated) => {
+      const pending = updated.initialRound!;
+      if (pending.responses.length !== pending.participantIds.length) throw new Error('初回意見がそろっていません');
+      published = [...pending.responses];
+      updated.transcript.push(...published);
+      pending.responses = [];
+      pending.status = 'published';
+    });
+    for (const message of published) {
+      onEvent?.({ type: 'turn-end', meetingId, message });
+    }
+    return published;
+  }
 
   private async markStarted(meetingId: string): Promise<void> {
     await this.repo.updateMeeting(meetingId, (meeting) => {
@@ -39,12 +95,24 @@ export class DiscussionService {
     directQuestion?: string,
     onEvent?: TurnEventListener,
   ): Promise<Message[]> {
+    if (this.active.has(meetingId)) throw new Error('この会議ではAIが発言中です');
+    this.active.add(meetingId);
+    try {
     const meetingSnapshot = this.repo.getMeeting(meetingId);
     if (!meetingSnapshot) throw new Error(`Meeting not found: ${meetingId}`);
     if (meetingSnapshot.status === 'CONCLUDED') {
       throw new Error('この会議はすでに終了しています。');
     }
 
+    if (meetingSnapshot.initialRound?.status === 'collecting' ||
+      (trigger.kind === 'ASK_ALL_ACTIVE' && !meetingSnapshot.transcript.some((message) => message.speakerType === 'AI') && !meetingSnapshot.initialRound)) {
+      if (trigger.kind !== 'ASK_ALL_ACTIVE') throw new Error('全員の初回意見を集めてから討論してください');
+      await this.markStarted(meetingId);
+      return this.runInitialRound(meetingId, onEvent);
+    }
+    if (!meetingSnapshot.initialRound && !meetingSnapshot.transcript.some((message) => message.speakerType === 'AI') && trigger.kind !== 'ASK_ALL_ACTIVE') {
+      throw new Error('全員の初回意見を集めてから討論してください');
+    }
     const protocol = resolveProtocol(meetingSnapshot);
     const turns = protocol.planTurns(meetingSnapshot, trigger);
     if (turns.length === 0) return [];
@@ -70,7 +138,8 @@ export class DiscussionService {
         directQuestion,
       });
 
-      const result = await runAgentTurn(persona, prompt, meeting.workingDirectory);
+      const result = await this.agent(persona, prompt, meeting.workingDirectory);
+      if (result.isError) throw new Error(`${persona.name}: ${result.text}`);
       const { stance, content } = parseStance(result.text);
 
       const message: Message = {
@@ -78,9 +147,12 @@ export class DiscussionService {
         meetingId,
         speakerType: 'AI',
         speakerId: `${persona.id}#${participant.id}`,
-        content: result.isError ? result.text : content,
-        stance: result.isError ? null : stance,
+        content,
+        stance,
         createdAt: nowIso(),
+        roundKind: trigger.kind === 'REBUTTAL_ROUND' ? 'rebuttal' : 'discussion',
+        requestedModel: result.requestedModel,
+        effectiveModel: result.effectiveModel,
       };
 
       await this.repo.updateMeeting(meetingId, (m) => {
@@ -91,6 +163,9 @@ export class DiscussionService {
     }
 
     return produced;
+    } finally {
+      this.active.delete(meetingId);
+    }
   }
 
   /** 現在ACTIVEな全AIに、招集順で意見を求める。 */
@@ -124,6 +199,7 @@ export class DiscussionService {
     const meeting = this.repo.getMeeting(meetingId);
     if (!meeting) throw new Error(`Meeting not found: ${meetingId}`);
     if (meeting.status === 'CONCLUDED') throw new Error('この会議はすでに終了しています。');
+    if (meeting.initialRound?.status === 'collecting') throw new Error('初回意見の収集中は発言を追加できません');
 
     await this.markStarted(meetingId);
 

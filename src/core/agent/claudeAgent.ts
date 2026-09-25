@@ -1,5 +1,6 @@
 import type { query as QueryFn, SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { Persona } from '../types';
+import { approvedTools, capabilityFor, methodFor } from '../capabilities';
 import * as path from 'path';
 import * as fs from 'fs';
 import { app } from 'electron';
@@ -17,8 +18,12 @@ function toUnpackedPath(p: string): string {
   return p.split(`${path.sep}app.asar${path.sep}`).join(`${path.sep}app.asar.unpacked${path.sep}`);
 }
 
-function resolveClaudeBinaryPath(): string | undefined {
+export function resolveClaudeBinaryPath(): string | undefined {
   try {
+    if (app.isPackaged) {
+      const bundled = path.join(process.resourcesPath, process.platform === 'win32' ? 'claude.exe' : 'claude');
+      if (fs.existsSync(bundled)) return bundled;
+    }
     // package.json自体はexportsマップで公開されていない(ERR_PACKAGE_PATH_NOT_EXPORTED)ため、
     // メインエントリ(sdk.mjs、パッケージ直下に存在)を解決してそのディレクトリを使う。
     const sdkMainPath = require.resolve('@anthropic-ai/claude-agent-sdk');
@@ -49,6 +54,8 @@ export interface AgentTurnResult {
   text: string;
   isError: boolean;
   sessionId?: string;
+  requestedModel?: string;
+  effectiveModel?: string;
 }
 
 /**
@@ -62,7 +69,7 @@ const dynamicImport = new Function('specifier', 'return import(specifier)') as (
 ) => Promise<{ query: typeof QueryFn }>;
 
 let queryFnPromise: Promise<typeof QueryFn> | null = null;
-function loadQuery(): Promise<typeof QueryFn> {
+export function loadQuery(): Promise<typeof QueryFn> {
   if (!queryFnPromise) {
     queryFnPromise = dynamicImport('@anthropic-ai/claude-agent-sdk').then((mod) => mod.query);
   }
@@ -92,15 +99,20 @@ export async function runAgentTurn(
   workingDirectory: string | null,
 ): Promise<AgentTurnResult> {
   const query = await loadQuery();
+  const capability = capabilityFor(persona.id);
   const abortController = new AbortController();
   const timer = setTimeout(() => abortController.abort(), TURN_TIMEOUT_MS);
 
   const q = query({
     prompt,
     options: {
-      systemPrompt: persona.systemPrompt,
-      permissionMode: 'default',
-      allowedTools: ['Read', 'Grep', 'Glob'],
+      systemPrompt: `${persona.systemPrompt}\n\n部門別の確認手順: ${methodFor(persona.id)}`,
+      model: capability.model,
+      tools: approvedTools(persona.id, 'meeting'),
+      permissionMode: 'dontAsk',
+      allowedTools: approvedTools(persona.id, 'meeting'),
+      settingSources: [],
+      skills: [],
       cwd: workingDirectory ?? process.cwd(),
       abortController,
       pathToClaudeCodeExecutable: resolveClaudeBinaryPath(),
@@ -110,9 +122,13 @@ export async function runAgentTurn(
   let finalText = '';
   let isError = false;
   let sessionId: string | undefined;
+  let effectiveModel: string | undefined;
 
   try {
     for await (const message of q as AsyncGenerator<SDKMessage, void>) {
+      if (message.type === 'assistant' && message.message.model && message.message.model !== '<synthetic>') {
+        effectiveModel = message.message.model;
+      }
       if (message.type === 'result') {
         sessionId = message.session_id;
         if (message.subtype === 'success') {
@@ -138,5 +154,5 @@ export async function runAgentTurn(
     finalText = 'AIからの応答が空でした。';
   }
 
-  return { text: finalText, isError, sessionId };
+  return { text: finalText, isError, sessionId, requestedModel: capability.model, effectiveModel };
 }

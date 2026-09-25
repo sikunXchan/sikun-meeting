@@ -17,6 +17,7 @@ let meetings = [];
 let projects = [];
 let currentMeeting = null;
 let currentProjectId = null;
+let editingCardId = null;
 /** 議事録パネルで現在表示中のMinutesView（ダウンロードで参照する）。議事録自体は編集不可。 */
 let currentMinutes = null;
 /** FINAL DECISIONのAction Itemsのうち、現在編集フォームを開いている項目のid。'new'なら新規追加中。 */
@@ -305,6 +306,7 @@ function wireStaticEvents() {
   document.getElementById('project-select').addEventListener('change', (e) => {
     currentProjectId = e.target.value || null;
     document.getElementById('project-dashboard-btn').classList.toggle('hidden', !currentProjectId);
+    document.getElementById('community-open-btn').classList.toggle('hidden', !currentProjectId);
   });
   document.getElementById('project-new-btn').addEventListener('click', () => {
     document.getElementById('project-new-form').classList.toggle('hidden');
@@ -322,11 +324,82 @@ function wireStaticEvents() {
     document.getElementById('project-select').value = project.id;
     currentProjectId = project.id;
     document.getElementById('project-dashboard-btn').classList.remove('hidden');
+    document.getElementById('community-open-btn').classList.remove('hidden');
     document.getElementById('pj-name').value = '';
     document.getElementById('pj-desc').value = '';
     document.getElementById('project-new-form').classList.add('hidden');
   });
   document.getElementById('project-dashboard-btn').addEventListener('click', () => openProjectView(currentProjectId));
+  document.getElementById('pv-card-save').addEventListener('click', async () => {
+    if (!currentProjectId) return;
+    const el = (id) => document.getElementById(id);
+    try {
+      const goals = el('pv-card-goals').value.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => {
+        const [label, targetText, currentText, unit, evidence] = line.split('|').map((part) => part.trim());
+        if (!label || !targetText || !Number.isFinite(Number(targetText)) || (currentText && !Number.isFinite(Number(currentText)))) {
+          throw new Error('KGIは「指標 | 目標値 | 現在値 | 単位 | 測定根拠」で入力してください');
+        }
+        return { label, target: Number(targetText), current: currentText ? Number(currentText) : null, unit: unit || '', evidence: evidence || '' };
+      });
+      await api.projects.upsertArtifactCard(currentProjectId, {
+        id: editingCardId || undefined, name: el('pv-card-name').value, kind: el('pv-card-kind').value,
+        status: el('pv-card-status').value, summary: el('pv-card-summary').value,
+        knownIssues: el('pv-card-issues').value.split('\n'), backlog: el('pv-card-backlog').value.split('\n'), goals,
+      });
+      editingCardId = null;
+      el('pv-card-editor').open = false;
+      await openProjectView(currentProjectId);
+    } catch (error) { alert(error.message || String(error)); }
+  });
+  document.getElementById('pv-card-reset').addEventListener('click', () => {
+    editingCardId = null;
+    for (const id of ['pv-card-name', 'pv-card-status', 'pv-card-summary', 'pv-card-issues', 'pv-card-backlog', 'pv-card-goals']) {
+      document.getElementById(id).value = '';
+    }
+    document.getElementById('pv-card-kind').value = 'app';
+  });
+  document.getElementById('email-config-save').addEventListener('click', async () => {
+    const el = (id) => document.getElementById(id);
+    try {
+      const argumentTemplate = JSON.parse(el('email-template').value);
+      await api.email.configure({ endpoint: el('email-endpoint').value, sendTool: el('email-tool').value,
+        authorizationEnv: el('email-auth-env').value, argumentTemplate });
+      el('email-connection-result').textContent = '接続設定を保存しました。認証トークンはアプリに保存されません。';
+    } catch (error) { el('email-connection-result').textContent = error.message || String(error); }
+  });
+  document.getElementById('email-test').addEventListener('click', async () => {
+    const output = document.getElementById('email-connection-result');
+    output.textContent = 'MCPサーバーへ接続中…';
+    try { output.textContent = '利用可能なツール: ' + (await api.email.test()).join('、'); }
+    catch (error) { output.textContent = error.message || String(error); }
+  });
+  document.getElementById('email-meeting').addEventListener('change', async (event) => {
+    const id = event.target.value;
+    if (!id) return;
+    const meeting = await api.meetings.get(id);
+    if (!meeting.decision) return;
+    document.getElementById('email-subject').value = meeting.title;
+    document.getElementById('email-body').value = `会議「${meeting.title}」の決定事項\n\n${meeting.decision.decisionText}\n\n理由:\n${meeting.decision.reasoning.map((line) => '- ' + line).join('\n')}`;
+  });
+  document.getElementById('email-draft-create').addEventListener('click', async () => {
+    if (!currentProjectId) return;
+    try {
+      const el = (id) => document.getElementById(id);
+      await api.email.draft({ projectId: currentProjectId, sourceMeetingId: el('email-meeting').value,
+        to: el('email-to').value.split(/[,;\n]/).map((entry) => entry.trim()).filter(Boolean),
+        subject: el('email-subject').value, body: el('email-body').value });
+      await renderEmailDrafts(currentProjectId);
+    } catch (error) { alert(error.message || String(error)); }
+  });
+  document.getElementById('audit-run').addEventListener('click', async () => {
+    if (!currentProjectId) return;
+    const button = document.getElementById('audit-run');
+    const status = document.getElementById('audit-status');
+    button.disabled = true; status.textContent = '独立監査を実行中…';
+    try { await api.audit.run(currentProjectId); status.textContent = '監査記録を保存しました。'; await renderAudits(currentProjectId); }
+    catch (error) { status.textContent = error.message || String(error); }
+    finally { button.disabled = false; }
+  });
 
   document.getElementById('invite-btn').addEventListener('click', async () => {
     const personaId = document.getElementById('invite-persona-select').value;
@@ -455,8 +528,13 @@ function wireStaticEvents() {
         return { assignee: line.slice(0, idx).trim(), description: line.slice(idx + 1).trim() };
       });
     if (!decisionText) return;
-    await api.decision.finalize(currentMeeting.id, { decisionText, reasoning, actionItems });
-    await reloadCurrentMeeting();
+    const overrideReason = document.getElementById('df-override').value.trim();
+    try {
+      await api.decision.finalize(currentMeeting.id, { decisionText, reasoning, actionItems, overrideReason });
+      await reloadCurrentMeeting();
+    } catch (err) {
+      alert(err.message || String(err));
+    }
   });
 
   document.getElementById('mv-minutes-btn').addEventListener('click', async () => {
@@ -511,10 +589,15 @@ async function submitNewMeeting() {
 }
 
 function hideAll() {
+  document.body.classList.remove('commission-active');
+  document.body.classList.remove('community-active');
   document.getElementById('empty-state').classList.add('hidden');
   document.getElementById('new-meeting-form').classList.add('hidden');
   document.getElementById('meeting-view').classList.add('hidden');
   document.getElementById('project-view').classList.add('hidden');
+  document.getElementById('commission-create').classList.add('hidden');
+  document.getElementById('commission-view').classList.add('hidden');
+  document.getElementById('community-view').classList.add('hidden');
 }
 
 function renderProjectSelect() {
@@ -539,6 +622,7 @@ function renderProjectSelect() {
 async function openProjectView(projectId) {
   if (!projectId) return;
   const project = await api.projects.get(projectId);
+  currentProjectId = projectId;
   hideAll();
   document.getElementById('project-view').classList.remove('hidden');
   document.getElementById('pv-name').textContent = `📋 ${project.name}`;
@@ -574,9 +658,121 @@ async function openProjectView(projectId) {
     source.className = 'ai-source';
     source.textContent = `from: ${item.sourceMeetingTitle}`;
     body.appendChild(source);
+    const commissionButton = document.createElement('button');
+    commissionButton.type = 'button';
+    commissionButton.className = 'secondary small-btn';
+    commissionButton.textContent = 'AIチームに委託';
+    commissionButton.addEventListener('click', async () => {
+      commissionButton.disabled = true;
+      try {
+        const commission = await api.commissions.fromActionItem(project.id, item.id);
+        window.dispatchEvent(new CustomEvent('commission:open', { detail: commission.id }));
+      } catch (error) {
+        window.alert(error.message || String(error));
+      } finally {
+        commissionButton.disabled = false;
+      }
+    });
+    body.appendChild(commissionButton);
     li.appendChild(body);
 
     list.appendChild(li);
+  }
+  const cards = document.getElementById('pv-card-list');
+  cards.replaceChildren();
+  for (const card of project.artifactCards || []) {
+    const latest = card.versions.at(-1);
+    if (!latest) continue;
+    const row = document.createElement('div');
+    row.className = 'community-card';
+    const title = document.createElement('strong');
+    title.textContent = `${card.name} · v${latest.version} · ${latest.status}`;
+    const body = document.createElement('p');
+    body.textContent = latest.summary;
+    const details = document.createElement('small');
+    details.textContent = `問題: ${latest.knownIssues.join('、') || 'なし'} / バックログ: ${latest.backlog.join('、') || 'なし'} / KGI: ${latest.goals.map((goal) => `${goal.label} ${goal.current ?? '未測定'}/${goal.target}${goal.unit}`).join('、') || '未設定'} / 決定: ${latest.decisionIds.length}件`;
+    const edit = document.createElement('button');
+    edit.type = 'button'; edit.className = 'secondary small-btn'; edit.textContent = '編集';
+    edit.addEventListener('click', () => {
+      editingCardId = card.id;
+      const el = (id) => document.getElementById(id);
+      el('pv-card-name').value = card.name;
+      el('pv-card-kind').value = card.kind;
+      el('pv-card-status').value = latest.status;
+      el('pv-card-summary').value = latest.summary;
+      el('pv-card-issues').value = latest.knownIssues.join('\n');
+      el('pv-card-backlog').value = latest.backlog.join('\n');
+      el('pv-card-goals').value = latest.goals.map((goal) =>
+        [goal.label, goal.target, goal.current ?? '', goal.unit, goal.evidence].join(' | ')).join('\n');
+      el('pv-card-editor').open = true;
+      el('pv-card-editor').scrollIntoView({ block: 'nearest' });
+    });
+    row.append(title, body, details, edit);
+    cards.appendChild(row);
+  }
+  if (!cards.childElementCount) {
+    const empty = document.createElement('p'); empty.className = 'muted small'; empty.textContent = 'まだ成果物カルテがありません。'; cards.appendChild(empty);
+  }
+  const config = await api.email.config();
+  if (config) {
+    document.getElementById('email-endpoint').value = config.endpoint;
+    document.getElementById('email-tool').value = config.sendTool;
+    document.getElementById('email-auth-env').value = config.authorizationEnv;
+    document.getElementById('email-template').value = JSON.stringify(config.argumentTemplate, null, 2);
+  }
+  const meetingSelect = document.getElementById('email-meeting');
+  const previousMeeting = meetingSelect.value;
+  meetingSelect.replaceChildren(new Option('会議を選択', ''));
+  for (const meetingId of project.meetingIds) {
+    const meeting = await api.meetings.get(meetingId);
+    if (meeting.decision) meetingSelect.add(new Option(meeting.title, meeting.id));
+  }
+  if ([...meetingSelect.options].some((option) => option.value === previousMeeting)) meetingSelect.value = previousMeeting;
+  await renderEmailDrafts(projectId);
+  await renderAudits(projectId);
+}
+
+async function renderAudits(projectId) {
+  const container = document.getElementById('audit-records');
+  container.replaceChildren();
+  for (const audit of await api.audit.list(projectId)) {
+    const row = document.createElement('div'); row.className = 'community-card';
+    const title = document.createElement('strong');
+    title.textContent = `${new Date(audit.createdAt).toLocaleString('ja-JP')} · 会議${audit.meetingIds.length}件 · KGI${audit.goalProgress.length}件`;
+    const assessment = document.createElement('p'); assessment.textContent = audit.assessment;
+    row.append(title, assessment);
+    for (const finding of audit.findings) {
+      const detail = document.createElement('p');
+      detail.textContent = `${finding.kind}: ${finding.finding}（参照: ${finding.referenceId}）`;
+      row.appendChild(detail);
+    }
+    container.appendChild(row);
+  }
+  if (!container.childElementCount) container.textContent = '監査記録はまだありません。';
+}
+
+async function renderEmailDrafts(projectId) {
+  const container = document.getElementById('email-drafts');
+  container.replaceChildren();
+  for (const draft of await api.email.list(projectId)) {
+    const row = document.createElement('div'); row.className = 'community-card';
+    const title = document.createElement('strong');
+    title.textContent = `${draft.status === 'draft' ? '送信待ち' : draft.status} · ${draft.subject}`;
+    const detail = document.createElement('p');
+    detail.textContent = `宛先: ${draft.to.join('、')}\n${draft.body}\n${draft.result || ''}`;
+    row.append(title, detail);
+    if (draft.status === 'draft') {
+      const send = document.createElement('button'); send.type = 'button'; send.textContent = '内容を確認して送信';
+      send.addEventListener('click', async () => {
+        if (!confirm(`${draft.to.join('、')} に「${draft.subject}」を送信しますか？`)) return;
+        send.disabled = true;
+        try { await api.email.send(draft.id); }
+        catch (error) { alert(error.message || String(error)); }
+        await renderEmailDrafts(projectId);
+      });
+      row.appendChild(send);
+    }
+    container.appendChild(row);
   }
 }
 
@@ -999,6 +1195,12 @@ function renderDecision(m) {
   if (m.decision) {
     form.classList.add('hidden');
     const d = m.decision;
+    if (d.overrideReason) {
+      const override = document.createElement('p');
+      override.className = 'muted small';
+      override.textContent = '議決条件の例外理由: ' + d.overrideReason;
+      view.appendChild(override);
+    }
 
     const callout = document.createElement('div');
     callout.className = 'decision-callout';
@@ -1038,6 +1240,14 @@ function renderDecision(m) {
     view.appendChild(grid);
   } else {
     form.classList.remove('hidden');
+    const gateView = document.getElementById('df-gate');
+    gateView.textContent = '議決条件を確認中…';
+    void api.decision.gate(m.id).then((gate) => {
+      if (currentMeeting?.id !== m.id) return;
+      gateView.textContent = gate.ready
+        ? `議決可能 · 有効意見 ${gate.validStanceCount}/${gate.activeCount} · 賛成 ${gate.supportCount}`
+        : `議決条件が未達: ${gate.reasons.join('／')}。例外として確定する場合は理由を記録してください。`;
+    }).catch((error) => { gateView.textContent = error.message || String(error); });
   }
 }
 

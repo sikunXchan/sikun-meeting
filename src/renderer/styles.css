@@ -111,7 +111,7 @@ body {
 
 /* --- Project section --- */
 #sidebar select { width: 100%; padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px; font: inherit; background: #fff; }
-.project-actions { margin-top: 6px; }
+.project-actions { margin-top: 6px; flex-wrap: wrap; }
 .small-btn { padding: 4px 8px; font-size: 11px; }
 #project-new-form { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
 #project-new-form input { padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
@@ -370,3 +370,73 @@ fieldset input[type="checkbox"] { width: auto; }
 .mermaid-error pre {
   margin: 4px 0 0; font-size: 10px; color: var(--muted); white-space: pre-wrap; word-break: break-all;
 }
+
+/* --- AIチームへの委託 --- */
+body.commission-active #discussion-panel { display: none; }
+body.community-active #discussion-panel { display: none; }
+.commission-panel { max-width: 980px; margin: 0 auto; padding: 24px; }
+.commission-panel h2 { margin: 0 0 8px; font-size: 22px; }
+.commission-panel h3 { margin: 28px 0 10px; font-size: 15px; }
+.commission-panel textarea { resize: vertical; line-height: 1.6; }
+.commission-panel .row { display: flex; gap: 8px; align-items: center; }
+.commission-panel .row input { flex: 1; min-width: 0; }
+.commission-settings { margin: 18px 0; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+.commission-settings summary { cursor: pointer; font-size: 13px; font-weight: 700; }
+.commission-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.commission-sidebar-list { padding: 0; margin: 0 0 8px; list-style: none; }
+.commission-sidebar-list li { padding: 8px 10px; margin-bottom: 3px; border-left: 3px solid transparent; border-radius: 8px; cursor: pointer; font-size: 12px; }
+.commission-sidebar-list li:hover { background: #e2dac6; }
+.commission-sidebar-list li.active { background: #fff; border-left-color: var(--accent-dark); font-weight: 700; }
+.commission-sidebar-list small { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+.commission-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+.commission-header h2 { overflow-wrap: anywhere; }
+.commission-header .muted { overflow-wrap: anywhere; font-size: 12px; }
+.commission-status-running { background: var(--active-green-bg); color: #1f7a3d; }
+.commission-status-delivered { background: #d9f0dd; color: #1f7a3d; }
+.commission-status-failed { background: var(--danger-bg); color: var(--danger); }
+.commission-error { padding: 10px 12px; background: var(--danger-bg); color: #9a2925; border-radius: 8px; white-space: pre-wrap; }
+.commission-chat, .commission-work-list, .commission-events { display: flex; flex-direction: column; gap: 8px; }
+.commission-chat { max-height: 45vh; overflow-y: auto; margin: 12px 0; }
+.commission-message, .commission-work, .commission-event { padding: 10px 12px; background: #faf8f2; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+.commission-message.human { background: #fbf6e3; }
+.commission-message strong, .commission-work strong { display: block; margin-bottom: 3px; }
+.commission-work { border-left: 3px solid var(--accent-dark); }
+.commission-events { max-height: 240px; overflow-y: auto; }
+.commission-event { padding: 6px 8px; font-size: 11px; }
+.commission-event strong { color: var(--muted); margin-right: 8px; }
+.commission-event.error { color: #9a2925; }
+.commission-delivery { min-height: 80px; padding: 14px; background: #faf8f2; border: 1px solid var(--border); border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 13px; line-height: 1.6; }
+@media (max-width: 760px) { .commission-settings-grid { grid-template-columns: 1fr; } .commission-panel { padding: 14px; } }
+
+/* --- AIコミュニティ --- */
+.community-panel { max-width: 1320px; margin: 0 auto; padding: 24px; }
+.community-header { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.community-header h2 { margin: 0; font-size: 22px; }
+.community-header p { margin: 5px 0 18px; font-size: 13px; }
+.community-new { border: 1px solid var(--border); border-radius: 10px; padding: 12px 15px; background: #faf8f2; }
+.community-new > summary, .community-roster > summary { cursor: pointer; font-weight: 700; }
+.community-roster { margin: 12px 0; }
+#community-personas { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 5px 10px; margin-top: 10px; }
+#community-personas label { display: flex; align-items: center; gap: 6px; margin: 0; }
+#community-personas input { width: auto; margin: 0; }
+.community-columns { display: grid; grid-template-columns: minmax(230px, 300px) minmax(0, 1fr); gap: 18px; margin-top: 20px; }
+.community-feed { border-right: 1px solid var(--border); padding-right: 16px; }
+.community-feed h3 { font-size: 13px; margin: 0 0 10px; }
+.community-feed h3:not(:first-child) { margin-top: 24px; }
+.community-card { width: 100%; text-align: left; display: block; padding: 10px 12px; margin-bottom: 7px; border: 1px solid var(--border); background: #fff; border-radius: 9px; box-shadow: none; }
+.community-card.active { border-color: var(--accent-dark); background: #fffaf0; }
+.community-card strong { display: block; color: var(--ink); font-size: 13px; overflow-wrap: anywhere; }
+.community-card small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+.community-thread-header { display: flex; gap: 14px; justify-content: space-between; align-items: flex-start; }
+.community-thread-header h3 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+#community-post-body, #community-accepted-note { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+#community-post-body { margin: 14px 0; font-size: 14px; }
+.community-actions { flex-wrap: wrap; margin: 16px 0 8px; }
+.community-thread h4 { font-size: 14px; margin: 23px 0 9px; }
+.community-message { padding: 11px 13px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 9px; background: #faf8f2; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.6; }
+.community-message.human { background: #fbf6e3; }
+.community-message strong { display: block; margin-bottom: 4px; }
+.community-accept { border-top: 1px solid var(--border); margin-top: 22px; }
+#community-work-list > div { border-bottom: 1px solid var(--border); padding: 7px 0; font-size: 13px; }
+#community-delivery { white-space: pre-wrap; overflow-wrap: anywhere; background: #faf8f2; border: 1px solid var(--border); border-radius: 8px; padding: 12px; font: inherit; font-size: 13px; line-height: 1.6; max-height: 340px; overflow-y: auto; }
+@media (max-width: 950px) { .community-columns { grid-template-columns: 1fr; } .community-feed { border-right: 0; border-bottom: 1px solid var(--border); padding: 0 0 14px; } }

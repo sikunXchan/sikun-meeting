@@ -44,6 +44,9 @@ export interface Message {
   content: string;
   stance: Stance;
   createdAt: string;
+  roundKind?: 'initial' | 'discussion' | 'rebuttal';
+  requestedModel?: string;
+  effectiveModel?: string;
   /** ある発言への直接の応答・反対等の場合に参照元を残す。 */
   inReplyToMessageId?: string;
   /** 賛成/反対のリアクション（円陣UIでの簡易集計用）。 */
@@ -65,6 +68,20 @@ export interface Decision {
   actionItems: ActionItem[];
   decidedBy: 'chief';
   decidedAt: string;
+  gate?: DecisionGate;
+  overrideReason?: string;
+}
+
+export interface DecisionGate {
+  ready: boolean;
+  recommended: boolean;
+  reasons: string[];
+  activeCount: number;
+  validStanceCount: number;
+  supportCount: number;
+  opposeCount: number;
+  riskCount: number;
+  checkedAt: string;
 }
 
 /** 会議タイプごとの進行ルール（発言順・回数・投票有無等）。 */
@@ -106,6 +123,15 @@ export interface Meeting {
   endedAt: string | null;
   /** Architect/DevOps 等が実プロジェクトのコードを読んで発言する際の対象ディレクトリ。 */
   workingDirectory: string | null;
+  /** 初回意見は公開前にここへ保存する。既存会議では省略される。 */
+  initialRound?: {
+    status: 'collecting' | 'published';
+    participantIds: string[];
+    baseTranscriptLength: number;
+    responses: Message[];
+    startedAt: string;
+  };
+  artifactCardSnapshot?: { cardId: string; version: number; summary: string }[];
 }
 
 export interface Project {
@@ -116,6 +142,38 @@ export interface Project {
   /** 会議のDecisionから転記された、プロジェクト側で追跡するアクションアイテム。 */
   actionItems: (ActionItem & { meetingId: string; sourceMeetingTitle: string })[];
   createdAt: string;
+  artifactCards?: ArtifactCard[];
+}
+
+export interface ArtifactGoal {
+  id: string;
+  label: string;
+  target: number;
+  current: number | null;
+  unit: string;
+  evidence: string;
+  verifiedAt: string | null;
+}
+
+export interface ArtifactCardVersion {
+  version: number;
+  status: string;
+  summary: string;
+  knownIssues: string[];
+  backlog: string[];
+  goals: ArtifactGoal[];
+  decisionIds: string[];
+  commissionIds: string[];
+  updatedAt: string;
+  source: 'human' | 'meeting' | 'commission';
+}
+
+export interface ArtifactCard {
+  id: string;
+  name: string;
+  kind: 'app' | 'tool' | 'other';
+  createdAt: string;
+  versions: ArtifactCardVersion[];
 }
 
 export interface DB {
