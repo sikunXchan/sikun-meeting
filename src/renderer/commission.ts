@@ -111,15 +111,17 @@
     const { commission: item, events } = snapshot;
     if (item.id !== selectedId) return;
     el('commission-title').textContent = item.goal;
-    el('commission-subtitle').textContent = `${item.settings?.provider === 'codex' ? 'Codex' : 'Claude'} · 作業場所: ${item.workingDirectory}`;
-    el('commission-status').textContent = statusLabels[item.status] || item.status;
+    const autonomy = item.settings?.autonomy;
+    el('commission-subtitle').textContent = `${item.settings?.provider === 'codex' ? 'Codex' : 'Claude'}${autonomy?.enabled ? ` · 無人運用${autonomy.continuous ? '（KGIまで継続）' : ''}` : ''} · 作業場所: ${item.workingDirectory}`;
+    const retryPending = item.status === 'failed' && Boolean(item.autoRetry?.nextAt);
+    el('commission-status').textContent = retryPending ? '自動再試行待ち' : (statusLabels[item.status] || item.status);
     el('commission-status').className = `status-badge commission-status-${item.status}`;
     if (item.error) showError(item.error);
     const consulting = item.status === 'consulting';
     el('commission-consult-section').classList.toggle('hidden', !consulting);
     el('commission-progress-section').classList.toggle('hidden', consulting);
     el('commission-pause-btn').classList.toggle('hidden', item.status !== 'running');
-    el('commission-stop-btn').classList.toggle('hidden', item.status !== 'running');
+    el('commission-stop-btn').classList.toggle('hidden', item.status !== 'running' && !retryPending);
     el('commission-resume-btn').classList.toggle('hidden', !['paused', 'stopped', 'interrupted', 'failed'].includes(item.status));
     el('commission-revision-section').classList.toggle('hidden', item.status !== 'delivered');
     el('commission-confirm-btn').disabled = busy || !item.consultation.some((entry) => entry.speaker === 'it_consultant');
@@ -168,10 +170,11 @@
       addTextRow(goalChecks, 'commission-event', check.complete ? '達成と判定' : '未達・追加作業',
         `根拠: ${check.evidence.join('、') || 'なし'}\n残り: ${check.remaining.join('、') || 'なし'}`);
     }
+    renderAutonomy(item);
     const runs = el('commission-runs');
     runs.replaceChildren();
     for (const run of item.runs.slice().reverse()) {
-      addTextRow(runs, 'commission-event', `${run.provider === 'codex' ? 'Codex' : 'Claude'} · ${run.personaId} · ${run.phase} · ${run.status}`, `要求モデル ${run.requestedModel} / 応答モデル ${run.effectiveModel || '未確認'} / 使用モデル ${run.observedModels.join(', ') || '未確認'} / ${run.numTurns}ターン`);
+      addTextRow(runs, 'commission-event', `${run.provider === 'codex' ? 'Codex' : 'Claude'} · ${run.personaId} · ${run.phase} · ${run.status}`, `要求モデル ${run.requestedModel} / 応答モデル ${run.effectiveModel || '未確認'} / 使用モデル ${run.observedModels.join(', ') || '未確認'} / ${run.numTurns}ターン / ${(run.tokens ?? 0).toLocaleString('ja-JP')}トークン`);
     }
     const eventList = el('commission-events');
     eventList.replaceChildren();
@@ -179,6 +182,48 @@
       addTextRow(eventList, `commission-event ${event.kind}`, new Date(event.at).toLocaleString('ja-JP'), event.detail);
     }
     el('commission-delivery').textContent = item.delivery || (item.status === 'delivered' ? '納品レポートがありません' : '作業完了後に表示されます。');
+  }
+
+  function renderAutonomy(item) {
+    const autonomy = item.settings?.autonomy;
+    el('commission-autonomy-section').classList.toggle('hidden', !autonomy?.enabled);
+    const info = el('commission-autonomy-info');
+    info.replaceChildren();
+    if (!autonomy?.enabled) return;
+    const tokens = item.runs.reduce((sum, run) => sum + (run.tokens ?? 0), 0);
+    addTextRow(info, 'commission-event', '予算と使用量', [
+      `AI呼び出し ${item.runs.length} / ${item.settings.maxCalls}回`,
+      `トークン ${tokens.toLocaleString('ja-JP')} / ${autonomy.maxTokens === null ? '無制限' : autonomy.maxTokens.toLocaleString('ja-JP')}`,
+      `期限 ${autonomy.deadline ? new Date(autonomy.deadline).toLocaleString('ja-JP') : 'なし'}`,
+      autonomy.continuous ? `サイクル ${item.cycle ?? 1} / 最大${autonomy.maxCycles}` : '継続なし（1回の納品で終了）',
+      `自動再試行 ${item.autoRetry?.count ?? 0} / ${autonomy.retryLimit}回${item.autoRetry?.nextAt ? `（次回 ${new Date(item.autoRetry.nextAt).toLocaleString('ja-JP')}）` : ''}`,
+    ].join('\n'));
+    if (item.stopReason) addTextRow(info, 'commission-event', '停止理由', item.stopReason);
+    for (const cycle of (item.cycles || []).slice().reverse()) {
+      addTextRow(info, 'commission-event', `サイクル${cycle.index} · 採用ファイル${cycle.acceptedArtifacts}件 · ${cycle.calls}回 · ${cycle.tokens.toLocaleString('ja-JP')}トークン`,
+        cycle.kgi.map((goal) => `${goal.met ? '達成' : '未達'} ${goal.label}: ${goal.current ?? '未測定'} / ${goal.target}${goal.unit}（${goal.evidence || '根拠なし'}）`).join('\n'));
+    }
+  }
+
+  function autonomySettings() {
+    if (!el('commission-autonomy').checked) return undefined;
+    const maxTokens = el('commission-max-tokens').value.trim();
+    const deadline = el('commission-deadline').value;
+    return {
+      enabled: true,
+      continuous: el('commission-continuous').checked,
+      maxTokens: maxTokens ? Number(maxTokens) : null,
+      deadline: deadline ? new Date(deadline).toISOString() : null,
+      maxCycles: Number(el('commission-max-cycles').value),
+      retryLimit: Number(el('commission-retry-limit').value),
+    };
+  }
+
+  function updateAutonomyFields() {
+    const enabled = el('commission-autonomy').checked;
+    el('commission-continuous').disabled = !enabled;
+    if (!enabled) el('commission-continuous').checked = false;
+    el('commission-max-calls').max = enabled ? '5000' : '200';
   }
 
   async function refresh() {
@@ -240,6 +285,8 @@
   }
   el('commission-provider').addEventListener('change', updateProviderFields);
   updateProviderFields();
+  el('commission-autonomy').addEventListener('change', updateAutonomyFields);
+  updateAutonomyFields();
   el('commission-create-btn').addEventListener('click', () => action(async () => {
     const goal = el('commission-goal').value.trim();
     if (!goal) throw new Error('目標を入力してください');
@@ -258,6 +305,7 @@
       maxCalls: Number(el('commission-max-calls').value),
       maxTurnsPerCall: Number(el('commission-max-turns').value),
       modelByPersona: el('commission-provider').value === 'claude' ? parsePersonaModels(el('commission-model-by-persona').value) : {},
+      autonomy: autonomySettings(),
     };
     const item = await api.commissions.create({ projectId, goal,
       successCriteria,

@@ -209,6 +209,17 @@
             </div>
             <label class="claude-only">役割別モデル（1行につき personaId=model）<textarea id="commission-model-by-persona" rows="3" placeholder="engineer=claude-sonnet-5&#10;qa=claude-haiku-4-5-20251001"></textarea></label>
           </details>
+          <details id="commission-autonomy-settings" class="commission-settings"><summary>無人運用</summary>
+            <p class="muted">企画の確定は人間が行います。確定後は失敗時の自動再試行と再起動後の自動再開を行い、メールは送信しません。</p>
+            <label class="commission-check"><input id="commission-autonomy" type="checkbox" /> 無人運用（自動再試行・再起動後の自動再開）</label>
+            <label class="commission-check"><input id="commission-continuous" type="checkbox" /> KGIを達成するまで改善を続ける（KGIを設定した成果物カルテが必要）</label>
+            <div class="commission-settings-grid">
+              <label>トークン予算（空欄は無制限） <input id="commission-max-tokens" type="number" min="1" step="1000" placeholder="例: 5000000" /></label>
+              <label>期限（空欄は無期限） <input id="commission-deadline" type="datetime-local" /></label>
+              <label>最大サイクル数 <input id="commission-max-cycles" type="number" min="1" max="100" value="10" /></label>
+              <label>連続した自動再試行の回数 <input id="commission-retry-limit" type="number" min="0" max="10" value="3" /></label>
+            </div>
+          </details>
           <div class="row"><button id="commission-create-btn" type="button">ITコンサルタントと相談を始める</button><button id="commission-create-cancel" class="secondary" type="button">キャンセル</button></div>
         </div>
 
@@ -229,6 +240,7 @@
             <div id="commission-work-list" class="commission-work-list"></div>
             <h3>成果ファイルと内部判断</h3><div id="commission-artifacts" class="commission-work-list"></div>
             <h3>目標の達成確認</h3><div id="commission-goal-checks" class="commission-work-list"></div>
+            <div id="commission-autonomy-section" class="hidden"><h3>無人運用と継続サイクル</h3><div id="commission-autonomy-info" class="commission-work-list"></div></div>
             <h3>AI実行履歴・モデル</h3><div id="commission-runs" class="commission-events"></div>
             <h3>活動記録</h3><div id="commission-events" class="commission-events"></div>
             <h3>納品</h3><pre id="commission-delivery" class="commission-delivery"></pre>
@@ -342,6 +354,7 @@
   <script src="build-info.js"></script>
   <script src="vendor/marked.umd.js"></script>
   <script src="vendor/mermaid.min.js"></script>
+  <script src="sanitize.js"></script>
   <script src="renderer.js"></script>
   <script src="commission.js"></script>
   <script src="community.js"></script>

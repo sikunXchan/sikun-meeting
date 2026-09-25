@@ -61,12 +61,16 @@ export class SdkAgentClient implements AgentClient {
         }
         if (message.type === 'result') {
           for (const model of Object.keys(message.modelUsage ?? {})) models.add(model);
+          const tokens = Object.values(message.modelUsage ?? {}).reduce((sum, usage) => sum
+            + (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0)
+            + (usage.cacheReadInputTokens ?? 0) + (usage.cacheCreationInputTokens ?? 0), 0);
           if (message.subtype !== 'success' || message.is_error) {
             throw Object.assign(new Error(message.subtype === 'success' ? message.result : `AI実行が ${message.subtype} で停止しました`), {
               observedModels: [...models],
               effectiveModel,
               estimatedCostUsd: message.total_cost_usd,
               numTurns: message.num_turns,
+              tokens,
             });
           }
           result = {
@@ -75,6 +79,7 @@ export class SdkAgentClient implements AgentClient {
             effectiveModel,
             estimatedCostUsd: message.total_cost_usd,
             numTurns: message.num_turns,
+            tokens,
           };
         }
       }

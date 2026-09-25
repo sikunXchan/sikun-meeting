@@ -58,3 +58,17 @@ export function approvedTools(personaId: string, phase: 'meeting' | 'read' | 'wo
   if (phase === 'meeting' || phase === 'read') return capability.meetingTools;
   return phase === 'review' ? capability.reviewTools : capability.workTools;
 }
+
+export interface CodexPolicy {
+  sandboxMode: 'read-only' | 'workspace-write';
+  networkAccessEnabled: boolean;
+  canRunCode: boolean;
+}
+
+/** Codex SDKは個別ツールを許可できないため、書き込み範囲とネットワークで部門差を表す。 */
+export function codexPolicy(personaId: string, phase: 'meeting' | 'read' | 'work' | 'review'): CodexPolicy {
+  const canRunCode = CODE_ROLES.has(personaId);
+  if (phase === 'meeting' || phase === 'read') return { sandboxMode: 'read-only', networkAccessEnabled: false, canRunCode };
+  if (phase === 'review') return { sandboxMode: 'read-only', networkAccessEnabled: canRunCode, canRunCode };
+  return { sandboxMode: 'workspace-write', networkAccessEnabled: canRunCode, canRunCode };
+}
