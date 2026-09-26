@@ -124,7 +124,16 @@
     el('commission-stop-btn').classList.toggle('hidden', item.status !== 'running' && !retryPending);
     el('commission-resume-btn').classList.toggle('hidden', !['paused', 'stopped', 'interrupted', 'failed'].includes(item.status));
     el('commission-revision-section').classList.toggle('hidden', item.status !== 'delivered');
-    el('commission-confirm-btn').disabled = busy || !item.consultation.some((entry) => entry.speaker === 'it_consultant');
+    const consultationRunning = item.runs.some((run) => run.phase === 'consultation' && run.status === 'running');
+    const hasConsultantAnswer = item.consultation.some((entry) => entry.speaker === 'it_consultant');
+    el('commission-send-btn').disabled = busy || consultationRunning;
+    el('commission-send-btn').textContent = consultationRunning ? '回答中…' : '相談する';
+    el('commission-plan').disabled = consultationRunning || !hasConsultantAnswer;
+    el('commission-confirm-btn').disabled = busy || consultationRunning || !hasConsultantAnswer;
+    el('commission-consult-status').textContent = consultationRunning
+      ? 'ITコンサルタントが回答を作成中です。完了すると相談と企画の確定ができます。'
+      : busy && !hasConsultantAnswer ? '相談を開始しています…'
+        : !hasConsultantAnswer ? 'まだ回答がありません。「相談する」から再度依頼できます。' : '';
     if (!planEdited) el('commission-plan').value = item.planText || '';
 
     const chat = el('commission-chat');
