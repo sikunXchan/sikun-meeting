@@ -8,7 +8,7 @@
   "author": "sikunlily",
   "license": "UNLICENSED",
   "scripts": {
-    "build": "tsc -p tsconfig.json && node scripts/copy-static.js",
+    "build": "tsc -p tsconfig.json && node scripts/copy-static.js && node scripts/sync-mobile-assets.js",
     "build:watch": "tsc -p tsconfig.json --watch",
     "start": "npm run build && electron .",
     "dev": "npm run build && electron . --dev",
@@ -21,12 +21,14 @@
     "@modelcontextprotocol/client": "^2.1.0",
     "@openai/codex-sdk": "^0.156.1",
     "marked": "^18.0.11",
-    "mermaid": "^11.17.2"
+    "mermaid": "^11.17.2",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "electron": "^33.2.1",
-    "electron-builder": "^25.1.8",
+    "@types/qrcode": "^1.5.6",
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.7.2"
   },
   "build": {

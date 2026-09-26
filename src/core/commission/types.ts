@@ -10,6 +10,15 @@ export interface ConsultationMessage {
   createdAt: string;
 }
 
+export interface AutonomySettings {
+  enabled: boolean;
+  continuous: boolean;
+  maxTokens: number | null;
+  deadline: string | null;
+  maxCycles: number;
+  retryLimit: number;
+}
+
 export interface CommissionSettings {
   provider: CommissionProvider;
   codexModel: string;
@@ -22,6 +31,7 @@ export interface CommissionSettings {
   maxCalls: number;
   maxTurnsPerCall: number;
   modelByPersona: Record<string, string>;
+  autonomy?: AutonomySettings;
 }
 
 export interface WorkItem {
@@ -37,6 +47,7 @@ export interface WorkItem {
   result?: string;
   review?: string;
   attempts: number;
+  cycle?: number;
 }
 
 export interface Artifact {
@@ -83,7 +94,7 @@ export interface ProjectMemory {
 export interface AgentRun {
   id: string;
   provider?: CommissionProvider;
-  phase: 'consultation' | 'planning' | 'work' | 'review' | 'goal_check' | 'delivery';
+  phase: 'consultation' | 'planning' | 'work' | 'review' | 'goal_check' | 'kgi_check' | 'delivery';
   workItemId?: string;
   personaId: string;
   requestedModel: string;
@@ -96,6 +107,7 @@ export interface AgentRun {
   error?: string;
   estimatedCostUsd: number;
   numTurns: number;
+  tokens?: number;
 }
 
 export interface ActivityEvent {
@@ -134,6 +146,31 @@ export interface Commission {
   revisionRequests: string[];
   plannedRevisionCount: number;
   error?: string;
+  cycle?: number;
+  cycles?: CycleRecord[];
+  stopReason?: string;
+  autoRetry?: { count: number; nextAt?: string };
+}
+
+export interface KgiMeasurement {
+  goalId: string;
+  label: string;
+  target: number;
+  current: number | null;
+  unit: string;
+  evidence: string;
+  met: boolean;
+}
+
+export interface CycleRecord {
+  index: number;
+  startedAt: string;
+  endedAt: string;
+  delivery: string;
+  kgi: KgiMeasurement[];
+  acceptedArtifacts: number;
+  calls: number;
+  tokens: number;
 }
 
 export interface GoalCheck {
@@ -144,6 +181,7 @@ export interface GoalCheck {
   remaining: string[];
   workItemCount: number;
   reviewerPersonaId: 'critic';
+  cycle?: number;
 }
 
 export interface AgentRequest {
@@ -166,6 +204,7 @@ export interface AgentResponse {
   effectiveModel?: string;
   estimatedCostUsd: number;
   numTurns: number;
+  tokens?: number;
 }
 
 export interface AgentClient {

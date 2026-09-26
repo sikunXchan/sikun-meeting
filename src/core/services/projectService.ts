@@ -109,6 +109,22 @@ export class ProjectService {
     });
   }
 
+  async recordKgiMeasurement(projectId: string, cardId: string, commissionId: string,
+    measurements: { goalId: string; current: number | null; evidence: string }[]): Promise<void> {
+    await this.repo.updateProject(projectId, (project) => {
+      const card = project.artifactCards?.find((entry) => entry.id === cardId);
+      if (!card) throw new Error('成果物カルテが見つかりません');
+      const latest = card.versions.at(-1)!;
+      const goals = latest.goals.map((goal) => {
+        const measured = measurements.find((entry) => entry.goalId === goal.id);
+        if (!measured || measured.current === null) return { ...goal };
+        return { ...goal, current: measured.current, evidence: measured.evidence.slice(0, 1000), verifiedAt: nowIso() };
+      });
+      card.versions.push({ ...structuredClone(latest), version: latest.version + 1, goals,
+        commissionIds: [...new Set([...latest.commissionIds, commissionId])], updatedAt: nowIso(), source: 'commission' });
+    });
+  }
+
   /**
    * ある会議のAction Items一覧をプロジェクト側の転記済みリストに反映する。
    * 決定確定時の初回転記にも、後からのAction Items編集（追加・書き換え・削除）にも使う

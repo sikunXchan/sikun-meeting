@@ -598,6 +598,7 @@ function hideAll() {
   document.getElementById('commission-create').classList.add('hidden');
   document.getElementById('commission-view').classList.add('hidden');
   document.getElementById('community-view').classList.add('hidden');
+  document.getElementById('mobile-view').classList.add('hidden');
 }
 
 function renderProjectSelect() {
@@ -1093,14 +1094,9 @@ function escapeHtml(str) {
   return str.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-/** innerHTMLに入れる前の簡易サニタイズ。CSP(script-src 'self', inlineなし)が主防御だが念のため。 */
+/** innerHTMLに入れる前に、sanitize.ts の許可リストで要素と属性を絞る。CSPと合わせた二重の防御。 */
 function sanitizeHtml(html) {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
-    .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
-    .replace(/\shref\s*=\s*"javascript:[^"]*"/gi, ' href="#"')
-    .replace(/\shref\s*=\s*'javascript:[^']*'/gi, " href='#'");
+  return window.sanitizeHtml(html);
 }
 
 /**

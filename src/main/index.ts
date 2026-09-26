@@ -1,22 +1,30 @@
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, Tray, nativeImage, powerSaveBlocker, session, shell } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { createAppContext, AppContext } from '../core';
 import { IPC_CHANNELS, registerIpcHandlers } from './ipc';
 import { CreateMeetingInput } from '../core/services/meetingService';
+import { AppSettingsStore } from './appSettings';
+import { isAppUrl, isExternalWebUrl } from './security';
+import { MobileSyncService } from '../core/mobile/service';
+import { createTokenStore } from './mobileToken';
 
 let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let quitting = false;
+let sleepBlocker: number | null = null;
+let settingsStore: AppSettingsStore | null = null;
 
 /**
  * 外部アプリ(Sikun Lab IDE等)からの起動引数 `--pending-meeting <jsonファイルパス>` を見て、
  * あれば指定のJSON({title, agenda, workingDirectory, meetingTypeId?})から会議を自動作成し、
  * 使い終わったJSONファイルは削除する。戻り値は作成した会議のID（引数がなければnull）。
  */
-async function createPendingMeetingFromArgs(ctx: AppContext): Promise<string | null> {
-  const flagIndex = process.argv.indexOf('--pending-meeting');
-  if (flagIndex === -1 || flagIndex + 1 >= process.argv.length) return null;
+async function createPendingMeetingFromArgs(ctx: AppContext, argv: string[] = process.argv): Promise<string | null> {
+  const flagIndex = argv.indexOf('--pending-meeting');
+  if (flagIndex === -1 || flagIndex + 1 >= argv.length) return null;
 
-  const jsonPath = process.argv[flagIndex + 1];
+  const jsonPath = argv[flagIndex + 1];
   try {
     const raw = fs.readFileSync(jsonPath, 'utf-8');
     const parsed = JSON.parse(raw) as Partial<CreateMeetingInput>;
@@ -59,10 +67,11 @@ function windowTitle(): string {
   }
 }
 
-function createWindow(): void {
+function createWindow(show = true): void {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    show,
     title: windowTitle(),
     // exeファイル自体のアイコン(electron-builderがbuild/icon.pngから生成)とは別に、
     // 実行中のウィンドウ/タスクバー/Alt+Tabに表示されるアイコンはここで明示しないと
@@ -72,23 +81,27 @@ function createWindow(): void {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      // preload.ts はローカルの ./ipc から定数をrequireしている。sandbox:true だと
-      // preloadは専用のサンドボックス化モジュールローダーで動き、相対requireができず
-      // "module not found: ./ipc" になるため false にする。contextIsolation:true が
-      // レンダラー(信頼できないWebコンテンツ)からNode/Electron内部を隠す本来の境界であり、
-      // preload自体はこちらが書いた信頼済みコードなので Node フルアクセスで問題ない。
-      sandbox: false,
+      // AIの発言（作業場所のファイル経由で外部の文章が混ざりうる）を描画するため、レンダラーをOSのサンドボックスで隔離する。
+      sandbox: true,
+      webSecurity: true,
     },
   });
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
   // レンダラーのconsole出力・読み込み失敗をメインプロセス側のログにも転送する（デバッグ用）。
-  mainWindow.webContents.on('console-message', (_e, level, message, line, sourceId) => {
-    console.log(`[renderer:${level}] ${message} (${sourceId}:${line})`);
+  mainWindow.webContents.on('console-message', (details) => {
+    console.log(`[renderer:${details.level}] ${details.message} (${details.sourceId}:${details.lineNumber})`);
   });
   mainWindow.webContents.on('did-fail-load', (_e, errorCode, errorDescription) => {
     console.error(`[renderer] did-fail-load: ${errorCode} ${errorDescription}`);
+  });
+
+  mainWindow.on('close', (event) => {
+    if (!quitting && settingsStore?.get().keepInTray && tray) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
   });
 
   mainWindow.on('closed', () => {
@@ -96,10 +109,97 @@ function createWindow(): void {
   });
 }
 
-app.whenReady().then(async () => {
+function showWindow(): void {
+  if (!mainWindow) createWindow();
+  if (mainWindow?.isMinimized()) mainWindow.restore();
+  mainWindow?.show();
+  mainWindow?.focus();
+}
+
+/** 外部ページを画面内に読み込ませない。preloadのAPIが外部ページに渡るのを防ぐ。 */
+function installNavigationGuards(): void {
+  app.on('web-contents-created', (_event, contents) => {
+    contents.on('will-navigate', (event) => {
+      if (isAppUrl(event.url)) return;
+      event.preventDefault();
+      if (isExternalWebUrl(event.url)) void shell.openExternal(event.url);
+    });
+    contents.on('will-redirect', (event) => {
+      if (!isAppUrl(event.url)) event.preventDefault();
+    });
+    contents.on('will-attach-webview', (event) => event.preventDefault());
+    contents.setWindowOpenHandler(({ url }) => {
+      if (isExternalWebUrl(url)) void shell.openExternal(url);
+      return { action: 'deny' };
+    });
+  });
+}
+
+function updateAutonomyState(ctx: AppContext): void {
+  const running = ctx.commissionService.hasRunning();
+  if (running && sleepBlocker === null) sleepBlocker = powerSaveBlocker.start('prevent-app-suspension');
+  if (!running && sleepBlocker !== null) {
+    powerSaveBlocker.stop(sleepBlocker);
+    sleepBlocker = null;
+  }
+  tray?.setToolTip(`Sikun Meeting${ctx.commissionService.hasActiveAutonomy() ? '（無人運用中）' : ''}`);
+}
+
+function applyLoginItem(enabled: boolean): void {
+  if (process.platform !== 'win32' && process.platform !== 'darwin') return;
+  app.setLoginItemSettings({ openAtLogin: enabled, args: ['--hidden'] });
+}
+
+function buildTrayMenu(): Menu {
+  const settings = settingsStore!.get();
+  const items: Electron.MenuItemConstructorOptions[] = [
+    { label: 'ウィンドウを表示', click: showWindow },
+    { type: 'separator' },
+    { label: 'ウィンドウを閉じても常駐する', type: 'checkbox', checked: settings.keepInTray,
+      click: (item) => { settingsStore!.set({ keepInTray: item.checked }); tray?.setContextMenu(buildTrayMenu()); } },
+  ];
+  if (process.platform === 'win32' || process.platform === 'darwin') {
+    items.push({ label: 'ログイン時に起動する', type: 'checkbox', checked: settings.launchAtLogin,
+      click: (item) => { settingsStore!.set({ launchAtLogin: item.checked }); applyLoginItem(item.checked); tray?.setContextMenu(buildTrayMenu()); } });
+  }
+  items.push({ type: 'separator' }, { label: '終了', click: () => { quitting = true; app.quit(); } });
+  return Menu.buildFromTemplate(items);
+}
+
+function createTray(): void {
+  const icon = nativeImage.createFromPath(path.join(__dirname, '..', 'icon.png'));
+  tray = new Tray(icon.isEmpty() ? icon : icon.resize({ width: 16, height: 16 }));
+  tray.setToolTip('Sikun Meeting');
+  tray.setContextMenu(buildTrayMenu());
+  tray.on('click', showWindow);
+}
+
+const singleInstance = app.requestSingleInstanceLock();
+if (!singleInstance) app.quit();
+installNavigationGuards();
+app.on('before-quit', () => { quitting = true; });
+
+if (singleInstance) app.whenReady().then(async () => {
   const dataDir = path.join(app.getPath('userData'), 'data');
   const ctx = createAppContext(dataDir);
-  registerIpcHandlers(ctx, () => mainWindow);
+  settingsStore = new AppSettingsStore(dataDir);
+  session.defaultSession.setPermissionRequestHandler((_contents, permission, callback) => callback(permission === 'clipboard-sanitized-write'));
+  session.defaultSession.setPermissionCheckHandler((_contents, permission) => permission === 'clipboard-sanitized-write');
+  const mobileSync = new MobileSyncService(dataDir, ctx.repo, createTokenStore(dataDir));
+  registerIpcHandlers(ctx, () => mainWindow, mobileSync);
+  mobileSync.start();
+  app.once('before-quit', () => mobileSync.stop());
+  try { createTray(); } catch (error) { console.error('[tray] トレイを作成できません', error); }
+  applyLoginItem(settingsStore.get().launchAtLogin);
+  ctx.commissionService.subscribe(() => updateAutonomyState(ctx));
+  ctx.commissionService.resumeAutonomous();
+  updateAutonomyState(ctx);
+  app.on('second-instance', (_event, argv) => {
+    showWindow();
+    void createPendingMeetingFromArgs(ctx, argv).then((meetingId) => {
+      if (meetingId) mainWindow?.webContents.send(IPC_CHANNELS.pendingMeetingReady, meetingId);
+    });
+  });
   // 通常会議とは別の監査を、アプリ起動時と稼働中の1日ごとに確認する。
   void ctx.auditService.runDue();
   const auditTimer = setInterval(() => void ctx.auditService.runDue(), 24 * 60 * 60 * 1000);
@@ -107,7 +207,7 @@ app.whenReady().then(async () => {
 
   const [pendingMeetingId] = await Promise.all([
     createPendingMeetingFromArgs(ctx),
-    Promise.resolve(createWindow()),
+    Promise.resolve(createWindow(!process.argv.includes('--hidden'))),
   ]);
 
   if (pendingMeetingId && mainWindow) {
@@ -124,7 +224,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  if (process.platform !== 'darwin' && !(settingsStore?.get().keepInTray && tray)) {
     app.quit();
   }
 });

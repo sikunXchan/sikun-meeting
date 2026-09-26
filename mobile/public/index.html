@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="theme-color" content="#e8c25a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Sikun" />
+  <title>Sikun Meeting</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <button id="back-btn" class="icon-btn hidden" type="button" aria-label="会議一覧に戻る">‹</button>
+    <div class="topbar-title">
+      <strong id="topbar-title">Sikun Meeting</strong>
+      <small id="topbar-sub"></small>
+    </div>
+    <button id="refresh-btn" class="icon-btn hidden" type="button" aria-label="最新の内容を読み込む">↻</button>
+  </header>
+  <p id="banner" class="banner hidden" role="status"></p>
+  <main id="app" aria-live="polite"></main>
+  <noscript>この画面の表示にはJavaScriptが必要です。</noscript>
+  <script src="/vendor/marked.umd.js"></script>
+  <script src="/js/sanitize.js"></script>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

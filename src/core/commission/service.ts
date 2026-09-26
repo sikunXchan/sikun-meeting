@@ -7,9 +7,75 @@ import { ProjectService } from '../services/projectService';
 import { CommissionStore } from './store';
 import { compareSnapshots, snapshotWorkspace } from './artifacts';
 import {
-  ActivityEvent, AgentClient, AgentResponse, AgentRun, Commission, CommissionSettings,
-  ConsultationMessage, GoalCheck, WorkItem,
+  ActivityEvent, AgentClient, AgentResponse, AgentRun, AutonomySettings, Commission, CommissionSettings,
+  ConsultationMessage, CycleRecord, GoalCheck, KgiMeasurement, WorkItem,
 } from './types';
+import { ArtifactGoal } from '../types';
+
+/** 予算・上限・無進捗など、再試行しても結果が変わらない意図的な停止。 */
+export class CommissionHalt extends Error {}
+
+export interface CommissionServiceOptions {
+  retryDelayMs?: (attempt: number) => number;
+}
+
+const DEFAULT_AUTONOMY: AutonomySettings = {
+  enabled: false, continuous: false, maxTokens: null, deadline: null, maxCycles: 10, retryLimit: 3,
+};
+
+function clip(text: string | undefined, max: number): string {
+  const value = text ?? '';
+  return value.length > max ? `${value.slice(0, max)}…（以下省略）` : value;
+}
+
+function acceptedSummary(items: WorkItem[]): string {
+  return items.filter((work) => work.status === 'accepted').slice(-20)
+    .map((work) => `${work.title}: ${clip(work.result, 600)}`).join('\n');
+}
+
+function normalizeAutonomy(raw: Partial<AutonomySettings>): AutonomySettings {
+  const value = { ...DEFAULT_AUTONOMY, ...raw };
+  if (typeof value.enabled !== 'boolean' || typeof value.continuous !== 'boolean') throw new Error('無人運用の設定が不正です');
+  if (value.continuous && !value.enabled) throw new Error('KGIまでの継続には無人運用を有効にしてください');
+  if (value.maxTokens !== null && (!Number.isInteger(value.maxTokens) || value.maxTokens < 1)) throw new Error('トークン予算が不正です');
+  if (value.deadline !== null && (typeof value.deadline !== 'string' || !Number.isFinite(Date.parse(value.deadline)))) throw new Error('期限が不正です');
+  if (!Number.isInteger(value.maxCycles) || value.maxCycles < 1 || value.maxCycles > 100) throw new Error('最大サイクル数が不正です');
+  if (!Number.isInteger(value.retryLimit) || value.retryLimit < 0 || value.retryLimit > 10) throw new Error('自動再試行の回数が不正です');
+  return {
+    enabled: value.enabled, continuous: value.continuous, maxTokens: value.maxTokens,
+    deadline: value.deadline === null ? null : new Date(value.deadline).toISOString(),
+    maxCycles: value.maxCycles, retryLimit: value.retryLimit,
+  };
+}
+
+function parseKgi(text: string, goals: ArtifactGoal[]): { goalId: string; current: number | null; evidence: string }[] {
+  const parsed = parseObject(text);
+  if (!Array.isArray(parsed.goals)) throw new Error('KGI測定の結果が不正です');
+  const ids = new Set(goals.map((goal) => goal.id));
+  return parsed.goals.flatMap((raw: unknown) => {
+    if (!raw || typeof raw !== 'object') return [];
+    const entry = raw as Record<string, unknown>;
+    if (typeof entry.id !== 'string' || !ids.has(entry.id)) return [];
+    const evidence = typeof entry.evidence === 'string' ? entry.evidence.trim() : '';
+    const current = typeof entry.current === 'number' && Number.isFinite(entry.current) && evidence ? entry.current : null;
+    return [{ goalId: entry.id, current, evidence }];
+  });
+}
+
+function improved(previous: CycleRecord | undefined, current: CycleRecord): boolean {
+  return current.kgi.some((goal) => {
+    const before = previous?.kgi.find((entry) => entry.goalId === goal.goalId)?.current ?? null;
+    return goal.current !== null && (before === null || goal.current > before);
+  });
+}
+
+function stagnant(cycles: CycleRecord[]): boolean {
+  if (cycles.length < 3) return false;
+  return cycles.slice(-3).every((cycle) => {
+    const index = cycles.indexOf(cycle);
+    return cycle.acceptedArtifacts === 0 && !improved(cycles[index - 1], cycle);
+  });
+}
 
 export interface CreateCommissionInput {
   projectId: string;
@@ -133,6 +199,7 @@ export class CommissionService {
   private executions = new Map<string, Promise<void>>();
   private consulting = new Set<string>();
   private listeners = new Set<(id: string) => void>();
+  private retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
     private store: CommissionStore,
@@ -140,7 +207,54 @@ export class CommissionService {
     private agent: AgentClient,
     private dataDir: string,
     private projectService?: ProjectService,
+    private options: CommissionServiceOptions = {},
   ) {}
+
+  private retryDelay(attempt: number): number {
+    if (this.options.retryDelayMs) return this.options.retryDelayMs(attempt);
+    return [60_000, 300_000][attempt - 1] ?? 900_000;
+  }
+
+  private scheduleRetry(id: string, delayMs: number): void {
+    this.cancelRetry(id);
+    const timer = setTimeout(() => {
+      this.retryTimers.delete(id);
+      const item = this.store.get(id);
+      if (item.status === 'failed' && item.autoRetry?.nextAt) {
+        void this.resume(id, { auto: true }).catch((error) => this.event(id, 'error', `自動再試行を開始できません: ${error instanceof Error ? error.message : String(error)}`));
+      }
+    }, delayMs);
+    timer.unref?.();
+    this.retryTimers.set(id, timer);
+  }
+
+  private cancelRetry(id: string): void {
+    const timer = this.retryTimers.get(id);
+    if (timer) clearTimeout(timer);
+    this.retryTimers.delete(id);
+  }
+
+  /** 起動時に、無人運用の案件を人間の操作なしで再開する。 */
+  resumeAutonomous(): void {
+    for (const item of this.store.list()) {
+      if (!item.settings.autonomy?.enabled) continue;
+      if (item.status === 'interrupted') {
+        void this.resume(item.id, { auto: true }).catch((error) => this.event(item.id, 'error', `自動再開できません: ${error instanceof Error ? error.message : String(error)}`));
+      } else if (item.status === 'failed' && item.autoRetry?.nextAt) {
+        this.scheduleRetry(item.id, Math.max(0, Date.parse(item.autoRetry.nextAt) - Date.now()));
+      }
+    }
+  }
+
+  /** 無人運用の案件が実行中か（常駐・スリープ抑止の判断用）。 */
+  hasActiveAutonomy(): boolean {
+    return this.store.list().some((item) => item.settings.autonomy?.enabled
+      && (item.status === 'running' || (item.status === 'failed' && !!item.autoRetry?.nextAt)));
+  }
+
+  hasRunning(): boolean {
+    return this.active.size > 0;
+  }
 
   subscribe(listener: (id: string) => void): () => void {
     this.listeners.add(listener);
@@ -189,7 +303,15 @@ export class CommissionService {
     } else {
       fs.mkdirSync(workingDirectory, { recursive: true });
     }
-    const settings = { ...DEFAULT_SETTINGS, ...input.settings, modelByPersona: { ...DEFAULT_SETTINGS.modelByPersona, ...input.settings?.modelByPersona } };
+    const autonomy = input.settings?.autonomy ? normalizeAutonomy(input.settings.autonomy) : undefined;
+    const settings: CommissionSettings = { ...DEFAULT_SETTINGS, ...input.settings, modelByPersona: { ...DEFAULT_SETTINGS.modelByPersona, ...input.settings?.modelByPersona } };
+    if (autonomy?.enabled) settings.autonomy = autonomy;
+    else delete settings.autonomy;
+    if (autonomy?.continuous) {
+      if (!successCriteria) throw new Error('KGIまでの継続には完了条件が必要です');
+      const card = project.artifactCards?.find((entry) => entry.id === input.artifactCardId);
+      if (!card || !card.versions.at(-1)?.goals.length) throw new Error('KGIまでの継続には、KGIを設定した成果物カルテを選んでください');
+    }
     if (settings.provider !== 'claude' && settings.provider !== 'codex') throw new Error('実行エンジンが不正です');
     requiredText(settings.codexModel, 'Codexモデル', 120);
     for (const model of [settings.consultantModel, settings.plannerModel, settings.workerModel, settings.reviewerModel, settings.criticalModel, settings.fallbackModel]) {
@@ -199,7 +321,8 @@ export class CommissionService {
       if (!PERSONAS.some((persona) => persona.id === personaId)) throw new Error(`不明なAIのモデル設定: ${personaId}`);
       requiredText(model, 'モデル', 120);
     }
-    if (!Number.isInteger(settings.maxCalls) || settings.maxCalls < 1 || settings.maxCalls > 200) throw new Error('最大呼び出し回数が不正です');
+    const callLimit = settings.autonomy?.enabled ? 5000 : 200;
+    if (!Number.isInteger(settings.maxCalls) || settings.maxCalls < 1 || settings.maxCalls > callLimit) throw new Error('最大呼び出し回数が不正です');
     if (!Number.isInteger(settings.maxTurnsPerCall) || settings.maxTurnsPerCall < 1 || settings.maxTurnsPerCall > 100) throw new Error('最大ターン数が不正です');
     const now = new Date().toISOString();
     const commission: Commission = {
@@ -238,10 +361,16 @@ export class CommissionService {
     workItemId?: string,
   ): Promise<AgentResponse> {
     const snapshot = this.store.get(id);
-    if (snapshot.runs.length >= snapshot.settings.maxCalls) throw new Error('AI呼び出し回数の上限に達しました');
+    if (snapshot.runs.length >= snapshot.settings.maxCalls) throw new CommissionHalt('AI呼び出し回数の上限に達しました');
+    const autonomy = snapshot.settings.autonomy;
+    if (autonomy?.enabled) {
+      const usedTokens = snapshot.runs.reduce((sum, run) => sum + (run.tokens ?? 0), 0);
+      if (autonomy.maxTokens !== null && usedTokens >= autonomy.maxTokens) throw new CommissionHalt(`トークン予算（${autonomy.maxTokens}）に達しました`);
+      if (autonomy.deadline !== null && Date.now() >= Date.parse(autonomy.deadline)) throw new CommissionHalt('無人運用の期限に達しました');
+    }
     const phaseModel = phase === 'consultation' || phase === 'delivery' ? snapshot.settings.consultantModel
       : phase === 'planning' ? snapshot.settings.plannerModel
-      : phase === 'goal_check' ? snapshot.settings.criticalModel
+      : phase === 'goal_check' || phase === 'kgi_check' ? snapshot.settings.criticalModel
       : phase === 'review' ? snapshot.settings.reviewerModel : snapshot.settings.workerModel;
     const workItem = snapshot.workItems.find((work) => work.id === workItemId);
     const important = Boolean(workItem?.critical) || (phase === 'review' && workItem?.ownerPersonaId !== workItem?.domainPersonaId);
@@ -274,6 +403,7 @@ export class CommissionService {
         current.effectiveModel = response.effectiveModel;
         current.estimatedCostUsd = response.estimatedCostUsd;
         current.numTurns = response.numTurns;
+        current.tokens = response.tokens ?? 0;
       });
       await this.event(id, 'message', `${personaId}: ${phase} を完了`, run.id);
       if (provider === 'claude' && snapshot.settings.fallbackModel && response.effectiveModel === snapshot.settings.fallbackModel && model !== snapshot.settings.fallbackModel) {
@@ -292,6 +422,7 @@ export class CommissionService {
         if (typeof usage?.effectiveModel === 'string') current.effectiveModel = usage.effectiveModel;
         if (Number.isFinite(usage?.estimatedCostUsd)) current.estimatedCostUsd = usage.estimatedCostUsd!;
         if (Number.isFinite(usage?.numTurns)) current.numTurns = usage.numTurns!;
+        if (Number.isFinite(usage?.tokens)) current.tokens = usage.tokens!;
       });
       await this.event(id, 'error', `${personaId}: ${detail}`, run.id);
       throw error;
@@ -352,13 +483,13 @@ export class CommissionService {
 
   private planningPrompt(item: Commission, revision = false): string {
     const roster = PERSONAS.map((persona) => `${persona.id}: ${persona.roleTitle}`).join('\n');
-    const prior = item.workItems.filter((work) => work.status === 'accepted').map((work) => `${work.title}: ${work.result ?? ''}`).join('\n');
+    const prior = acceptedSummary(item.workItems);
     const memory = this.store.list(item.projectId).flatMap((entry) => entry.memories ?? []).slice(-12).map((entry) => entry.summary).join('\n');
     return `発注者がITコンサルタントAIと確定した企画:\n${item.planText}\n\n発注者の完了条件:\n${item.successCriteria || item.goal}\n\n${revision ? `修正依頼:\n${item.revisionRequests.at(-1)}\n\n既に完了した仕事:\n${prior}` : ''}\n\n同じプロジェクトの採用済み記録:\n${memory || 'なし'}\n\nAIチームの専門家:\n${roster}\n\n人間の個別割当なしで成果物を完成させるため、順番に実行する1〜8件の仕事を計画してください。仕事の数は最小限にし、1ファイル作成などの小さな目標は1件にまとめてください。事前の要件解析・計画立案・内部レビュー・納品判定を独立した仕事にしないでください。それらはこの仕組みが自動的に行います。各仕事は担当AIと異なる確認AIを持ち、結果をファイルまたは検証可能な内容で残します。担当AIと所管AIが異なる場合、確認AIを必ず所管AIにしてください。重大な外部影響や複雑な設計・実装を伴う仕事に限って critical=true としてください。担当外の所管判断も重要判断として扱われます。曖昧な部分は企画の制約内で仮定を記録して進めます。JSONだけで回答してください。形式: {"tasks":[{"title":"...","instructions":"...","acceptance":"...","ownerPersonaId":"engineer","domainPersonaId":"engineer","reviewerPersonaId":"qa","critical":false}]}`;
   }
 
   private workPrompt(item: Commission, work: WorkItem): string {
-    const completed = item.workItems.filter((entry) => entry.status === 'accepted').map((entry) => `${entry.title}: ${entry.result ?? ''}`).join('\n');
+    const completed = acceptedSummary(item.workItems);
     const retry = work.review ? `前回の確認で修正が必要とされた点:\n${work.review}\n` : '';
     return `確定した企画:\n${item.planText}\n\n発注者の完了条件:\n${item.successCriteria || item.goal}\n\n今回の担当作業: ${work.title}\n${work.instructions}\n担当: ${work.ownerPersonaId} / 所管: ${work.domainPersonaId} / 確認: ${work.reviewerPersonaId}\n\n確認条件:\n${work.acceptance}\n\n完了済みの仕事:\n${completed || 'なし'}\n\n${retry}実際に必要なファイル編集・コマンド実行を行い、使える成果物を作ってください。可能なら検証してください。役割外の方針変更は提案として報告し、担当領域の判断を尊重してください。GUIが必要で、Orcaのcomputerコマンドが利用可能ならその機能を使えます。最後に変更内容、成果物の場所、検証結果、残る問題を日本語で報告してください。`;
   }
@@ -370,6 +501,8 @@ export class CommissionService {
     try {
       let item = this.store.get(id);
       if (item.status !== 'running') return;
+      if (!item.cycle) await this.store.update(id, (current) => { current.cycle = 1; });
+      for (;;) {
       while (true) {
       item = this.store.get(id);
       if (item.workItems.length === 0 || item.revisionRequests.length > (item.plannedRevisionCount ?? 0)) {
@@ -377,6 +510,7 @@ export class CommissionService {
         const response = await this.callAgent(id, 'planning', 'product', this.planningPrompt(item, revision), 'read', controller.signal);
         const workItems = parseWorkItems(response.text);
         await this.store.update(id, (current) => {
+          for (const work of workItems) work.cycle = current.cycle ?? 1;
           current.workItems.push(...workItems);
           current.workDecisions.push(...workItems.map((work) => ({
             id: randomUUID(), workItemId: work.id, domainPersonaId: work.domainPersonaId,
@@ -470,6 +604,7 @@ export class CommissionService {
             decision.status = verdict.approved ? 'accepted' : 'rejected';
             decision.decidedAt = new Date().toISOString();
             if (verdict.approved) {
+              if (current.autoRetry) current.autoRetry.count = 0;
               for (const artifact of current.artifacts) {
                 if (artifactIds.includes(artifact.id) || reviewArtifactIds.includes(artifact.id)) artifact.status = 'accepted';
               }
@@ -488,31 +623,34 @@ export class CommissionService {
       }
       item = this.store.get(id);
       if (!item.successCriteria) break; // 旧案件は従来の状態遷移を保つ
-      const lastCheck = item.goalChecks?.at(-1);
+      const cycleIndex = item.cycle ?? 1;
+      const cycleChecks = (item.goalChecks ?? []).filter((check) => (check.cycle ?? 1) === cycleIndex);
+      const lastCheck = cycleChecks.at(-1);
       if (lastCheck?.complete && lastCheck.workItemCount === item.workItems.length &&
         item.revisionRequests.length === (item.plannedRevisionCount ?? 0)) break;
       if (lastCheck && !lastCheck.complete && lastCheck.workItemCount === item.workItems.length) {
-        throw new Error('目標検証後に新しい仕事が増えていません。無進捗として停止しました');
+        throw new CommissionHalt('目標検証後に新しい仕事が増えていません。無進捗として停止しました');
       }
       const acceptedFiles = item.artifacts.filter((artifact) => artifact.status === 'accepted')
         .map((artifact) => `${artifact.relativePath}: ${artifact.afterHash || artifact.change}`).slice(-40);
-      const checkPrompt = `あなたは通常の担当・確認から独立したCriticです。発注者の完了条件を証拠に照らして検証してください。担当AIの完了宣言を事実として扱わないでください。\n完了条件:\n${item.successCriteria}\n確定企画:\n${item.planText}\n内部確認済みの仕事:\n${item.workItems.filter((work) => work.status === 'accepted').map((work) => `${work.title}: ${work.result?.slice(0, 900)} / 確認: ${work.review?.slice(0, 500)}`).join('\n')}\n成果ファイルとハッシュ:\n${acceptedFiles.join('\n') || 'なし'}\n作業場所を必要に応じて読んで検証し、JSONのみで {"complete":true/false,"evidence":["確認した具体的な根拠"],"remaining":["未達成の条件"]} と返してください。検証できない条件は未達とします。`;
+      const checkPrompt = `あなたは通常の担当・確認から独立したCriticです。発注者の完了条件を証拠に照らして検証してください。担当AIの完了宣言を事実として扱わないでください。\n完了条件:\n${item.successCriteria}\n確定企画:\n${item.planText}${cycleIndex > 1 ? `\n今回の継続サイクルで満たすべき追加条件:\n${clip(item.revisionRequests.filter((request) => request.startsWith(`継続サイクル${cycleIndex}:`)).at(-1), 2000)}` : ''}\n内部確認済みの仕事:\n${item.workItems.filter((work) => work.status === 'accepted').slice(-20).map((work) => `${work.title}: ${clip(work.result, 900)} / 確認: ${clip(work.review, 500)}`).join('\n')}\n成果ファイルとハッシュ:\n${acceptedFiles.join('\n') || 'なし'}\n作業場所を必要に応じて読んで検証し、JSONのみで {"complete":true/false,"evidence":["確認した具体的な根拠"],"remaining":["未達成の条件"]} と返してください。検証できない条件は未達とします。`;
       const response = await this.callAgent(id, 'goal_check', 'critic', checkPrompt, 'read', controller.signal);
       const verdict = parseGoalCheck(response.text);
       const check: GoalCheck = {
         id: randomUUID(), checkedAt: new Date().toISOString(), reviewerPersonaId: 'critic',
-        workItemCount: item.workItems.length, ...verdict,
+        workItemCount: item.workItems.length, cycle: cycleIndex, ...verdict,
       };
       await this.store.update(id, (current) => { current.goalChecks ??= []; current.goalChecks.push(check); });
       await this.event(id, 'state', `目標検証: ${verdict.complete ? '達成' : '未達'}（${verdict.remaining.join('、') || verdict.evidence.join('、')}）`);
       if (verdict.complete) break;
-      if ((this.store.get(id).goalChecks?.length ?? 0) >= 3) throw new Error('目標を3回検証しても達成できませんでした');
+      if (cycleChecks.length + 1 >= 3) throw new CommissionHalt('目標を3回検証しても達成できませんでした');
       await this.store.update(id, (current) => {
         current.revisionRequests.push(`目標検証で未達: ${verdict.remaining.join('、') || '具体的な証拠が不足'}。既存の仕事を繰り返さず不足分を追加してください。`);
       });
       }
       item = this.store.get(id);
-      const results = item.workItems.map((work) => `## ${work.title}\n担当: ${work.ownerPersonaId} / 確認: ${work.reviewerPersonaId}\n結果: ${work.result?.slice(0, 1500)}\n確認: ${work.review?.slice(0, 500)}`).join('\n\n');
+      const deliveryCycle = item.cycle ?? 1;
+      const results = item.workItems.filter((work) => (work.cycle ?? 1) === deliveryCycle).map((work) => `## ${work.title}\n担当: ${work.ownerPersonaId} / 確認: ${work.reviewerPersonaId}\n結果: ${work.result?.slice(0, 1500)}\n確認: ${work.review?.slice(0, 500)}`).join('\n\n');
       let deliveryText: string;
       try {
         const delivery = await this.callAgent(id, 'delivery', 'it_consultant',
@@ -528,26 +666,111 @@ export class CommissionService {
         deliveryText = recordedDelivery(snapshot, error);
         await this.event(id, 'state', '納品文のAI生成に失敗したため、内部確認済みの記録から代替納品書を作成しました');
       }
+      const continuous = Boolean(item.settings.autonomy?.enabled && item.settings.autonomy.continuous);
       await this.store.update(id, (current) => {
         current.delivery = deliveryText;
-        current.status = 'delivered';
-        current.error = undefined;
+        if (!continuous) {
+          current.status = 'delivered';
+          current.error = undefined;
+        }
       });
       if (item.artifactCardId && this.projectService) {
         await this.projectService.recordCommissionDelivery(item.projectId, item.artifactCardId, id, deliveryText);
       }
-      await this.event(id, 'state', '成果物を納品しました');
+      if (!continuous) {
+        await this.event(id, 'state', '成果物を納品しました');
+        return;
+      }
+      await this.event(id, 'state', `サイクル${deliveryCycle}の成果物を納品しました`);
+      const stopReason = await this.finishCycle(id, deliveryText, controller.signal);
+      if (stopReason) {
+        await this.store.update(id, (current) => {
+          current.status = 'delivered';
+          current.stopReason = stopReason;
+          current.error = undefined;
+          current.autoRetry = undefined;
+        });
+        await this.event(id, 'state', `継続運用を終了しました: ${stopReason}`);
+        return;
+      }
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const current = this.store.get(id);
       if (current.status !== 'paused' && current.status !== 'stopped') {
-        await this.store.update(id, (item) => { item.status = 'failed'; item.error = message; });
+        const autonomy = current.settings.autonomy;
+        const halted = error instanceof CommissionHalt;
+        const attempt = (current.autoRetry?.count ?? 0) + 1;
+        if (autonomy?.enabled && !halted && !controller.signal.aborted && attempt <= autonomy.retryLimit) {
+          const delay = this.retryDelay(attempt);
+          const nextAt = new Date(Date.now() + delay).toISOString();
+          await this.store.update(id, (item) => {
+            item.status = 'failed';
+            item.error = `${message}（${new Date(nextAt).toLocaleString('ja-JP')}に${attempt}回目の自動再試行を予定）`;
+            item.autoRetry = { count: attempt, nextAt };
+          });
+          this.scheduleRetry(id, delay);
+        } else {
+          await this.store.update(id, (item) => {
+            const keepDelivery = halted && Boolean(item.delivery);
+            item.status = keepDelivery ? 'delivered' : 'failed';
+            item.error = keepDelivery ? undefined : message;
+            item.autoRetry = undefined;
+            if (halted) item.stopReason = message;
+            else if (autonomy?.enabled) item.stopReason = `自動再試行の上限（${autonomy.retryLimit}回）に達しました: ${message}`;
+          });
+        }
       }
       await this.event(id, 'error', message);
     } finally {
       this.active.delete(id);
       this.notify(id);
     }
+  }
+
+  /** 継続運用の1サイクルを締める。停止する場合はその理由、続ける場合はnullを返す。 */
+  private async finishCycle(id: string, delivery: string, signal: AbortSignal): Promise<string | null> {
+    const item = this.store.get(id);
+    const autonomy = item.settings.autonomy!;
+    const cycleIndex = item.cycle ?? 1;
+    const card = this.repo.getProject(item.projectId)?.artifactCards?.find((entry) => entry.id === item.artifactCardId);
+    const goals = card?.versions.at(-1)?.goals ?? [];
+    if (!card || !goals.length) return 'KGIを設定した成果物カルテが見つからないため継続できません';
+    const prompt = `あなたは通常の担当・確認から独立したCriticです。成果物カルテのKGIを、作業場所の実物を読んで測定してください。担当AIの報告や完了宣言を根拠にしないでください。測定できないKGIは current を null にし、推測の数値を書かないでください。\n確定企画:\n${clip(item.planText, 4000)}\nKGI:\n${goals.map((goal) => `- id=${goal.id} ${goal.label}: 目標 ${goal.target}${goal.unit} / 前回 ${goal.current ?? '未測定'}${goal.unit}（根拠: ${clip(goal.evidence, 200) || 'なし'}）`).join('\n')}\n今回のサイクルの納品:\n${clip(delivery, 3000)}\nJSONのみで {"goals":[{"id":"...","current":数値またはnull,"evidence":"測定した方法と結果"}]} と返してください。`;
+    const response = await this.callAgent(id, 'kgi_check', 'critic', prompt, 'read', signal);
+    const measured = parseKgi(response.text, goals);
+    if (this.projectService) await this.projectService.recordKgiMeasurement(item.projectId, card.id, id, measured);
+    const kgi: KgiMeasurement[] = goals.map((goal) => {
+      const entry = measured.find((value) => value.goalId === goal.id);
+      const current = entry?.current ?? null;
+      return {
+        goalId: goal.id, label: goal.label, target: goal.target, current, unit: goal.unit,
+        evidence: entry?.evidence ?? '', met: current !== null && current >= goal.target,
+      };
+    });
+    const snapshot = this.store.get(id);
+    const startedAt = snapshot.cycles?.at(-1)?.endedAt ?? snapshot.planConfirmedAt ?? snapshot.createdAt;
+    const runs = snapshot.runs.filter((run) => run.startedAt >= startedAt);
+    const record: CycleRecord = {
+      index: cycleIndex, startedAt, endedAt: new Date().toISOString(), delivery: clip(delivery, 4000), kgi,
+      acceptedArtifacts: snapshot.artifacts.filter((artifact) => artifact.status === 'accepted' && artifact.detectedAt >= startedAt).length,
+      calls: runs.length, tokens: runs.reduce((sum, run) => sum + (run.tokens ?? 0), 0),
+    };
+    const updated = await this.store.update(id, (current) => { current.cycles ??= []; current.cycles.push(record); });
+    await this.event(id, 'state', `KGI測定（サイクル${cycleIndex}）: ${kgi.map((goal) => `${goal.label} ${goal.current ?? '未測定'}/${goal.target}${goal.unit}`).join('、')}`);
+    if (kgi.every((goal) => goal.met)) return 'KGIを達成しました';
+    if (updated.cycles!.length >= autonomy.maxCycles) return `サイクル数の上限（${autonomy.maxCycles}）に達しました`;
+    if (stagnant(updated.cycles!)) return '無進捗: 3サイクル連続で採用ファイルもKGIの改善もありません';
+    const latest = this.repo.getProject(item.projectId)?.artifactCards?.find((entry) => entry.id === card.id)?.versions.at(-1);
+    const backlog = [...(latest?.backlog ?? []), ...(latest?.knownIssues ?? [])].slice(0, 10);
+    const unmet = kgi.filter((goal) => !goal.met).map((goal) => `${goal.label} ${goal.current ?? '未測定'}/${goal.target}${goal.unit}`);
+    const next = cycleIndex + 1;
+    await this.store.update(id, (current) => {
+      current.revisionRequests.push(`継続サイクル${next}: KGIが未達です（${unmet.join('、')}）。${backlog.length ? `成果物カルテの改善バックログ: ${backlog.join('、')}。` : ''}前のサイクルで完了した仕事を繰り返さず、KGIを上げるための最小限の仕事を追加してください。KGIが測定できない場合は、測定できる状態にする仕事を含めてください。`);
+      current.cycle = next;
+    });
+    await this.event(id, 'state', `KGI未達のため継続サイクル${next}を開始します`);
+    return null;
   }
 
   async pause(id: string): Promise<Commission> {
@@ -562,24 +785,32 @@ export class CommissionService {
 
   async stop(id: string): Promise<Commission> {
     const item = this.store.get(id);
-    if (item.status !== 'running') throw new Error('実行中の案件ではありません');
-    const updated = await this.store.update(id, (current) => { current.status = 'stopped'; });
+    const retryPending = item.status === 'failed' && Boolean(item.autoRetry?.nextAt);
+    if (item.status !== 'running' && !retryPending) throw new Error('実行中の案件ではありません');
+    this.cancelRetry(id);
+    const updated = await this.store.update(id, (current) => { current.status = 'stopped'; current.autoRetry = undefined; });
     this.active.get(id)?.abort();
     await this.executions.get(id);
     await this.event(id, 'state', '実行を停止しました。再開する場合は内容を確認してください');
     return updated;
   }
 
-  async resume(id: string): Promise<Commission> {
+  async resume(id: string, options: { auto?: boolean } = {}): Promise<Commission> {
     const item = this.store.get(id);
     if (!['paused', 'stopped', 'interrupted', 'failed'].includes(item.status)) throw new Error('再開できる案件ではありません');
+    this.cancelRetry(id);
     const updated = await this.store.update(id, (current) => {
-      current.status = 'running'; current.error = undefined;
+      current.status = 'running'; current.error = undefined; current.stopReason = undefined;
+      current.autoRetry = options.auto && current.autoRetry ? { count: current.autoRetry.count } : undefined;
       for (const work of current.workItems) {
         if (work.status === 'running' || work.status === 'review_pending' || work.status === 'interrupted') work.status = 'queued';
+        if (options.auto && (work.status === 'failed' || (work.status === 'queued' && work.attempts >= 2))) {
+          work.status = 'queued';
+          work.attempts = 0;
+        }
       }
     });
-    await this.event(id, 'state', '案件を再開しました');
+    await this.event(id, 'state', options.auto ? '無人運用: 人間の操作なしで再開しました' : '案件を再開しました');
     this.start(id);
     return updated;
   }
@@ -592,6 +823,7 @@ export class CommissionService {
       current.revisionRequests.push(revision);
       current.delivery = undefined;
       current.status = 'running';
+      current.stopReason = undefined;
     });
     await this.event(id, 'state', '発注者の修正依頼を受け、追加作業を開始しました');
     this.start(id);

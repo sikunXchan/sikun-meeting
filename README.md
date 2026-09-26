@@ -49,6 +49,30 @@ Codexを使った実例として、[sikun-cyber-security](https://github.com/sik
   案件単位でClaude Agent SDKとCodex SDKを切り替えます。既存案件はClaudeとして読み込みます。
 - **AIコミュニティ**: `src/core/community` がProjectの投稿、発言、AI提案、採用知識を保存します。投稿は `sourceCommunityPostId` で委託案件と結びます。
 
+## 無人運用
+
+委託の作成画面で「無人運用」を選べます。企画の確定は従来どおり人間が行い、その後は一時的な失敗を自動で再試行し、アプリ再起動後も自動で再開します。「KGIを達成するまで改善を続ける」を選ぶと、納品のたびに独立したCriticが成果物カルテのKGIを作業場所の実物から測り、未達なら同じ企画のまま改善サイクルを追加します。KGI達成、予算（AI呼び出し回数、トークン数、期限、サイクル数）の到達、3サイクル連続の無進捗のいずれかで止まり、理由を画面に残します。メールは無人運用でも送信しません。
+
+ウィンドウを閉じてもトレイに常駐し、二重起動は既存のウィンドウを表示します。トレイのメニューで常駐の有無と、Windows・macOSのログイン時起動を切り替えられます。
+
+## スマホで見る（PWA）
+
+会議の発言・立場・決定・Action Itemをスマホのブラウザで読めます（読み取り専用）。パソコンで暗号化してからVercelへ送るので、Vercel側には暗号文だけが残り、読むための鍵は二次元コードでスマホにだけ渡します。
+
+### Vercelへのデプロイ
+
+1. Vercelで「Add New → Project」からこのGitHubリポジトリを選び、**Root Directory を `mobile`**、Framework Preset を **Other** にしてデプロイします（`mobile/vercel.json` に出力先とセキュリティヘッダーを設定済み）。
+2. プロジェクトの「Storage」で **Blob** ストアを **Private** で作成し、このプロジェクトに接続します。保存APIは `@vercel/blob` の非公開保存を使います（[Private storage](https://vercel.com/docs/vercel-blob/private-storage)）。
+3. 「Settings → Environment Variables」に `SYNC_TOKEN` を追加します。値は推測されにくい乱数にします（例：`node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"` の出力）。追加後に再デプロイします。
+
+### パソコンとスマホの連携
+
+1. Sikun Meetingのサイドバーで「📱 スマホで見る」を開き、公開先URL（例：`https://sikun-mobile.vercel.app`）と、上の `SYNC_TOKEN` と同じ値を入れ、「会議が変わったら自動で送る」をオンにして保存します。トークンはOSの暗号化保存に入ります。使えない環境では環境変数 `SIKUN_MOBILE_SYNC_TOKEN` に設定してアプリを再起動します。
+2. 表示された二次元コードをスマホのカメラで読み取ります。開いたページを共有メニューから「ホーム画面に追加」すると、アプリのように起動できます。
+3. スマホを紛失したときなどは「鍵を作り直す」を押すと、古い鍵では読めなくなり、Vercel上の古い暗号文も削除されます。
+
+デプロイ前に手元で試す場合は `SYNC_TOKEN=16文字以上の値 node scripts/serve-mobile-local.js 3000` を起動し、公開先URLに `http://127.0.0.1:3000` を入れます。
+
 ## 会議の判断・成果物・外部実行
 
 - 初回の意見は参加AIごとに非公開で収集し、全員分がそろってから公開します。公開後は通常の討論に移ります。失敗した呼び出しは発言として保存せず、再開時に失敗した参加者からやり直します。
@@ -57,7 +81,7 @@ Codexを使った実例として、[sikun-cyber-security](https://github.com/sik
 - メールはProject画面でMCP接続先を設定し、確定済み会議から下書きを作ります。宛先・件名・本文を確認して送信します。通信結果が不明なメールは自動再送しません。認証トークンは指定した環境変数から読み、アプリ設定には保存しません。
 - 社外取締役の独立監査は、議事録・決定・カルテのKGIを照合して通常会議と別の履歴に記録します。Project画面から実行でき、アプリ稼働中は30日ごとに対象を確認します。
 
-会議AIは読み取り専用です。委託案件のツールは部門と工程に応じて制限されます。部門別の専門手順はAIの指示に含めます。外部のCodex/Claudeスキルやプラグインを自動接続するものではありません。実メール送信には利用するMCPサーバーのURLと送信ツールの設定が必要です。
+会議AIは読み取り専用です。委託案件のツールは部門と工程に応じて制限されます。Codex案件では、作業時の書き込みを作業ディレクトリ内に限り、ネットワークはコード実行部門だけが使えます（Codex SDKに個別ツールの許可設定がないため、非コード部門のコマンド実行は指示で抑えます）。画面は外部ページへ遷移せず、AI発言のHTMLは許可した要素だけを表示します。部門別の専門手順はAIの指示に含めます。外部のCodex/Claudeスキルやプラグインを自動接続するものではありません。実メール送信には利用するMCPサーバーのURLと送信ツールの設定が必要です。
 
 ## セットアップ
 
@@ -96,10 +120,11 @@ npm run build     # tsc + 静的アセットのコピー
 npm start          # ビルド後 Electron を起動
 npm run dev         # 同上（--devフラグ付き）
 npm run typecheck   # 型チェックのみ
-npm test            # 委託案件の状態遷移・役割境界テスト
+npm test            # 委託案件・無人運用・画面隔離・スマホ同期のテスト
 node scripts/smoke-codex-agent.js            # Codex SDKの単発試験
 node scripts/smoke-commission-codex-live.js  # Codex案件の実行試験
 node scripts/run-scs-commission.js           # SCSのlocalhost検証をCodex案件として実行
+node scripts/smoke-security-ui.js             # 画面の隔離と無人運用欄（--remote-debugging-port=9222で起動後）
 ```
 
 ## 配布用ビルド

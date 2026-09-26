@@ -50,3 +50,27 @@ Claude案件にはClaudeの認証済み環境、Codex案件にはCodex CLIのCha
 - `ProjectService` は成果物カルテを版付きで管理する。会議作成時に版を固定し、議論のプロンプトに要約を加える。委託案件の完了条件は、通常の実行担当と別のCriticが最大3回確認し、未達なら追加作業を計画する。
 - `EmailService` はMCP設定、下書き、送信状態を `email-actions.json` に保存する。送信開始前に状態を記録し、通信失敗・再起動中の送信を結果不明として再送しない。
 - `AuditService` は通常会議と別の監査AI・`independent-audits.json` を使う。直近10件の決定と各会議の直近20発言、カルテとKGIを照合する。アプリ稼働中、初回はProject作成30日後から、以後は前回監査から30日ごとに自動実行する。手動監査も可能。
+
+# 2026-09-25 無人運用・Codexの部門別制限・画面の隔離
+
+- `capabilities.ts` の `codexPolicy()` がCodexの書き込み範囲とネットワークを部門と工程から決め、`codexAgent.ts` の `codexThreadOptions()` が適用する。
+- `CommissionSettings.autonomy` が無人運用を表す。`CommissionService` は `CommissionHalt`（予算・上限・無進捗）とそれ以外の失敗を分け、後者だけ `autoRetry` に記録してタイマーで再開する。起動時は `resumeAutonomous()` が中断した無人案件を再開する。
+- 継続運用では `execute()` がサイクルを繰り返す。納品後に `finishCycle()` がCritic（`kgi_check`、読み取り専用）にKGIを測らせ、`ProjectService.recordKgiMeasurement()` でカルテの版を追加し、`cycles` に記録して継続か停止かを決める。目標検証の回数と無進捗はサイクルごとに数える。
+- `AgentRun.tokens` にClaudeの `modelUsage`、Codexの `usage` から入出力トークンを保存し、トークン予算に使う。
+- `main/index.ts` はトレイ常駐、多重起動防止、`powerSaveBlocker`、ログイン時起動（`--hidden`）を持つ。設定は `app-settings.json`。
+- `main/security.ts` が画面URLの判定を持ち、`ipc.ts` の全ハンドラーと画面遷移の遮断に使う。`renderer/sanitize.ts` がAI発言のHTMLを許可リストで整える。
+
+| 用途 | コマンド |
+|---|---|
+| 画面の隔離と無人運用欄の確認 | Electronを`--remote-debugging-port=9222`で起動後 `node scripts/smoke-security-ui.js` |
+
+# 2026-09-26 スマホ閲覧（PWA）
+
+- `src/core/mobile/snapshot.ts` が会議を読み取り用の形にし、`envelope.ts` がHKDF-SHA256で鍵とIDを導いてAES-256-GCM（gzip後）で暗号化する。`service.ts` の `MobileSyncService` が30秒ごとに内容のハッシュを比べ、変わったときだけ `PUT /api/snapshot` へ送る。4MBを超えると古い会議から省く。設定は `mobile-sync.json`、トークンは `src/main/mobileToken.ts` が `safeStorage` で `mobile-token.bin` に保存する。
+- `mobile/` はVercelのプロジェクト（Root Directory `mobile`）。`api/snapshot.js` がVercel Blob（非公開）に `snapshots/<id>.json` を保存・取得・削除し、検証は `lib/handler.js` が行う。`public/` はPWAで、`js/crypto.js` がWebCryptoで復号する。`js/sanitize.js`、`vendor/marked.umd.js`、`personas/` はデスクトップのビルド時に `scripts/sync-mobile-assets.js` がコピーする。
+
+| 用途 | コマンド |
+|---|---|
+| PWAとAPIを手元で動かす | `SYNC_TOKEN=... node scripts/serve-mobile-local.js 3000` |
+| スマホ閲覧の縦断確認 | `node scripts/smoke-mobile-pwa.js desktop|phone|offline`（環境変数はスクリプト冒頭を参照） |
+| PWAのアイコン生成 | `npx electron scripts/make-mobile-icons.js` |

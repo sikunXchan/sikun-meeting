@@ -1,11 +1,28 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { ThreadEvent } from '@openai/codex-sdk';
+import type { ThreadEvent, ThreadOptions } from '@openai/codex-sdk';
 import { getPersonaById } from '../personas';
 import { AgentClient, AgentRequest, AgentResponse } from './types';
-import { methodFor } from '../capabilities';
+import { codexPolicy, methodFor } from '../capabilities';
 
 type CodexModule = typeof import('@openai/codex-sdk');
+
+export function codexPhase(request: Pick<AgentRequest, 'tools' | 'phase'>): 'read' | 'review' | 'work' {
+  return request.tools === 'read' ? 'read' : request.phase === 'review' ? 'review' : 'work';
+}
+
+export function codexThreadOptions(request: Pick<AgentRequest, 'personaId' | 'tools' | 'phase' | 'model' | 'workingDirectory'>): ThreadOptions {
+  const policy = codexPolicy(request.personaId, codexPhase(request));
+  return {
+    model: request.model,
+    workingDirectory: request.workingDirectory,
+    sandboxMode: policy.sandboxMode,
+    approvalPolicy: 'never',
+    skipGitRepoCheck: true,
+    networkAccessEnabled: policy.networkAccessEnabled,
+    webSearchEnabled: false,
+  };
+}
 const importCodex = new Function('return import("@openai/codex-sdk")') as () => Promise<CodexModule>;
 
 function packagedCodexPath(): string | undefined {
@@ -36,15 +53,12 @@ export class CodexAgentClient implements AgentClient {
     }, limitMs);
     let text = '';
     let completed = false;
+    let tokens = 0;
     try {
-      const thread = codex.startThread({
-        model: request.model,
-        workingDirectory: request.workingDirectory,
-        sandboxMode: request.tools === 'read' ? 'read-only' : 'workspace-write',
-        approvalPolicy: 'never',
-        skipGitRepoCheck: true,
-        networkAccessEnabled: true,
-      });
+      const thread = codex.startThread(codexThreadOptions(request));
+      const restricted = codexPhase(request) === 'work' && !codexPolicy(request.personaId, 'work').canRunCode
+        ? 'あなたの部門はコード実行部門ではありません。コマンドはファイルの閲覧と成果の確認に限り、ネットワークは使えません。\n'
+        : '';
       const phaseInstruction = request.phase === 'planning'
         ? 'この段階は仕事の割当だけを行います。与えられた企画と担当一覧からJSONを返し、ファイル閲覧やコマンド実行はしないでください。'
         : request.phase === 'delivery'
@@ -52,7 +66,7 @@ export class CodexAgentClient implements AgentClient {
           : request.phase === 'consultation'
             ? '相談に必要な場合だけ指定されたファイルを読み、.venv、node_modulesなどの依存ディレクトリは探索しないでください。'
             : '必要なファイルだけを読み、.venv、node_modulesなどの依存ディレクトリは探索しないでください。';
-      const prompt = `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}\n発注者が確定した企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。\n${request.tools === 'read' ? 'この段階ではファイルを変更しないでください。' : '実際に必要な作業を行ってください。'}\n${phaseInstruction}\n\n${request.prompt}`;
+      const prompt = `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}\n発注者が確定した企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。\n${request.tools === 'read' ? 'この段階ではファイルを変更しないでください。' : '実際に必要な作業を行ってください。'}\n${restricted}${phaseInstruction}\n\n${request.prompt}`;
       const execute = async (): Promise<void> => {
         const turn = await thread.runStreamed(prompt, { signal: controller.signal });
         for await (const event of turn.events as AsyncGenerator<ThreadEvent>) {
@@ -65,7 +79,10 @@ export class CodexAgentClient implements AgentClient {
               await request.onTool?.(`ファイル変更: ${paths.slice(0, 240)}`);
             }
           }
-          if (event.type === 'turn.completed') completed = true;
+          if (event.type === 'turn.completed') {
+            completed = true;
+            tokens += (event.usage?.input_tokens ?? 0) + (event.usage?.output_tokens ?? 0);
+          }
           if (event.type === 'turn.failed') throw new Error(event.error.message);
           if (event.type === 'error') throw new Error(event.message);
         }
@@ -79,6 +96,7 @@ export class CodexAgentClient implements AgentClient {
         effectiveModel: undefined,
         estimatedCostUsd: 0,
         numTurns: 1,
+        tokens,
       };
     } finally {
       clearTimeout(timer);

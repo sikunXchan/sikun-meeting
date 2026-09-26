@@ -1,12 +1,74 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { IPC_CHANNELS } from './ipc';
-import { CreateMeetingInput } from '../core/services/meetingService';
-import { FinalizeDecisionInput } from '../core/services/decisionService';
-import { TurnEvent } from '../core/services/discussionService';
-import { CreateCommissionInput } from '../core/commission/service';
-import { CreateCommunityPostInput, CommunityProgress } from '../core/community/types';
-import { UpsertArtifactCardInput } from '../core/services/projectService';
-import { EmailMcpConfig } from '../core/email/types';
+import type { CreateMeetingInput } from '../core/services/meetingService';
+import type { FinalizeDecisionInput } from '../core/services/decisionService';
+import type { TurnEvent } from '../core/services/discussionService';
+import type { CreateCommissionInput } from '../core/commission/service';
+import type { CreateCommunityPostInput, CommunityProgress } from '../core/community/types';
+import type { UpsertArtifactCardInput } from '../core/services/projectService';
+import type { EmailMcpConfig } from '../core/email/types';
+
+// sandbox:true のpreloadは相対パスのrequireができないため、ipc.ts と同じチャンネル名をここにも持つ（一致はテストで確認）。
+const IPC_CHANNELS = {
+  personasList: 'personas:list',
+  meetingTypesList: 'meetingTypes:list',
+  projectsList: 'projects:list',
+  projectsCreate: 'projects:create',
+  projectsGet: 'projects:get',
+  projectsToggleActionItem: 'projects:toggleActionItem',
+  projectsUpsertArtifactCard: 'projects:upsertArtifactCard',
+  meetingsList: 'meetings:list',
+  meetingsGet: 'meetings:get',
+  meetingsCreate: 'meetings:create',
+  meetingsInvite: 'meetings:inviteParticipant',
+  meetingsDeactivate: 'meetings:deactivateParticipant',
+  meetingsReactivate: 'meetings:reactivateParticipant',
+  meetingsSetWorkingDirectory: 'meetings:setWorkingDirectory',
+  discussionAskAll: 'discussion:askAll',
+  discussionAskSpecific: 'discussion:askSpecific',
+  discussionRebuttal: 'discussion:rebuttal',
+  discussionHumanSpeak: 'discussion:humanSpeak',
+  discussionProgress: 'discussion:progress',
+  decisionFinalize: 'decision:finalize',
+  decisionGate: 'decision:gate',
+  decisionUpdateActionItems: 'decision:updateActionItems',
+  minutesGet: 'minutes:get',
+  minutesDownload: 'minutes:download',
+  chooseDirectory: 'system:chooseDirectory',
+  pendingMeetingReady: 'pending-meeting:ready',
+  commissionsList: 'commissions:list',
+  commissionsCreate: 'commissions:create',
+  commissionsFromActionItem: 'commissions:fromActionItem',
+  commissionsGet: 'commissions:get',
+  commissionsConsult: 'commissions:consult',
+  commissionsConfirm: 'commissions:confirm',
+  commissionsPause: 'commissions:pause',
+  commissionsStop: 'commissions:stop',
+  commissionsResume: 'commissions:resume',
+  commissionsRevise: 'commissions:revise',
+  commissionsProgress: 'commissions:progress',
+  commissionsOpenArtifact: 'commissions:openArtifact',
+  communityList: 'community:list',
+  communityGet: 'community:get',
+  communityCreate: 'community:create',
+  communitySuggest: 'community:suggest',
+  communityComment: 'community:comment',
+  communityRunRound: 'community:runRound',
+  communityStartCommission: 'community:startCommission',
+  communityAccept: 'community:accept',
+  communityProgress: 'community:progress',
+  emailConfigGet: 'email:configGet',
+  emailConfigSave: 'email:configSave',
+  emailTest: 'email:test',
+  emailList: 'email:list',
+  emailDraft: 'email:draft',
+  emailSend: 'email:send',
+  auditList: 'audit:list',
+  auditRun: 'audit:run',
+  mobileGet: 'mobile:get',
+  mobileConfigure: 'mobile:configure',
+  mobileSyncNow: 'mobile:syncNow',
+  mobileRotateKey: 'mobile:rotateKey',
+} as const;
 
 /**
  * レンダラーに公開するAPI（window.api）。
@@ -74,6 +136,12 @@ const api = {
   audit: {
     list: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.auditList, projectId),
     run: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.auditRun, projectId),
+  },
+  mobile: {
+    get: () => ipcRenderer.invoke(IPC_CHANNELS.mobileGet),
+    configure: (input: { baseUrl: string; enabled: boolean; token?: string }) => ipcRenderer.invoke(IPC_CHANNELS.mobileConfigure, input),
+    syncNow: () => ipcRenderer.invoke(IPC_CHANNELS.mobileSyncNow),
+    rotateKey: () => ipcRenderer.invoke(IPC_CHANNELS.mobileRotateKey),
   },
   meetings: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.meetingsList),

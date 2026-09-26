@@ -1,4 +1,7 @@
-import { ipcMain, dialog, BrowserWindow, shell } from 'electron';
+import { ipcMain, dialog, BrowserWindow, shell, IpcMainInvokeEvent } from 'electron';
+import { assertTrustedSender } from './security';
+import * as QRCode from 'qrcode';
+import { MobileSyncService } from '../core/mobile/service';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AppContext, PERSONAS, MEETING_TYPES } from '../core';
@@ -67,30 +70,42 @@ export const IPC_CHANNELS = {
   emailSend: 'email:send',
   auditList: 'audit:list',
   auditRun: 'audit:run',
+  mobileGet: 'mobile:get',
+  mobileConfigure: 'mobile:configure',
+  mobileSyncNow: 'mobile:syncNow',
+  mobileRotateKey: 'mobile:rotateKey',
 } as const;
 
-export function registerIpcHandlers(ctx: AppContext, getWindow: () => BrowserWindow | null): void {
-  ipcMain.handle(IPC_CHANNELS.personasList, () => PERSONAS);
-  ipcMain.handle(IPC_CHANNELS.meetingTypesList, () => MEETING_TYPES);
+type Handler = (event: IpcMainInvokeEvent, ...args: any[]) => unknown;
 
-  ipcMain.handle(IPC_CHANNELS.projectsList, () => ctx.projectService.listProjects());
-  ipcMain.handle(IPC_CHANNELS.projectsCreate, (_e, name: string, description: string) =>
+export function registerIpcHandlers(ctx: AppContext, getWindow: () => BrowserWindow | null, mobile?: MobileSyncService): void {
+  const handle = (channel: string, handler: Handler): void => {
+    ipcMain.handle(channel, (event, ...args) => {
+      assertTrustedSender(event);
+      return handler(event, ...args);
+    });
+  };
+  handle(IPC_CHANNELS.personasList, () => PERSONAS);
+  handle(IPC_CHANNELS.meetingTypesList, () => MEETING_TYPES);
+
+  handle(IPC_CHANNELS.projectsList, () => ctx.projectService.listProjects());
+  handle(IPC_CHANNELS.projectsCreate, (_e, name: string, description: string) =>
     ctx.projectService.createProject(name, description),
   );
-  ipcMain.handle(IPC_CHANNELS.projectsGet, (_e, id: string) => ctx.projectService.getProject(id));
-  ipcMain.handle(IPC_CHANNELS.projectsUpsertArtifactCard, (_e, projectId: string, input: UpsertArtifactCardInput) =>
+  handle(IPC_CHANNELS.projectsGet, (_e, id: string) => ctx.projectService.getProject(id));
+  handle(IPC_CHANNELS.projectsUpsertArtifactCard, (_e, projectId: string, input: UpsertArtifactCardInput) =>
     ctx.projectService.upsertArtifactCard(projectId, input));
-  ipcMain.handle(IPC_CHANNELS.commissionsList, (_e, projectId?: string) => ctx.commissionService.list(projectId));
-  ipcMain.handle(IPC_CHANNELS.commissionsCreate, (_e, input: CreateCommissionInput) => ctx.commissionService.create(input));
-  ipcMain.handle(IPC_CHANNELS.commissionsFromActionItem, (_e, projectId: string, actionItemId: string) => ctx.commissionService.fromActionItem(projectId, actionItemId));
-  ipcMain.handle(IPC_CHANNELS.commissionsGet, (_e, id: string) => ctx.commissionService.get(id));
-  ipcMain.handle(IPC_CHANNELS.commissionsConsult, (_e, id: string, text: string) => ctx.commissionService.consult(id, text));
-  ipcMain.handle(IPC_CHANNELS.commissionsConfirm, (_e, id: string, planText: string) => ctx.commissionService.confirmPlan(id, planText));
-  ipcMain.handle(IPC_CHANNELS.commissionsPause, (_e, id: string) => ctx.commissionService.pause(id));
-  ipcMain.handle(IPC_CHANNELS.commissionsStop, (_e, id: string) => ctx.commissionService.stop(id));
-  ipcMain.handle(IPC_CHANNELS.commissionsResume, (_e, id: string) => ctx.commissionService.resume(id));
-  ipcMain.handle(IPC_CHANNELS.commissionsRevise, (_e, id: string, text: string) => ctx.commissionService.requestRevision(id, text));
-  ipcMain.handle(IPC_CHANNELS.commissionsOpenArtifact, (_e, id: string, artifactId: string) => {
+  handle(IPC_CHANNELS.commissionsList, (_e, projectId?: string) => ctx.commissionService.list(projectId));
+  handle(IPC_CHANNELS.commissionsCreate, (_e, input: CreateCommissionInput) => ctx.commissionService.create(input));
+  handle(IPC_CHANNELS.commissionsFromActionItem, (_e, projectId: string, actionItemId: string) => ctx.commissionService.fromActionItem(projectId, actionItemId));
+  handle(IPC_CHANNELS.commissionsGet, (_e, id: string) => ctx.commissionService.get(id));
+  handle(IPC_CHANNELS.commissionsConsult, (_e, id: string, text: string) => ctx.commissionService.consult(id, text));
+  handle(IPC_CHANNELS.commissionsConfirm, (_e, id: string, planText: string) => ctx.commissionService.confirmPlan(id, planText));
+  handle(IPC_CHANNELS.commissionsPause, (_e, id: string) => ctx.commissionService.pause(id));
+  handle(IPC_CHANNELS.commissionsStop, (_e, id: string) => ctx.commissionService.stop(id));
+  handle(IPC_CHANNELS.commissionsResume, (_e, id: string) => ctx.commissionService.resume(id));
+  handle(IPC_CHANNELS.commissionsRevise, (_e, id: string, text: string) => ctx.commissionService.requestRevision(id, text));
+  handle(IPC_CHANNELS.commissionsOpenArtifact, (_e, id: string, artifactId: string) => {
     const commission = ctx.commissionService.get(id).commission;
     const artifact = commission.artifacts.find((entry) => entry.id === artifactId);
     if (!artifact) throw new Error('成果ファイルが見つかりません');
@@ -101,48 +116,61 @@ export function registerIpcHandlers(ctx: AppContext, getWindow: () => BrowserWin
     shell.showItemInFolder(target);
   });
   ctx.commissionService.subscribe((id) => getWindow()?.webContents.send(IPC_CHANNELS.commissionsProgress, id));
-  ipcMain.handle(IPC_CHANNELS.communityList, (_e, projectId: string) => ctx.communityService.list(projectId));
-  ipcMain.handle(IPC_CHANNELS.communityGet, (_e, id: string) => ctx.communityService.get(id));
-  ipcMain.handle(IPC_CHANNELS.communityCreate, (_e, input: CreateCommunityPostInput) => ctx.communityService.create(input));
-  ipcMain.handle(IPC_CHANNELS.communitySuggest, (_e, projectId: string) => ctx.communityService.suggest(projectId));
-  ipcMain.handle(IPC_CHANNELS.communityComment, (_e, id: string, text: string) => ctx.communityService.comment(id, text));
-  ipcMain.handle(IPC_CHANNELS.communityRunRound, (_e, id: string) =>
+  handle(IPC_CHANNELS.communityList, (_e, projectId: string) => ctx.communityService.list(projectId));
+  handle(IPC_CHANNELS.communityGet, (_e, id: string) => ctx.communityService.get(id));
+  handle(IPC_CHANNELS.communityCreate, (_e, input: CreateCommunityPostInput) => ctx.communityService.create(input));
+  handle(IPC_CHANNELS.communitySuggest, (_e, projectId: string) => ctx.communityService.suggest(projectId));
+  handle(IPC_CHANNELS.communityComment, (_e, id: string, text: string) => ctx.communityService.comment(id, text));
+  handle(IPC_CHANNELS.communityRunRound, (_e, id: string) =>
     ctx.communityService.runRound(id, (event: CommunityProgress) =>
       getWindow()?.webContents.send(IPC_CHANNELS.communityProgress, event),
     ),
   );
-  ipcMain.handle(IPC_CHANNELS.communityStartCommission, (_e, id: string) => ctx.communityService.startCommission(id));
-  ipcMain.handle(IPC_CHANNELS.communityAccept, (_e, id: string, note: string) => ctx.communityService.accept(id, note));
-  ipcMain.handle(IPC_CHANNELS.emailConfigGet, () => ctx.emailService.config());
-  ipcMain.handle(IPC_CHANNELS.emailConfigSave, (_e, config: Omit<EmailMcpConfig, 'updatedAt'>) => ctx.emailService.configure(config));
-  ipcMain.handle(IPC_CHANNELS.emailTest, () => ctx.emailService.testConnection());
-  ipcMain.handle(IPC_CHANNELS.emailList, (_e, projectId: string) => ctx.emailService.list(projectId));
-  ipcMain.handle(IPC_CHANNELS.emailDraft, (_e, input: { projectId: string; sourceMeetingId: string; to: string[]; subject: string; body: string }) =>
+  handle(IPC_CHANNELS.communityStartCommission, (_e, id: string) => ctx.communityService.startCommission(id));
+  handle(IPC_CHANNELS.communityAccept, (_e, id: string, note: string) => ctx.communityService.accept(id, note));
+  handle(IPC_CHANNELS.emailConfigGet, () => ctx.emailService.config());
+  handle(IPC_CHANNELS.emailConfigSave, (_e, config: Omit<EmailMcpConfig, 'updatedAt'>) => ctx.emailService.configure(config));
+  handle(IPC_CHANNELS.emailTest, () => ctx.emailService.testConnection());
+  handle(IPC_CHANNELS.emailList, (_e, projectId: string) => ctx.emailService.list(projectId));
+  handle(IPC_CHANNELS.emailDraft, (_e, input: { projectId: string; sourceMeetingId: string; to: string[]; subject: string; body: string }) =>
     ctx.emailService.createDraft(input));
-  ipcMain.handle(IPC_CHANNELS.emailSend, (_e, id: string) => ctx.emailService.sendDraft(id));
-  ipcMain.handle(IPC_CHANNELS.auditList, (_e, projectId: string) => ctx.auditService.list(projectId));
-  ipcMain.handle(IPC_CHANNELS.auditRun, (_e, projectId: string) => ctx.auditService.run(projectId));
-  ipcMain.handle(
+  handle(IPC_CHANNELS.emailSend, (_e, id: string) => ctx.emailService.sendDraft(id));
+  handle(IPC_CHANNELS.auditList, (_e, projectId: string) => ctx.auditService.list(projectId));
+  handle(IPC_CHANNELS.auditRun, (_e, projectId: string) => ctx.auditService.run(projectId));
+  const mobileView = async () => {
+    if (!mobile) throw new Error('スマホ同期を利用できません');
+    const view = mobile.view();
+    const qr = view.pairingUrl ? await QRCode.toDataURL(view.pairingUrl, { errorCorrectionLevel: 'M', margin: 2, width: 280 }) : null;
+    return { ...view, qr };
+  };
+  handle(IPC_CHANNELS.mobileGet, () => mobileView());
+  handle(IPC_CHANNELS.mobileConfigure, async (_e, input: { baseUrl: string; enabled: boolean; token?: string }) => {
+    await mobile?.configure({ baseUrl: String(input?.baseUrl ?? ''), enabled: input?.enabled === true, token: typeof input?.token === 'string' ? input.token : undefined });
+    return mobileView();
+  });
+  handle(IPC_CHANNELS.mobileSyncNow, async () => { await mobile?.syncNow({ force: true }); return mobileView(); });
+  handle(IPC_CHANNELS.mobileRotateKey, async () => { await mobile?.rotateKey(); return mobileView(); });
+  handle(
     IPC_CHANNELS.projectsToggleActionItem,
     (_e, projectId: string, actionItemId: string, done: boolean) =>
       ctx.projectService.setActionItemDone(projectId, actionItemId, done),
   );
 
-  ipcMain.handle(IPC_CHANNELS.meetingsList, () => ctx.meetingService.listMeetings());
-  ipcMain.handle(IPC_CHANNELS.meetingsGet, (_e, id: string) => ctx.meetingService.getMeeting(id));
-  ipcMain.handle(IPC_CHANNELS.meetingsCreate, (_e, input: CreateMeetingInput) =>
+  handle(IPC_CHANNELS.meetingsList, () => ctx.meetingService.listMeetings());
+  handle(IPC_CHANNELS.meetingsGet, (_e, id: string) => ctx.meetingService.getMeeting(id));
+  handle(IPC_CHANNELS.meetingsCreate, (_e, input: CreateMeetingInput) =>
     ctx.meetingService.createMeeting(input),
   );
-  ipcMain.handle(IPC_CHANNELS.meetingsInvite, (_e, meetingId: string, personaId: string) =>
+  handle(IPC_CHANNELS.meetingsInvite, (_e, meetingId: string, personaId: string) =>
     ctx.meetingService.inviteParticipant(meetingId, personaId),
   );
-  ipcMain.handle(IPC_CHANNELS.meetingsDeactivate, (_e, meetingId: string, participantId: string) =>
+  handle(IPC_CHANNELS.meetingsDeactivate, (_e, meetingId: string, participantId: string) =>
     ctx.meetingService.deactivateParticipant(meetingId, participantId),
   );
-  ipcMain.handle(IPC_CHANNELS.meetingsReactivate, (_e, meetingId: string, participantId: string) =>
+  handle(IPC_CHANNELS.meetingsReactivate, (_e, meetingId: string, participantId: string) =>
     ctx.meetingService.reactivateParticipant(meetingId, participantId),
   );
-  ipcMain.handle(IPC_CHANNELS.meetingsSetWorkingDirectory, (_e, meetingId: string, dir: string | null) =>
+  handle(IPC_CHANNELS.meetingsSetWorkingDirectory, (_e, meetingId: string, dir: string | null) =>
     ctx.meetingService.setWorkingDirectory(meetingId, dir),
   );
 
@@ -152,32 +180,32 @@ export function registerIpcHandlers(ctx: AppContext, getWindow: () => BrowserWin
     getWindow()?.webContents.send(IPC_CHANNELS.discussionProgress, event);
   };
 
-  ipcMain.handle(IPC_CHANNELS.discussionAskAll, (_e, meetingId: string) =>
+  handle(IPC_CHANNELS.discussionAskAll, (_e, meetingId: string) =>
     ctx.discussionService.askAllActiveToSpeak(meetingId, emitProgress),
   );
-  ipcMain.handle(IPC_CHANNELS.discussionAskSpecific, (_e, meetingId: string, participantId: string, question: string) =>
+  handle(IPC_CHANNELS.discussionAskSpecific, (_e, meetingId: string, participantId: string, question: string) =>
     ctx.discussionService.askSpecific(meetingId, participantId, question, emitProgress),
   );
-  ipcMain.handle(IPC_CHANNELS.discussionRebuttal, (_e, meetingId: string) =>
+  handle(IPC_CHANNELS.discussionRebuttal, (_e, meetingId: string) =>
     ctx.discussionService.requestRebuttalRound(meetingId, emitProgress),
   );
-  ipcMain.handle(IPC_CHANNELS.discussionHumanSpeak, (_e, meetingId: string, content: string) =>
+  handle(IPC_CHANNELS.discussionHumanSpeak, (_e, meetingId: string, content: string) =>
     ctx.discussionService.humanSpeak(meetingId, content),
   );
 
-  ipcMain.handle(IPC_CHANNELS.decisionFinalize, (_e, meetingId: string, input: FinalizeDecisionInput) =>
+  handle(IPC_CHANNELS.decisionFinalize, (_e, meetingId: string, input: FinalizeDecisionInput) =>
     ctx.decisionService.finalizeDecision(meetingId, input),
   );
-  ipcMain.handle(IPC_CHANNELS.decisionGate, (_e, meetingId: string) => ctx.decisionService.getGate(meetingId));
-  ipcMain.handle(
+  handle(IPC_CHANNELS.decisionGate, (_e, meetingId: string) => ctx.decisionService.getGate(meetingId));
+  handle(
     IPC_CHANNELS.decisionUpdateActionItems,
     (_e, meetingId: string, items: { id?: string; description: string; assignee: string }[]) =>
       ctx.decisionService.updateActionItems(meetingId, items),
   );
 
-  ipcMain.handle(IPC_CHANNELS.minutesGet, (_e, meetingId: string) => ctx.minutesService.getMinutes(meetingId));
+  handle(IPC_CHANNELS.minutesGet, (_e, meetingId: string) => ctx.minutesService.getMinutes(meetingId));
 
-  ipcMain.handle(
+  handle(
     IPC_CHANNELS.minutesDownload,
     async (_e, meetingId: string, markdown: string, suggestedFileName: string) => {
       const win = getWindow();
@@ -192,7 +220,7 @@ export function registerIpcHandlers(ctx: AppContext, getWindow: () => BrowserWin
     },
   );
 
-  ipcMain.handle(IPC_CHANNELS.chooseDirectory, async () => {
+  handle(IPC_CHANNELS.chooseDirectory, async () => {
     const win = getWindow();
     if (!win) return null;
     const result = await dialog.showOpenDialog(win, { properties: ['openDirectory'] });

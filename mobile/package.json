@@ -1,0 +1,10 @@
+{
+  "name": "sikun-meeting-mobile",
+  "private": true,
+  "type": "module",
+  "description": "Sikun Meetingの会議をスマホで読むPWAと暗号文の保存API（Vercel用）",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@vercel/blob": "^2.8.0"
+  }
+}

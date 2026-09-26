@@ -8,3 +8,5 @@ data/
 .env
 .mcp.json
 .codex/config.toml
+mobile/.local-blob/
+mobile/.vercel/
