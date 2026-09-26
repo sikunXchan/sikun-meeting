@@ -316,6 +316,8 @@ function renderPersonaCheckboxes(meetingTypeId) {
 }
 
 function wireStaticEvents() {
+  document.getElementById('welcome-meeting-btn').addEventListener('click', () => document.getElementById('new-meeting-btn').click());
+  document.getElementById('welcome-commission-btn').addEventListener('click', () => document.getElementById('commission-new-btn').click());
   document.getElementById('new-meeting-btn').addEventListener('click', () => {
     hideAll();
     document.getElementById('new-meeting-form').classList.remove('hidden');

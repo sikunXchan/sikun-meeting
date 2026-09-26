@@ -90,6 +90,10 @@ function renderPairing(message) {
   showBanner(message || '', message ? 'error' : '');
   const input = h('input', { className: 'pair-input', type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', placeholder: 'デスクトップに表示されたURLを貼り付け', 'aria-label': '共有URL' });
   app.replaceChildren(
+    h('section', { className: 'guide-card' },
+      h('img', { className: 'guide-bear', src: '/icons/guide-bear.png', alt: '' }),
+      h('div', {}, h('p', { className: 'guide-eyebrow' }, 'スマホで会議を確認'), h('h2', {}, '会議の続きは、ここで読めます'),
+        h('p', {}, 'まずパソコンと連携しましょう。二次元コードを読み取るだけで始められます。'))),
     h('section', { className: 'card' },
       h('h2', {}, 'デスクトップと連携する'),
       h('ol', { className: 'steps' },
@@ -146,7 +150,8 @@ function renderList() {
   const snapshot = state.snapshot;
   setTopbar('会議一覧', snapshot ? `${formatTime(snapshot.generatedAt)} 同期` : '');
   if (!snapshot) {
-    app.replaceChildren(h('p', { className: 'empty' }, '表示できる会議がありません。'), unpairButton());
+    app.replaceChildren(h('div', { className: 'guide-empty' }, h('img', { className: 'guide-bear', src: '/icons/guide-bear.png', alt: '' }),
+      h('h2', {}, '会議がまだ届いていません'), h('p', {}, 'パソコン側で「今すぐ同期」を押すと、ここに会議が表示されます。')), unpairButton());
     return;
   }
   const selected = storageGet(FILTER_STORAGE) || 'all';

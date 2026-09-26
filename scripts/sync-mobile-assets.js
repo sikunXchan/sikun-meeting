@@ -7,6 +7,7 @@ const target = path.join(root, 'mobile', 'public');
 const copies = [
   [path.join(root, 'dist', 'renderer', 'sanitize.js'), path.join(target, 'js', 'sanitize.js')],
   [path.join(root, 'node_modules', 'marked', 'lib', 'marked.umd.js'), path.join(target, 'vendor', 'marked.umd.js')],
+  [path.join(root, 'src', 'renderer', 'assets', 'guide-bear.png'), path.join(target, 'icons', 'guide-bear.png')],
 ];
 for (const [from, to] of copies) {
   fs.mkdirSync(path.dirname(to), { recursive: true });
@@ -17,4 +18,4 @@ fs.mkdirSync(path.join(target, 'personas'), { recursive: true });
 for (const file of fs.readdirSync(personas).filter((name) => name.endsWith('.png'))) {
   fs.copyFileSync(path.join(personas, file), path.join(target, 'personas', file));
 }
-console.log('[sync-mobile-assets] copied sanitize.js, marked.umd.js and persona images -> mobile/public');
+console.log('[sync-mobile-assets] copied sanitize.js, marked.umd.js, guide bear and persona images -> mobile/public');

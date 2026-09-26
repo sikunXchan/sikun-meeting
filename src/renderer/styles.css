@@ -474,3 +474,67 @@ body.project-active #discussion-panel { display: none; }
 #community-work-list > div { border-bottom: 1px solid var(--border); padding: 7px 0; font-size: 13px; }
 #community-delivery { white-space: pre-wrap; overflow-wrap: anywhere; background: #faf8f2; border: 1px solid var(--border); border-radius: 8px; padding: 12px; font: inherit; font-size: 13px; line-height: 1.6; max-height: 340px; overflow-y: auto; }
 @media (max-width: 950px) { .community-columns { grid-template-columns: 1fr; } .community-feed { border-right: 0; border-bottom: 1px solid var(--border); padding: 0 0 14px; } }
+
+/* 人が読む・入力する画面を共通の読みやすさに揃える */
+:root { --muted: #625a4e; --focus: #276a65; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Yu Gothic UI", Meiryo, "Noto Sans JP", sans-serif; font-size: 15px; line-height: 1.6; }
+button { min-height: 42px; padding: 9px 15px; }
+button.small-btn { min-height: 34px; font-size: 12px; }
+#sidebar > section > button { width: 100%; margin-top: 6px; text-align: left; }
+#sidebar select, #project-new-form input { min-height: 42px; padding: 9px 11px; border-color: #b7ab98; border-radius: 9px; }
+#sidebar h2 { font-size: 12px; color: #5d5144; }
+#meeting-list li, .commission-sidebar-list li { font-size: 14px; padding: 10px 12px; }
+.panel { border-radius: 16px; padding: 24px; box-shadow: var(--shadow-sm); }
+.panel label { margin: 18px 0; font-size: 15px; font-weight: 650; }
+.panel input, .panel select, .panel textarea,
+#new-meeting-form input, #new-meeting-form select, #new-meeting-form textarea {
+  min-height: 44px; padding: 10px 12px; margin-top: 7px; border: 1px solid #b7ab98;
+  border-radius: 10px; font-size: 15px; font-weight: 400; line-height: 1.55;
+}
+.panel :is(input, textarea)::placeholder { color: #756e64; opacity: 1; }
+.panel textarea { min-height: 96px; }
+.panel :is(input, select, textarea):focus-visible, button:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.field-help, .settings-intro { font-size: 13px; color: #625a4e; }
+.settings-fields { max-width: 760px; gap: 18px; }
+.settings-card > summary, .settings-advanced summary { font-size: 15px; }
+.settings-advanced { background: #fff; }
+
+.eyebrow { display: block; color: #276a65; font-size: 12px; font-weight: 800; letter-spacing: .08em; }
+.welcome-screen {
+  display: flex; align-items: center; justify-content: center; gap: clamp(18px, 4vw, 56px);
+  max-width: 930px; min-height: min(520px, 70vh); margin: 24px auto; padding: 24px;
+  background: linear-gradient(135deg, #fffdf7, #f0eee4); border: 1px solid var(--border);
+  border-radius: 24px; box-shadow: var(--shadow-md); color: var(--ink); text-align: left;
+}
+body:has(#empty-state:not(.hidden)) #discussion-panel { display: none; }
+.guide-bear { display: block; flex: none; width: 110px; height: 140px; object-fit: contain; }
+.welcome-bear { width: clamp(145px, 23vw, 240px); height: clamp(220px, 35vw, 340px); }
+.welcome-copy { max-width: 510px; }
+.welcome-copy h1 { margin: 8px 0 14px; font-size: clamp(24px, 3vw, 34px); line-height: 1.35; }
+.welcome-copy p { margin: 0 0 24px; color: #514a40; font-size: 16px; line-height: 1.8; }
+.welcome-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.welcome-actions button { min-height: 48px; padding: 11px 19px; }
+.guide-heading { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding: 15px 20px 15px 8px; background: #f1f6f1; border: 1px solid #d9e8df; border-radius: 16px; }
+.guide-heading > div { min-width: 0; }
+.guide-heading h2, .guide-heading h3 { margin: 3px 0 5px; line-height: 1.35; }
+.guide-heading p { margin: 0; color: #4a5a52; font-size: 14px; line-height: 1.65; }
+.guide-heading-small .guide-bear { width: 72px; height: 94px; }
+.guide-heading-small h3 { font-size: 19px; }
+.consult-status { margin: 12px 0; padding: 12px 14px; background: #edf6f2; border-left: 4px solid #438a7c; border-radius: 8px; color: #265c51; font-size: 14px; line-height: 1.6; }
+.consult-status:empty { display: none; }
+.commission-chat { gap: 12px; }
+.commission-message, .commission-work, .commission-event { padding: 14px 16px; border-radius: 11px; font-size: 14px; line-height: 1.7; }
+.commission-message.human { background: #fff7de; }
+.commission-panel #commission-send-btn, .commission-panel #commission-confirm-btn,
+.commission-panel #commission-create-btn { min-height: 48px; }
+@media (max-width: 760px) {
+  #main { padding: 12px; }
+  .panel, .commission-panel { padding: 18px; }
+  .welcome-screen { flex-direction: column; align-items: flex-start; min-height: 0; padding: 20px; }
+  .welcome-bear { align-self: center; width: 145px; height: 190px; }
+  .welcome-actions { flex-direction: column; }
+  .welcome-actions button { width: 100%; }
+  .guide-heading { align-items: flex-start; padding: 12px; gap: 8px; }
+  .guide-heading .guide-bear { width: 70px; height: 96px; }
+  .commission-panel .row { flex-wrap: wrap; }
+}

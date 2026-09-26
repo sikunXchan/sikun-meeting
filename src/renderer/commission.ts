@@ -125,13 +125,16 @@
     el('commission-resume-btn').classList.toggle('hidden', !['paused', 'stopped', 'interrupted', 'failed'].includes(item.status));
     el('commission-revision-section').classList.toggle('hidden', item.status !== 'delivered');
     const consultationRunning = item.runs.some((run) => run.phase === 'consultation' && run.status === 'running');
+    const activeConsultation = item.runs.findLast((run) => run.phase === 'consultation' && run.status === 'running');
+    const elapsed = activeConsultation ? Math.max(0, Math.floor((Date.now() - Date.parse(activeConsultation.startedAt)) / 1000)) : 0;
+    const elapsedLabel = elapsed >= 60 ? `${Math.floor(elapsed / 60)}分${String(elapsed % 60).padStart(2, '0')}秒` : `${elapsed}秒`;
     const hasConsultantAnswer = item.consultation.some((entry) => entry.speaker === 'it_consultant');
     el('commission-send-btn').disabled = busy || consultationRunning;
     el('commission-send-btn').textContent = consultationRunning ? '回答中…' : '相談する';
     el('commission-plan').disabled = consultationRunning || !hasConsultantAnswer;
     el('commission-confirm-btn').disabled = busy || consultationRunning || !hasConsultantAnswer;
     el('commission-consult-status').textContent = consultationRunning
-      ? 'ITコンサルタントが回答を作成中です。完了すると相談と企画の確定ができます。'
+      ? `ITコンサルタントが回答を作成中です（経過 ${elapsedLabel}）。この画面を開いたままお待ちください。完了すると下の企画を確認できます。`
       : busy && !hasConsultantAnswer ? '相談を開始しています…'
         : !hasConsultantAnswer ? 'まだ回答がありません。「相談する」から再度依頼できます。' : '';
     if (!planEdited) el('commission-plan').value = item.planText || '';
@@ -314,7 +317,7 @@
     const goal = el('commission-goal').value.trim();
     if (!goal) throw new Error('目標を入力してください');
     const successCriteria = el('commission-criteria').value.trim();
-    if (!successCriteria) throw new Error('完成と判断する条件を入力してください');
+    if (!successCriteria) throw new Error('できあがったら確認したいことを入力してください');
     const projectId = await ensureProject();
     const settings = {
       provider: el('commission-provider').value,

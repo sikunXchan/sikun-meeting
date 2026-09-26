@@ -88,7 +88,12 @@
       </aside>
 
       <main id="main">
-        <div id="empty-state">左のリストから会議を選択するか、新しい会議を作成してください。</div>
+        <div id="empty-state" class="welcome-screen">
+          <img class="guide-bear welcome-bear" src="assets/guide-bear.png" alt="手を振る案内役のくま" />
+          <div class="welcome-copy"><span class="eyebrow">ようこそ</span><h1>今日は何を進めますか？</h1><p>考えを整理したいときは会議へ。作るところまで任せたいときは、AIチームに依頼してください。</p>
+            <div class="welcome-actions"><button id="welcome-meeting-btn" type="button">会議を始める</button><button id="welcome-commission-btn" class="secondary" type="button">AIチームに依頼する</button></div>
+          </div>
+        </div>
 
         <div id="project-view" class="panel hidden">
           <h2 id="pv-name"></h2>
@@ -228,12 +233,11 @@
         </div>
 
         <div id="commission-create" class="panel hidden commission-panel">
-          <h2>AIチームへ依頼する</h2>
-          <p class="muted">最初にITコンサルタントAIと企画を相談します。企画を確定すると、AIチームが実装から納品まで進めます。</p>
+          <div class="guide-heading"><img class="guide-bear" src="assets/guide-bear.png" alt="" /><div><span class="eyebrow">STEP 1 · 依頼</span><h2>作りたいものを教えてください</h2><p>短い説明から始められます。AIと企画を相談したあと、あなたが内容を確認してから作業が始まります。</p></div></div>
           <p id="commission-create-error" class="commission-error hidden"></p>
           <div class="settings-fields">
-          <label>作りたいもの <textarea id="commission-goal" rows="5" placeholder="誰が、何をできるようにしたいですか？"></textarea><span class="field-help">アイデア段階でも大丈夫です。次にAIと企画を詰めます。</span></label>
-          <label>完成の目安 <textarea id="commission-criteria" rows="3" placeholder="例：ログインして予定を登録でき、スマホでも確認できる"></textarea><span class="field-help">実際に確認できる結果を書いてください。</span></label>
+          <label>作りたいもの <textarea id="commission-goal" rows="5" placeholder="例：Sikun Meetingをスマホでも使いやすくしたい。会議の確認と新しい依頼ができるようにしたい"></textarea><span class="field-help">誰が何をできるようになれば嬉しいか、普段の言葉で書いてください。</span></label>
+          <label>できあがったら確認したいこと <textarea id="commission-criteria" rows="3" placeholder="例：スマホで会議を開き、依頼を入力して送れる"></textarea><span class="field-help">短い一文で大丈夫です。ここに書いた内容を、納品前にAIが確認します。</span></label>
           </div>
           <details id="commission-advanced" class="settings-card"><summary>詳細設定</summary>
             <p class="settings-intro">通常は推奨値のままで始められます。Claudeを使い、案件専用フォルダを作り、AI呼び出しは最大24回です。</p>
@@ -282,12 +286,12 @@
           <div class="commission-header"><div><h2 id="commission-title"></h2><p id="commission-subtitle" class="muted"></p></div><span id="commission-status" class="status-badge"></span></div>
           <p id="commission-error" class="commission-error hidden"></p>
           <section id="commission-consult-section">
-            <h3>ITコンサルタントと企画</h3>
+            <div class="guide-heading guide-heading-small"><img class="guide-bear" src="assets/guide-bear.png" alt="" /><div><span class="eyebrow">STEP 2 · 相談</span><h3>企画を一緒に整えましょう</h3><p>回答を読んで気になる点を相談できます。内容に納得したら企画を確定してください。</p></div></div>
             <div id="commission-chat" class="commission-chat"></div>
-            <p id="commission-consult-status" class="field-help" role="status" aria-live="polite"></p>
-            <label>相談する内容 <textarea id="commission-message" rows="3" placeholder="目的や希望、質問を伝えてください"></textarea></label>
+            <p id="commission-consult-status" class="consult-status" role="status" aria-live="polite"></p>
+            <label>追加で相談したいこと <textarea id="commission-message" rows="4" placeholder="例：スマホではどこまで操作できますか？"></textarea><span class="field-help">相談を送ると、回答がここに表示されます。</span></label>
             <button id="commission-send-btn" type="button">相談する</button>
-            <label>確定する企画 <textarea id="commission-plan" rows="7" placeholder="コンサルタントの案を確認・編集してください"></textarea></label>
+            <label>この内容で進める企画 <textarea id="commission-plan" rows="8" placeholder="AIからの企画案がここに表示されます。必要なら書き直せます"></textarea><span class="field-help">ここで確定すると、AIチームの作業が始まります。</span></label>
             <button id="commission-confirm-btn" type="button">この企画でAIチームに任せる</button>
           </section>
           <section id="commission-progress-section" class="hidden">
