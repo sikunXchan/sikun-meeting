@@ -288,6 +288,7 @@
           <section id="commission-consult-section">
             <div class="guide-heading guide-heading-small"><img class="guide-bear" src="assets/guide-bear.png" alt="" /><div><span class="eyebrow">STEP 2 · 相談</span><h3>企画を一緒に整えましょう</h3><p>回答を読んで気になる点を相談できます。内容に納得したら企画を確定してください。</p></div></div>
             <div id="commission-chat" class="commission-chat"></div>
+            <div id="commission-consult-activity" class="commission-consult-activity hidden"><img src="assets/personas/default.png" alt="" /><div><strong>ITコンサルタントが企画を整理中</strong><span class="thinking-dots" aria-hidden="true"><span></span><span></span><span></span></span></div></div>
             <p id="commission-consult-status" class="consult-status" role="status" aria-live="polite"></p>
             <label>追加で相談したいこと <textarea id="commission-message" rows="4" placeholder="例：スマホではどこまで操作できますか？"></textarea><span class="field-help">相談を送ると、回答がここに表示されます。</span></label>
             <button id="commission-send-btn" type="button">相談する</button>
@@ -298,6 +299,8 @@
           <section id="commission-progress-section" class="hidden">
             <h3>AIチームの進行</h3>
             <div class="row"><button id="commission-pause-btn" class="secondary" type="button">一時停止</button><button id="commission-stop-btn" class="secondary" type="button">停止</button><button id="commission-resume-btn" class="secondary" type="button">再開</button></div>
+            <div id="commission-live-stage" class="commission-live-stage"></div>
+            <div id="commission-team-strip" class="commission-team-strip"></div>
             <div id="commission-work-list" class="commission-work-list"></div>
             <h3>成果ファイルと内部判断</h3><div id="commission-artifacts" class="commission-work-list"></div>
             <h3>目標の達成確認</h3><div id="commission-goal-checks" class="commission-work-list"></div>

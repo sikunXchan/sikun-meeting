@@ -535,6 +535,83 @@ body:has(#empty-state:not(.hidden)) #discussion-panel { display: none; }
 .commission-message.human { background: #fff7de; }
 .commission-panel #commission-send-btn, .commission-panel #commission-confirm-btn,
 .commission-panel #commission-create-btn { min-height: 48px; }
+.commission-avatar {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border: 1px solid #d9ceba; border-radius: 13px;
+  background: #eee8dc; object-fit: cover; color: #5f5140; font-size: 13px; font-weight: 800;
+}
+.commission-avatar-unknown, .commission-avatar-human { padding: 3px; text-align: center; }
+.commission-avatar-human { background: #fff1c7; font-size: 10px; }
+.commission-consult-activity {
+  display: flex; align-items: center; gap: 13px; margin: 12px 0; padding: 12px 15px;
+  border: 1px solid #d8e8de; border-radius: 14px; background: #f2f8f3;
+}
+.commission-consult-activity.hidden { display: none; }
+.commission-consult-activity .commission-avatar, .commission-consult-activity img { width: 58px; height: 58px; border-radius: 15px; object-fit: cover; }
+.commission-consult-activity strong { display: block; color: #245c50; font-size: 15px; }
+.commission-consult-activity .thinking-dots { display: inline-flex; margin-top: 7px; }
+.commission-chat-row { display: flex; align-items: flex-start; gap: 12px; }
+.commission-chat-row > div { min-width: 0; flex: 1; }
+.commission-chat-row .markdown-body > :first-child { margin-top: 0; }
+.commission-chat-row .markdown-body > :last-child { margin-bottom: 0; }
+.commission-live-stage {
+  display: flex; align-items: center; gap: 20px; margin: 18px 0 12px; padding: 18px 22px;
+  border: 1px solid #cfe2d6; border-radius: 20px;
+  background: linear-gradient(115deg, #eff8f1 0%, #fffdf7 72%);
+  box-shadow: 0 6px 18px rgba(42, 76, 55, .07);
+}
+.commission-stage-avatar { width: 112px; height: 112px; border-radius: 22px; }
+.commission-stage-avatar[src$="guide-bear.png"] { border: 0; background: transparent; object-fit: contain; }
+.commission-live-stage.is-running .commission-stage-avatar { box-shadow: 0 0 0 5px rgba(71, 148, 110, .13); }
+.commission-stage-copy { min-width: 0; flex: 1; }
+.commission-stage-copy > strong { display: block; margin: 3px 0 5px; color: #263f34; font-size: 19px; line-height: 1.35; overflow-wrap: anywhere; }
+.commission-stage-copy p { margin: 0; color: #4c6052; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.commission-stage-progress { margin-top: 12px; color: #456151; font-size: 12px; font-weight: 700; }
+.commission-stage-track { height: 7px; margin-top: 5px; border-radius: 999px; background: #dce9df; overflow: hidden; }
+.commission-stage-track span { display: block; height: 100%; border-radius: inherit; background: #3f9671; transition: width .25s ease; }
+.commission-team-strip { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 9px 13px; margin: 0 0 18px; padding: 12px 15px; border: 1px solid #e6dfd1; border-radius: 15px; background: #fffdfa; }
+.commission-team-strip:empty { display: none; }
+.commission-team-heading { width: 100%; color: #574d40; font-size: 13px; }
+.commission-team-member { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 66px; color: #554f46; font-size: 11px; text-align: center; line-height: 1.25; overflow-wrap: anywhere; }
+.commission-team-member .commission-avatar { width: 50px; height: 50px; }
+.commission-team-member.is-active .commission-avatar { outline: 3px solid #55aa81; outline-offset: 2px; }
+.commission-team-more { align-self: center; color: var(--muted); font-size: 12px; }
+.commission-task { border-left: 0; background: #fff; padding: 16px; }
+.commission-task.status-running, .commission-task.status-review_pending { border-color: #a8d6bb; background: #f7fcf8; }
+.commission-task.status-accepted { border-color: #d1dfd2; }
+.commission-task-header { display: flex; align-items: center; gap: 12px; }
+.commission-task-avatar { width: 62px; height: 62px; border-radius: 17px; }
+.commission-task-title { min-width: 0; flex: 1; }
+.commission-task-title strong { margin: 0; color: #302c26; font-size: 15px; line-height: 1.4; }
+.commission-task-title > span { display: block; margin-top: 3px; color: #645f55; font-size: 12px; }
+.commission-task-status { flex: none; padding: 4px 9px; border-radius: 999px; background: #eeeae2; color: #5a5349; font-size: 12px; font-weight: 800; }
+.commission-task.status-running .commission-task-status, .commission-task.status-review_pending .commission-task-status { background: #daf1df; color: #286444; }
+.commission-task.status-accepted .commission-task-status { background: #e0eddf; color: #315e3f; }
+.commission-task.status-failed .commission-task-status { background: #fae4df; color: #8b3429; }
+.commission-task-meta { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0 0 74px; }
+.commission-persona-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 4px; border: 1px solid #e0d9cc; border-radius: 999px; background: #faf8f3; color: #514c43; font-size: 12px; }
+.commission-persona-chip .commission-avatar { width: 27px; height: 27px; border-radius: 50%; }
+.commission-persona-chip.is-active { border-color: #88c79c; background: #e9f7eb; }
+.commission-task-review { margin: 11px 0 0 74px; padding: 9px 12px; border-radius: 9px; background: #f3f6f1; color: #47544a; font-size: 13px; }
+.commission-task-review > :first-child { margin-top: 0; }
+.commission-task-review > :last-child { margin-bottom: 0; }
+.commission-events { max-height: 420px; }
+.commission-activity-row { display: flex; align-items: flex-start; gap: 10px; background: #fffdf9; }
+.commission-activity-row > div { min-width: 0; flex: 1; }
+.commission-activity-row .commission-avatar { width: 36px; height: 36px; border-radius: 10px; }
+.commission-activity-row .commission-avatar-system { border: 0; background: transparent; object-fit: contain; }
+.commission-activity-row strong { display: block; margin: 0 0 2px; color: #514a40; font-size: 12px; }
+.commission-activity-row .markdown-body { color: #47453e; font-size: 13px; }
+.commission-activity-row .markdown-body > :first-child { margin-top: 0; }
+.commission-activity-row .markdown-body > :last-child { margin-bottom: 0; }
+.commission-activity-row.error { border-color: #e6bcb4; background: #fff8f6; }
+.commission-persona-row { display: flex; align-items: flex-start; gap: 10px; }
+.commission-persona-row > div { min-width: 0; flex: 1; }
+.commission-persona-row .commission-avatar { width: 37px; height: 37px; border-radius: 10px; }
+.commission-persona-row strong { display: block; margin: 0 0 3px; color: #47443e; font-size: 13px; }
+.commission-persona-row .markdown-body { font-size: 13px; }
+.commission-persona-row .markdown-body > :first-child { margin-top: 0; }
+.commission-persona-row .markdown-body > :last-child { margin-bottom: 0; }
 .commission-goal { margin: 4px 0 8px; font-size: 20px; font-weight: 700; line-height: 1.5; }
 .commission-preview { max-width: 780px; margin: 12px 0 20px; padding: 16px 18px; background: #f8faf7; border: 1px solid #d9e8df; border-radius: 12px; }
 .commission-preview h4 { margin: 0 0 10px; color: #276a65; font-size: 13px; }
@@ -549,7 +626,17 @@ body:has(#empty-state:not(.hidden)) #discussion-panel { display: none; }
   .guide-heading { align-items: flex-start; padding: 12px; gap: 8px; }
   .guide-heading .guide-bear { width: 70px; height: 96px; }
   .commission-panel .row { flex-wrap: wrap; }
+  .commission-header { flex-wrap: wrap; gap: 5px; }
+  .commission-header > div { flex-basis: 100%; min-width: 0; }
+  .commission-header .status-badge { white-space: nowrap; }
+  .commission-live-stage { align-items: flex-start; gap: 12px; padding: 14px; }
+  .commission-stage-avatar { width: 74px; height: 74px; border-radius: 16px; }
+  .commission-stage-copy > strong { font-size: 16px; }
+  .commission-task-meta, .commission-task-review { margin-left: 0; }
+  .commission-task-avatar { width: 50px; height: 50px; }
 }
+
+@media (prefers-reduced-motion: reduce) { .commission-stage-track span { transition: none; } }
 
 /* Markdownで表示する本文は改行をHTML側に任せる */
 #tb-agenda { max-height: 2.8em; overflow: hidden; }

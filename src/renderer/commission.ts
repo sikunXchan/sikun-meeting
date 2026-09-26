@@ -7,6 +7,7 @@
   let planEdited = false;
   let busy = false;
   let refreshPending = false;
+  const personaMap = new Map();
 
   const statusLabels = {
     consulting: '企画相談中', running: 'AIチームが作業中', paused: '一時停止', stopped: '停止',
@@ -15,6 +16,11 @@
   const workLabels = {
     queued: '待機', running: '作業中', review_pending: '内部確認中',
     accepted: '確認済み', failed: '失敗', interrupted: '中断',
+  };
+  const phaseLabels = {
+    consultation: '企画を相談中', planning: '仕事と担当を決定中', work: '成果物を制作中',
+    review: '成果物を確認中', goal_check: '目標の達成を確認中',
+    kgi_check: '数値目標を確認中', delivery: '納品内容を整理中',
   };
 
   function show(id) {
@@ -108,6 +114,149 @@
     parent.appendChild(row);
   }
 
+  function avatarFor(personaId, className = '') {
+    const persona = personaMap.get(personaId);
+    if (persona && /^[a-z0-9_-]+\.png$/.test(persona.avatar)) {
+      const image = document.createElement('img');
+      image.className = `commission-avatar ${className}`.trim();
+      image.src = `assets/personas/${persona.avatar}`;
+      image.alt = '';
+      return image;
+    }
+    const placeholder = document.createElement('span');
+    placeholder.className = `commission-avatar commission-avatar-unknown ${className}`.trim();
+    placeholder.textContent = (personaId || '?').slice(0, 1).toUpperCase();
+    return placeholder;
+  }
+
+  function personaName(personaId) {
+    return personaMap.get(personaId)?.name || personaId || 'AIチーム';
+  }
+
+  function personaChip(personaId, label, className = '') {
+    const chip = document.createElement('span');
+    chip.className = `commission-persona-chip ${className}`.trim();
+    chip.append(avatarFor(personaId), document.createTextNode(`${label} ${personaName(personaId)}`));
+    return chip;
+  }
+
+  function addPersonaRow(parent, className, personaId, title, body) {
+    const row = document.createElement('div');
+    row.className = `${className} commission-persona-row`;
+    row.appendChild(avatarFor(personaId));
+    const content = document.createElement('div');
+    const heading = document.createElement('strong');
+    heading.textContent = title;
+    const detail = document.createElement('div');
+    detail.className = 'markdown-body';
+    detail.innerHTML = window.renderMarkdownSafe(body);
+    content.append(heading, detail);
+    row.appendChild(content);
+    parent.appendChild(row);
+  }
+
+  function renderLiveStage(item, events) {
+    const stage = el('commission-live-stage');
+    const team = el('commission-team-strip');
+    stage.replaceChildren();
+    team.replaceChildren();
+    const activeRun = item.status === 'running' ? item.runs.findLast((run) => run.status === 'running') : undefined;
+    const activeWork = item.workItems.find((work) => work.id === activeRun?.workItemId);
+    const activeEvent = activeRun && events.findLast((event) => event.runId === activeRun.id && event.kind !== 'error');
+    const image = activeRun ? avatarFor(activeRun.personaId, 'commission-stage-avatar') : document.createElement('img');
+    if (!activeRun) {
+      image.className = 'commission-avatar commission-stage-avatar';
+      image.src = 'assets/guide-bear.png';
+      image.alt = '';
+    }
+    const copy = document.createElement('div');
+    copy.className = 'commission-stage-copy';
+    const eyebrow = document.createElement('span');
+    eyebrow.className = 'eyebrow';
+    eyebrow.textContent = activeRun ? `いま担当中 · ${personaName(activeRun.personaId)}` : (statusLabels[item.status] || item.status);
+    const headline = document.createElement('strong');
+    headline.textContent = activeRun
+      ? `${phaseLabels[activeRun.phase] || '作業中'}${activeWork ? `：${activeWork.title}` : ''}`
+      : item.status === 'delivered' ? 'チームの仕事が完了しました'
+        : item.status === 'running' ? '次の担当を準備しています'
+          : item.status === 'paused' ? 'ここまでの作業を保存して一時停止中です'
+            : item.status === 'failed' ? '作業が止まりました。記録を確認してください'
+              : 'チームの進行を確認できます';
+    const detail = document.createElement('p');
+    detail.textContent = activeEvent?.detail || (activeRun ? '担当者の作業が進むと、ここに最新の動きが表示されます。' : '仕事ごとの担当と確認状況を下に表示しています。');
+    detail.title = detail.textContent;
+    copy.append(eyebrow, headline, detail);
+    const total = item.workItems.length;
+    const accepted = item.workItems.filter((work) => work.status === 'accepted').length;
+    const progress = document.createElement('div');
+    progress.className = 'commission-stage-progress';
+    const progressLabel = document.createElement('span');
+    progressLabel.textContent = total ? `確認済みの仕事 ${accepted} / ${total}` : '仕事を整理中';
+    const progressBar = document.createElement('div');
+    progressBar.className = 'commission-stage-track';
+    const progressFill = document.createElement('span');
+    progressFill.style.width = total ? `${Math.round(accepted / total * 100)}%` : '0%';
+    progressBar.appendChild(progressFill);
+    progress.append(progressLabel, progressBar);
+    copy.appendChild(progress);
+    stage.append(image, copy);
+    stage.classList.toggle('is-running', Boolean(activeRun));
+
+    const ids = [activeRun?.personaId, ...item.workItems.flatMap((work) => [work.ownerPersonaId, work.reviewerPersonaId]),
+      ...item.runs.map((run) => run.personaId)].filter(Boolean);
+    const unique = [...new Set(ids)];
+    if (!unique.length) return;
+    const heading = document.createElement('strong');
+    heading.className = 'commission-team-heading';
+    heading.textContent = 'この仕事に関わるメンバー';
+    team.appendChild(heading);
+    for (const personaId of unique.slice(0, 12)) {
+      const member = document.createElement('span');
+      member.className = `commission-team-member${personaId === activeRun?.personaId ? ' is-active' : ''}`;
+      member.append(avatarFor(personaId), document.createTextNode(personaName(personaId)));
+      member.title = personaMap.get(personaId)?.roleTitle || personaName(personaId);
+      team.appendChild(member);
+    }
+    if (unique.length > 12) {
+      const more = document.createElement('span');
+      more.className = 'commission-team-more';
+      more.textContent = `ほか ${unique.length - 12} 人`;
+      team.appendChild(more);
+    }
+  }
+
+  function renderWorkCard(parent, work, runs) {
+    const card = document.createElement('article');
+    card.className = `commission-work commission-task status-${work.status}`;
+    const header = document.createElement('div');
+    header.className = 'commission-task-header';
+    header.appendChild(avatarFor(work.ownerPersonaId, 'commission-task-avatar'));
+    const title = document.createElement('div');
+    title.className = 'commission-task-title';
+    const name = document.createElement('strong');
+    name.textContent = work.title;
+    const owner = document.createElement('span');
+    owner.textContent = `${personaName(work.ownerPersonaId)}が担当`;
+    title.append(name, owner);
+    const status = document.createElement('span');
+    status.className = 'commission-task-status';
+    status.textContent = workLabels[work.status] || work.status;
+    header.append(title, status);
+    const meta = document.createElement('div');
+    meta.className = 'commission-task-meta';
+    const reviewerActive = runs.some((run) => run.workItemId === work.id && run.phase === 'review' && run.status === 'running');
+    meta.appendChild(personaChip(work.reviewerPersonaId, '確認', reviewerActive ? 'is-active' : ''));
+    if (work.domainPersonaId && work.domainPersonaId !== work.ownerPersonaId) meta.appendChild(personaChip(work.domainPersonaId, '所管'));
+    card.append(header, meta);
+    if (work.review) {
+      const review = document.createElement('div');
+      review.className = 'commission-task-review markdown-body';
+      review.innerHTML = window.renderMarkdownSafe(work.review);
+      card.appendChild(review);
+    }
+    parent.appendChild(card);
+  }
+
   function renderPlanPreview() {
     const value = el('commission-plan').value.trim();
     el('commission-plan-preview').classList.toggle('hidden', !value);
@@ -144,18 +293,35 @@
       ? `ITコンサルタントが回答を作成中です（経過 ${elapsedLabel}）。この画面を開いたままお待ちください。完了すると下の企画を確認できます。`
       : busy && !hasConsultantAnswer ? '相談を開始しています…'
         : !hasConsultantAnswer ? 'まだ回答がありません。「相談する」から再度依頼できます。' : '';
+    el('commission-consult-activity').classList.toggle('hidden', !consultationRunning);
     if (!planEdited) el('commission-plan').value = item.planText || '';
     renderPlanPreview();
 
     const chat = el('commission-chat');
     chat.replaceChildren();
     for (const message of item.consultation) {
-      addTextRow(chat, `commission-message ${message.speaker}`, message.speaker === 'human' ? 'あなた' : 'ITコンサルタントAI', message.content);
+      const row = document.createElement('div');
+      row.className = `commission-message commission-chat-row ${message.speaker}`;
+      const avatar = message.speaker === 'human' ? document.createElement('span') : avatarFor('it_consultant');
+      if (message.speaker === 'human') {
+        avatar.className = 'commission-avatar commission-avatar-human';
+        avatar.textContent = 'あなた';
+      }
+      const body = document.createElement('div');
+      const name = document.createElement('strong');
+      name.textContent = message.speaker === 'human' ? 'あなた' : personaName('it_consultant');
+      const content = document.createElement('div');
+      content.className = 'markdown-body';
+      content.innerHTML = window.renderMarkdownSafe(message.content);
+      body.append(name, content);
+      row.append(avatar, body);
+      chat.appendChild(row);
     }
+    renderLiveStage(item, events);
     const workList = el('commission-work-list');
     workList.replaceChildren();
     for (const work of item.workItems) {
-      addTextRow(workList, 'commission-work', `${work.title} · ${workLabels[work.status] || work.status}`, `担当 ${work.ownerPersonaId} / 所管 ${work.domainPersonaId || work.ownerPersonaId} / 確認 ${work.reviewerPersonaId}${work.review ? `\n確認: ${work.review}` : ''}`);
+      renderWorkCard(workList, work, item.runs);
     }
     const artifacts = el('commission-artifacts');
     artifacts.replaceChildren();
@@ -180,14 +346,15 @@
       artifacts.appendChild(row);
     }
     for (const decision of item.reviewDecisions || []) {
-      addTextRow(artifacts, 'commission-event', `${decision.approved ? '内部確認を通過' : '差戻し'} · ${decision.reviewerPersonaId}`, decision.note);
+      addPersonaRow(artifacts, 'commission-event', decision.reviewerPersonaId,
+        `${decision.approved ? '内部確認を通過' : '差戻し'} · ${personaName(decision.reviewerPersonaId)}`, decision.note);
     }
     const goalChecks = el('commission-goal-checks');
     goalChecks.replaceChildren();
     if (!item.successCriteria) addTextRow(goalChecks, 'commission-event', '旧案件', '発注者の完了条件が未設定のため、目標の独立確認は行いません。');
     else if (!(item.goalChecks || []).length) addTextRow(goalChecks, 'commission-event', '確認待ち', item.successCriteria);
     for (const check of item.goalChecks || []) {
-      addTextRow(goalChecks, 'commission-event', check.complete ? '達成と判定' : '未達・追加作業',
+      addPersonaRow(goalChecks, 'commission-event', check.reviewerPersonaId || 'critic', check.complete ? '達成と判定' : '未達・追加作業',
         `根拠: ${check.evidence.join('、') || 'なし'}\n残り: ${check.remaining.join('、') || 'なし'}`);
     }
     renderAutonomy(item);
@@ -202,13 +369,32 @@
       }
       const steps = run.provider === 'codex' ? `AI実行 ${run.numTurns} 回` : `モデル応答 ${run.numTurns} ターン`;
       if (Number.isFinite(run.toolCalls)) usage.push(`ツール操作 ${count(run.toolCalls)} 回`);
-      addTextRow(runs, 'commission-event', `${run.provider === 'codex' ? 'Codex' : 'Claude'} · ${run.personaId} · ${run.phase} · ${run.status}`,
+      addPersonaRow(runs, 'commission-event', run.personaId,
+        `${personaName(run.personaId)} · ${phaseLabels[run.phase] || run.phase} · ${run.status}`,
         `要求モデル ${run.requestedModel} / 応答モデル ${run.effectiveModel || '未確認'} / 使用モデル ${run.observedModels.join(', ') || '未確認'}\n${steps} / ${usage.join(' / ')}`);
     }
     const eventList = el('commission-events');
     eventList.replaceChildren();
+    const runById = new Map(item.runs.map((run) => [run.id, run]));
     for (const event of events.slice(-80).reverse()) {
-      addTextRow(eventList, `commission-event ${event.kind}`, new Date(event.at).toLocaleString('ja-JP'), event.detail);
+      const run = runById.get(event.runId);
+      const row = document.createElement('div');
+      row.className = `commission-event commission-activity-row ${event.kind}`;
+      const image = run ? avatarFor(run.personaId) : document.createElement('img');
+      if (!run) {
+        image.className = 'commission-avatar commission-avatar-system';
+        image.src = 'assets/guide-bear.png';
+        image.alt = '';
+      }
+      const body = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = `${run ? personaName(run.personaId) : 'チームの進行'} · ${new Date(event.at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}`;
+      const detail = document.createElement('div');
+      detail.className = 'markdown-body';
+      detail.innerHTML = window.renderMarkdownSafe(event.detail);
+      body.append(title, detail);
+      row.append(image, body);
+      eventList.appendChild(row);
     }
     el('commission-delivery').innerHTML = window.renderMarkdownSafe(item.delivery || (item.status === 'delivered' ? '納品レポートがありません' : '作業完了後に表示されます。'));
   }
@@ -389,5 +575,9 @@
     })();
   });
   setInterval(() => { void refresh(); }, 5000);
+  void api.personas.list().then((list) => {
+    for (const persona of list) personaMap.set(persona.id, persona);
+    if (selectedId) void refresh();
+  }).catch(() => undefined);
   void refreshList();
 })();
