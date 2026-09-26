@@ -19,6 +19,7 @@ let currentMeeting = null;
 let currentProjectId = null;
 let projectViewProjectId = null;
 let editingCardId = null;
+let currentProjectTab = 'tasks';
 function addGoalRow(goal = {}) {
   const list = document.getElementById('pv-card-goal-list');
   const row = document.createElement('div');
@@ -95,7 +96,7 @@ function avatarSrc(fileName) {
 
 function personaAvatarSrc(personaId) {
   const p = personaById(personaId);
-  return p ? avatarSrc(p.avatar) : avatarSrc('default.png');
+  return p ? avatarSrc(p.avatar) : 'assets/guide-bear.png';
 }
 
 function personaLabel(id) {
@@ -164,12 +165,18 @@ async function init() {
     api.meetings.list(),
     api.projects.list(),
   ]);
+  const lastProjectId = localStorage.getItem('lastProjectId');
+  currentProjectId = projects.some((project) => project.id === lastProjectId) ? lastProjectId : projects[0]?.id || null;
   renderMeetingList();
   renderProjectSelect();
+  document.getElementById('project-dashboard-btn').classList.toggle('hidden', !currentProjectId);
+  document.getElementById('community-open-btn').classList.toggle('hidden', !currentProjectId);
   populateMeetingTypeSelect();
   wireStaticEvents();
   wireTopbarToggle();
   wireDiscussionExpand();
+  watchNavigation();
+  void showHome();
   api.discussion.onProgress(handleDiscussionProgress);
   // Sikun Lab IDE等の外部アプリから --pending-meeting 付きで起動された場合、
   // メインプロセス側で自動作成された会議のIDが1回だけ届くのでそれを開く。
@@ -316,6 +323,7 @@ function renderPersonaCheckboxes(meetingTypeId) {
 }
 
 function wireStaticEvents() {
+  document.getElementById('home-open-btn').addEventListener('click', () => { void showHome(); });
   document.getElementById('welcome-meeting-btn').addEventListener('click', () => document.getElementById('new-meeting-btn').click());
   document.getElementById('welcome-commission-btn').addEventListener('click', () => document.getElementById('commission-new-btn').click());
   document.getElementById('new-meeting-btn').addEventListener('click', () => {
@@ -336,7 +344,7 @@ function wireStaticEvents() {
     if (currentMeeting) {
       document.getElementById('meeting-view').classList.remove('hidden');
     } else {
-      document.getElementById('empty-state').classList.remove('hidden');
+      void showHome();
     }
   });
   document.getElementById('nm-choose-dir').addEventListener('click', async () => {
@@ -347,8 +355,14 @@ function wireStaticEvents() {
 
   document.getElementById('project-select').addEventListener('change', (e) => {
     currentProjectId = e.target.value || null;
+    localStorage.setItem('lastProjectId', currentProjectId || '');
     document.getElementById('project-dashboard-btn').classList.toggle('hidden', !currentProjectId);
     document.getElementById('community-open-btn').classList.toggle('hidden', !currentProjectId);
+    if (!document.getElementById('project-view').classList.contains('hidden')) {
+      if (currentProjectId) void openProjectView(currentProjectId);
+      else void showHome();
+    }
+    else if (!document.getElementById('empty-state').classList.contains('hidden')) void renderHomeRecent();
   });
   document.getElementById('project-new-btn').addEventListener('click', () => {
     document.getElementById('project-new-form').classList.toggle('hidden');
@@ -365,13 +379,29 @@ function wireStaticEvents() {
     renderProjectSelect();
     document.getElementById('project-select').value = project.id;
     currentProjectId = project.id;
+    localStorage.setItem('lastProjectId', project.id);
     document.getElementById('project-dashboard-btn').classList.remove('hidden');
     document.getElementById('community-open-btn').classList.remove('hidden');
     document.getElementById('pj-name').value = '';
     document.getElementById('pj-desc').value = '';
     document.getElementById('project-new-form').classList.add('hidden');
+    await openProjectView(project.id);
   });
   document.getElementById('project-dashboard-btn').addEventListener('click', () => openProjectView(currentProjectId));
+  for (const tab of document.querySelectorAll('[data-project-tab]')) {
+    tab.addEventListener('click', () => setProjectTab(tab.dataset.projectTab));
+    tab.addEventListener('keydown', (event) => {
+      const names = ['tasks', 'cards', 'email', 'audit'];
+      const index = names.indexOf(tab.dataset.projectTab);
+      const next = event.key === 'ArrowRight' ? names[(index + 1) % names.length]
+        : event.key === 'ArrowLeft' ? names[(index + names.length - 1) % names.length]
+          : event.key === 'Home' ? names[0] : event.key === 'End' ? names.at(-1) : null;
+      if (!next) return;
+      event.preventDefault();
+      setProjectTab(next);
+      document.querySelector(`[data-project-tab="${next}"]`).focus();
+    });
+  }
   document.getElementById('pv-card-goal-add').addEventListener('click', () => addGoalRow().querySelector('.goal-label').focus());
   document.getElementById('pv-card-save').addEventListener('click', async () => {
     if (!currentProjectId) return;
@@ -638,6 +668,8 @@ function hideAll() {
   document.body.classList.remove('commission-active');
   document.body.classList.remove('community-active');
   document.body.classList.remove('project-active');
+  document.getElementById('sidebar-roster').classList.add('hidden');
+  document.getElementById('sidebar-chief').classList.add('hidden');
   document.getElementById('empty-state').classList.add('hidden');
   document.getElementById('new-meeting-form').classList.add('hidden');
   document.getElementById('meeting-view').classList.add('hidden');
@@ -648,9 +680,101 @@ function hideAll() {
   document.getElementById('mobile-view').classList.add('hidden');
 }
 
+function watchNavigation() {
+  const mapping = [
+    ['empty-state', 'home-open-btn'], ['project-view', 'project-dashboard-btn'],
+    ['community-view', 'community-open-btn'], ['mobile-view', 'mobile-open-btn'],
+  ];
+  const update = () => {
+    for (const [panelId, buttonId] of mapping) {
+      const selected = !document.getElementById(panelId).classList.contains('hidden');
+      const button = document.getElementById(buttonId);
+      button.classList.toggle('is-current', selected);
+      if (selected) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    }
+  };
+  const observer = new MutationObserver(update);
+  for (const [panelId] of mapping) observer.observe(document.getElementById(panelId), { attributes: true, attributeFilter: ['class'] });
+  update();
+}
+
+function homeRecentButton(title, meta, avatarPath, onClick) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'home-recent-item';
+  const image = document.createElement('img');
+  image.src = avatarPath;
+  image.alt = '';
+  const copy = document.createElement('span');
+  const heading = document.createElement('strong');
+  heading.textContent = title;
+  const detail = document.createElement('small');
+  detail.textContent = meta;
+  copy.append(heading, detail);
+  const arrow = document.createElement('span');
+  arrow.className = 'home-recent-arrow';
+  arrow.setAttribute('aria-hidden', 'true');
+  arrow.textContent = '→';
+  button.append(image, copy, arrow);
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+async function renderHomeRecent() {
+  const meetingList = document.getElementById('home-recent-meetings');
+  const commissionList = document.getElementById('home-recent-commissions');
+  const recentMeetings = meetings.filter((meeting) => !currentProjectId || meeting.projectId === currentProjectId)
+    .slice().sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, 3);
+  meetingList.replaceChildren(...(recentMeetings.length ? recentMeetings.map((meeting) => {
+    const participant = meeting.participants?.find((entry) => entry.status === 'ACTIVE') || meeting.participants?.[0];
+    const persona = participant && personaById(participant.personaId);
+    return homeRecentButton(meeting.title, `${meeting.status === 'CONCLUDED' ? '決定済み' : meeting.status === 'IN_PROGRESS' ? '進行中' : '準備中'} · ${new Date(meeting.createdAt).toLocaleDateString('ja-JP')}`,
+      persona ? personaAvatarSrc(persona.id) : 'assets/guide-bear.png', () => { void selectMeeting(meeting.id); });
+  }) : [Object.assign(document.createElement('p'), { className: 'home-recent-empty', textContent: 'まだ会議がありません。上の「会議を開く」から始められます。' })]));
+  try {
+    const commissions = await api.commissions.list();
+    const recent = commissions.filter((item) => !currentProjectId || item.projectId === currentProjectId)
+      .slice().sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)).slice(0, 3);
+    commissionList.replaceChildren(...(recent.length ? recent.map((item) => {
+      const run = item.runs?.findLast((entry) => entry.status === 'running') || item.runs?.at(-1);
+      const persona = run && personaById(run.personaId);
+      const status = { consulting: '相談中', running: '作業中', paused: '一時停止', delivered: '納品済み', failed: '要確認' }[item.status] || item.status;
+      return homeRecentButton(item.goal, `${status} · ${new Date(item.updatedAt).toLocaleDateString('ja-JP')}`,
+        persona ? personaAvatarSrc(persona.id) : 'assets/guide-bear.png',
+        () => window.dispatchEvent(new CustomEvent('commission:open', { detail: item.id })));
+    }) : [Object.assign(document.createElement('p'), { className: 'home-recent-empty', textContent: 'まだ仕事の依頼がありません。作りたいものから相談できます。' })]));
+  } catch {
+    commissionList.replaceChildren(Object.assign(document.createElement('p'), { className: 'home-recent-empty', textContent: '仕事の一覧を読み込めませんでした。' }));
+  }
+}
+
+async function showHome() {
+  currentMeeting = null;
+  hideAll();
+  document.getElementById('empty-state').classList.remove('hidden');
+  document.getElementById('tb-title').textContent = 'ホーム';
+  document.getElementById('tb-agenda').textContent = '';
+  document.getElementById('tb-status').classList.add('hidden');
+  document.getElementById('tb-elapsed').classList.add('hidden');
+  renderMeetingList();
+  await renderHomeRecent();
+}
+
+function setProjectTab(name) {
+  if (!['tasks', 'cards', 'email', 'audit'].includes(name)) return;
+  currentProjectTab = name;
+  for (const tab of document.querySelectorAll('[data-project-tab]')) {
+    const selected = tab.dataset.projectTab === name;
+    tab.classList.toggle('is-current', selected);
+    tab.setAttribute('aria-selected', selected ? 'true' : 'false');
+    tab.tabIndex = selected ? 0 : -1;
+  }
+  for (const pane of document.querySelectorAll('.project-tab-pane')) pane.classList.toggle('hidden', pane.id !== `project-tab-${name}`);
+}
+
 function renderProjectSelect() {
   const select = document.getElementById('project-select');
-  const prevValue = select.value;
   select.innerHTML = '';
   const noneOpt = document.createElement('option');
   noneOpt.value = '';
@@ -662,15 +786,14 @@ function renderProjectSelect() {
     opt.textContent = p.name;
     select.appendChild(opt);
   }
-  if (prevValue && projects.some((p) => p.id === prevValue)) {
-    select.value = prevValue;
-  }
+  select.value = currentProjectId && projects.some((project) => project.id === currentProjectId) ? currentProjectId : '';
 }
 
 async function openProjectView(projectId) {
   if (!projectId) return;
   const project = await api.projects.get(projectId);
-  if (projectViewProjectId !== projectId) {
+  const changedProject = projectViewProjectId !== projectId;
+  if (changedProject) {
     document.getElementById('pv-card-reset').click();
     document.getElementById('pv-card-editor').open = false;
     document.getElementById('email-config-details').open = false;
@@ -678,10 +801,15 @@ async function openProjectView(projectId) {
   }
   projectViewProjectId = projectId;
   currentProjectId = projectId;
+  localStorage.setItem('lastProjectId', projectId);
+  document.getElementById('project-select').value = projectId;
+  document.getElementById('project-dashboard-btn').classList.remove('hidden');
+  document.getElementById('community-open-btn').classList.remove('hidden');
   hideAll();
   document.body.classList.add('project-active');
   document.getElementById('project-view').classList.remove('hidden');
-  document.getElementById('pv-name').textContent = `📋 ${project.name}`;
+  setProjectTab(changedProject ? 'tasks' : currentProjectTab);
+  document.getElementById('pv-name').textContent = project.name;
   document.getElementById('pv-description').innerHTML = window.renderMarkdownSafe(project.description || '');
 
   const list = document.getElementById('pv-action-items');
@@ -1118,11 +1246,11 @@ function renderTranscript(m) {
     if (msg.speakerType === 'HUMAN') {
       img.src = avatarSrc('chief.png');
     } else if (msg.speakerType === 'SYSTEM') {
-      img.src = avatarSrc('default.png');
+      img.src = 'assets/guide-bear.png';
     } else {
       const participantId = msg.speakerId.split('#')[1];
       const participant = participantById(m, participantId);
-      img.src = participant ? personaAvatarSrc(participant.personaId) : avatarSrc('default.png');
+      img.src = participant ? personaAvatarSrc(participant.personaId) : 'assets/guide-bear.png';
     }
     div.appendChild(img);
 
@@ -1311,6 +1439,7 @@ function renderDecision(m) {
       gateView.textContent = gate.ready
         ? `議決可能 · 有効意見 ${gate.validStanceCount}/${gate.activeCount} · 賛成 ${gate.supportCount}`
         : `議決条件が未達: ${gate.reasons.join('／')}。例外として確定する場合は理由を記録してください。`;
+      document.getElementById('df-override-details').open = !gate.ready;
     }).catch((error) => { gateView.textContent = error.message || String(error); });
   }
 }

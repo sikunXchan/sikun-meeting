@@ -15,6 +15,23 @@
     return persona ? persona.emoji + ' ' + persona.name : id;
   }
 
+  function personaImage(id, { human = false } = {}) {
+    const image = document.createElement('img');
+    const persona = personas.find((entry) => entry.id === id);
+    image.src = human ? 'assets/personas/chief.png'
+      : persona && /^[a-z0-9_-]+\.png$/.test(persona.avatar) ? `assets/personas/${persona.avatar}`
+        : 'assets/guide-bear.png';
+    image.alt = '';
+    image.loading = 'lazy';
+    return image;
+  }
+
+  function progress(message, personaId = null) {
+    el('community-progress-text').textContent = message;
+    el('community-progress-avatar').src = personaImage(personaId).src;
+    el('community-progress').classList.toggle('hidden', !message);
+  }
+
   function error(message) {
     const box = el('community-error');
     box.textContent = message || '';
@@ -65,7 +82,10 @@
       meta.textContent = (post.createdBy === 'ai' ? personaName(post.creatorPersonaId) + 'の提案 · ' : '')
         + postStatus(post) + ' · ' + post.messages.length + '件の発言';
     }
-    button.append(title, meta);
+    const content = document.createElement('span');
+    content.className = 'community-card-copy';
+    content.append(title, meta);
+    button.append(personaImage(post.createdBy === 'ai' ? post.creatorPersonaId : null, { human: post.createdBy !== 'ai' }), content);
     button.addEventListener('click', () => { void openPost(post.id); });
     return button;
   }
@@ -113,7 +133,10 @@
       const body = document.createElement('div');
       body.className = 'markdown-body';
       body.innerHTML = window.renderMarkdownSafe(message.content);
-      row.append(author, body);
+      const content = document.createElement('div');
+      content.className = 'community-message-content';
+      content.append(author, body);
+      row.append(personaImage(message.authorId, { human: message.author === 'human' }), content);
       list.appendChild(row);
     }
   }
@@ -160,6 +183,7 @@
 
   async function openPost(id) {
     selectedId = id;
+    progress('');
     error('');
     const post = await api.community.get(id);
     const commission = post.commissionId
@@ -224,7 +248,7 @@
       check.type = 'checkbox';
       check.value = persona.id;
       check.checked = ['product', 'architect', 'critic', 'qa'].includes(persona.id);
-      label.append(check, document.createTextNode(persona.emoji + ' ' + persona.name));
+      label.append(check, personaImage(persona.id), document.createTextNode(persona.emoji + ' ' + persona.name));
       grid.appendChild(label);
     }
   }
@@ -266,9 +290,9 @@
   }));
   el('community-run-btn').addEventListener('click', () => action(async () => {
     if (!selectedId) return;
-    el('community-progress').textContent = 'AIの議論を開始しています…';
+    progress('AIの議論を開始しています…');
     try { await api.community.runRound(selectedId); }
-    finally { el('community-progress').textContent = ''; }
+    finally { progress(''); }
   }));
   el('community-commission-btn').addEventListener('click', () => action(async () => {
     if (!selectedId) return;
@@ -286,12 +310,12 @@
   }));
   api.community.onProgress((event) => {
     if (event.postId !== selectedId) return;
-    if (event.type === 'turn-start') el('community-progress').textContent = personaName(event.personaId) + 'が考えています…';
+    if (event.type === 'turn-start') progress(personaName(event.personaId) + 'が考えています…', event.personaId);
     if (event.type === 'turn-end') {
-      el('community-progress').textContent = personaName(event.personaId) + 'が発言しました。';
+      progress(personaName(event.personaId) + 'が発言しました。', event.personaId);
       void refreshSelected();
     }
-    if (event.type === 'turn-error') el('community-progress').textContent = personaName(event.personaId) + ': ' + event.error;
+    if (event.type === 'turn-error') progress(personaName(event.personaId) + ': ' + event.error, event.personaId);
   });
   api.commissions.onProgress((id) => {
     if (selectedPost?.commissionId === id) void refreshSelected();

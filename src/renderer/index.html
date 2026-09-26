@@ -5,6 +5,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
   <title>Sikun Meeting</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="refresh.css" />
 </head>
 <body>
   <div id="app">
@@ -29,15 +30,11 @@
     </header>
 
     <div id="body-layout">
-      <aside id="sidebar">
-        <section>
-          <h2>PROJECT</h2>
+      <aside id="sidebar" aria-label="ワークスペースと会議">
+        <section class="sidebar-workspace">
+          <h2>ワークスペース</h2>
           <select id="project-select"></select>
-          <div class="row project-actions">
-            <button id="project-new-btn" class="secondary small-btn" type="button">＋ 新規プロジェクト</button>
-            <button id="project-dashboard-btn" class="secondary small-btn hidden" type="button">📋 Action Items</button>
-            <button id="community-open-btn" class="secondary small-btn hidden" type="button">🧩 AIコミュニティ</button>
-          </div>
+          <button id="project-new-btn" class="sidebar-quiet-action" type="button">＋ プロジェクトを作る</button>
           <div id="project-new-form" class="hidden">
             <input id="pj-name" type="text" placeholder="プロジェクト名" />
             <input id="pj-desc" type="text" placeholder="説明（任意）" />
@@ -48,20 +45,23 @@
           </div>
         </section>
 
-        <section>
-          <h2>会議一覧</h2>
+        <nav class="sidebar-main-nav" aria-label="メインメニュー">
+          <button id="home-open-btn" class="sidebar-nav-btn is-current" type="button"><span class="nav-icon">⌂</span><span>ホーム</span></button>
+          <button id="project-dashboard-btn" class="sidebar-nav-btn hidden" type="button"><span class="nav-icon">▦</span><span>プロジェクト</span></button>
+          <button id="community-open-btn" class="sidebar-nav-btn hidden" type="button"><span class="nav-icon">✳</span><span>AIコミュニティ</span></button>
+          <button id="mobile-open-btn" class="sidebar-nav-btn" type="button"><span class="nav-icon">▣</span><span>スマホ連携</span></button>
+        </nav>
+
+        <section class="sidebar-collection">
+          <h2>会議</h2>
           <ul id="meeting-list"></ul>
-          <button id="new-meeting-btn">＋ 新しい会議を作成</button>
+          <button id="new-meeting-btn" class="sidebar-create" type="button">＋ 新しい会議</button>
         </section>
 
-        <section>
-          <h2>委託案件</h2>
+        <section class="sidebar-collection">
+          <h2>AIチームの仕事</h2>
           <ul id="commission-list" class="commission-sidebar-list"></ul>
-          <button id="commission-new-btn" type="button">＋ AIチームに依頼</button>
-        </section>
-
-        <section>
-          <button id="mobile-open-btn" class="secondary" type="button">📱 スマホで見る</button>
+          <button id="commission-new-btn" class="sidebar-create" type="button">＋ 仕事を依頼</button>
         </section>
 
         <section id="sidebar-roster" class="hidden">
@@ -88,19 +88,32 @@
       </aside>
 
       <main id="main">
-        <div id="empty-state" class="welcome-screen">
-          <img class="guide-bear welcome-bear" src="assets/guide-bear.png" alt="手を振る案内役のくま" />
-          <div class="welcome-copy"><span class="eyebrow">ようこそ</span><h1>今日は何を進めますか？</h1><p>考えを整理したいときは会議へ。作るところまで任せたいときは、AIチームに依頼してください。</p>
-            <div class="welcome-actions"><button id="welcome-meeting-btn" type="button">会議を始める</button><button id="welcome-commission-btn" class="secondary" type="button">AIチームに依頼する</button></div>
+        <div id="empty-state" class="home-dashboard">
+          <div class="home-hero">
+            <div class="home-hero-copy"><span class="eyebrow">SIKUN MEETING · YOUR AI TEAM</span><h1>今日は何を進めますか？</h1><p>考えを整理し、決めたことを実際の仕事につなげます。やりたいことを一つ選んでください。</p></div>
+            <img class="guide-bear home-hero-bear" src="assets/guide-bear.png" alt="案内役のくま" />
           </div>
+          <div class="home-action-grid">
+            <button id="welcome-meeting-btn" class="home-action-card" type="button"><span class="home-action-art"><img src="assets/personas/architect.png" alt="" /><img src="assets/personas/critic.png" alt="" /></span><span class="home-action-copy"><span class="eyebrow">考えを深める</span><strong>会議を開く</strong><span>専門家の意見を聞き、結論を決める</span></span><span class="home-action-arrow" aria-hidden="true">→</span></button>
+            <button id="welcome-commission-btn" class="home-action-card" type="button"><span class="home-action-art"><img src="assets/personas/product.png" alt="" /><img src="assets/personas/engineer.png" alt="" /></span><span class="home-action-copy"><span class="eyebrow">形にする</span><strong>AIチームに依頼</strong><span>企画から制作・確認まで任せる</span></span><span class="home-action-arrow" aria-hidden="true">→</span></button>
+          </div>
+          <div class="home-overview-grid"><section class="home-overview-card"><div class="home-overview-heading"><h2>最近の会議</h2><span>決まったことを振り返る</span></div><div id="home-recent-meetings" class="home-recent-list"></div></section><section class="home-overview-card"><div class="home-overview-heading"><h2>AIチームの仕事</h2><span>進行と成果を確認する</span></div><div id="home-recent-commissions" class="home-recent-list"></div></section></div>
         </div>
 
         <div id="project-view" class="panel hidden">
-          <h2 id="pv-name"></h2>
-          <div id="pv-description" class="muted markdown-body"></div>
+          <div class="section-intro"><img src="assets/guide-bear.png" alt="" /><div><span class="eyebrow">PROJECT SPACE</span><h2 id="pv-name"></h2><div id="pv-description" class="muted markdown-body"></div></div></div>
+          <div class="project-tabs" role="tablist" aria-label="プロジェクトの内容">
+            <button type="button" class="project-tab is-current" data-project-tab="tasks" role="tab" aria-selected="true" aria-controls="project-tab-tasks">やること</button>
+            <button type="button" class="project-tab" data-project-tab="cards" role="tab" aria-selected="false" aria-controls="project-tab-cards">成果物カルテ</button>
+            <button type="button" class="project-tab" data-project-tab="email" role="tab" aria-selected="false" aria-controls="project-tab-email">メール実行</button>
+            <button type="button" class="project-tab" data-project-tab="audit" role="tab" aria-selected="false" aria-controls="project-tab-audit">独立監査</button>
+          </div>
+          <section id="project-tab-tasks" class="project-tab-pane" role="tabpanel">
           <h3>Action Items</h3>
           <ul id="pv-action-items"></ul>
           <p id="pv-empty" class="muted small hidden">この会議で決定されたAction Itemsはまだありません。</p>
+          </section>
+          <section id="project-tab-cards" class="project-tab-pane hidden" role="tabpanel">
           <h3>成果物カルテ</h3>
           <p class="muted small">アプリ・ツールごとの現状とKGIを記録します。新しい会議は開始時点の版を読みます。</p>
           <div id="pv-card-list"></div>
@@ -123,6 +136,8 @@
             <div class="row"><button id="pv-card-save" type="button">カルテを保存</button><button id="pv-card-reset" class="secondary" type="button">新規入力に戻す</button></div>
             <p id="pv-card-error" class="settings-feedback settings-error hidden" role="alert"></p>
           </details>
+          </section>
+          <section id="project-tab-email" class="project-tab-pane hidden" role="tabpanel">
           <h3>会議の結論をメールで実行</h3>
           <p class="muted small">確定した会議から下書きを作り、内容を確認してから送信します。送信にはメール用MCPサーバーが必要です。</p>
           <details id="email-config-details" class="settings-card">
@@ -145,15 +160,18 @@
           <label>本文 <textarea id="email-body" rows="6"></textarea></label>
           <button id="email-draft-create" type="button">送信前の下書きを作る</button>
           <div id="email-drafts"></div>
+          </section>
+          <section id="project-tab-audit" class="project-tab-pane hidden" role="tabpanel">
           <h3>社外取締役による独立監査</h3>
           <p class="muted small">通常会議から独立して、議決とKGI実測値を照合します。決定済み会議があるプロジェクトは、アプリ稼働中に30日ごとに監査します。</p>
           <button id="audit-run" class="secondary" type="button">今すぐ監査</button>
           <p id="audit-status" class="muted small"></p>
           <div id="audit-records"></div>
+          </section>
         </div>
 
         <div id="mobile-view" class="panel hidden commission-panel">
-          <h2>スマホで会議を見る</h2>
+          <div class="guide-heading"><img class="guide-bear" src="assets/guide-bear.png" alt="" /><div><span class="eyebrow">MOBILE VIEW</span><h2>スマホで会議を見る</h2><p>会議の結論や発言を、外出先からも確認できます。</p></div></div>
           <p class="muted">会議・発言・決定をこのパソコンで暗号化し、VercelにデプロイしたPWAへ送ります。Vercel側は暗号文だけを保存し、読むための鍵は二次元コードでスマホにだけ渡します。</p>
           <p id="mobile-error" class="commission-error hidden"></p>
           <div class="settings-card settings-open"><h3>1. 公開先を設定</h3>
@@ -178,7 +196,7 @@
 
         <div id="community-view" class="panel hidden community-panel">
           <div class="community-header">
-            <div><h2 id="community-project-name">AIコミュニティ</h2><p class="muted">専門AIが課題を議論し、委託案件の仕事と採用された知識につなげます。</p></div>
+            <div class="community-intro"><img src="assets/guide-bear.png" alt="" /><div><span class="eyebrow">AI COMMUNITY</span><h2 id="community-project-name">AIコミュニティ</h2><p class="muted">専門AIが課題を議論し、委託案件の仕事と採用された知識につなげます。</p></div></div>
             <button id="community-suggest-btn" class="secondary" type="button">AIに次の課題を提案させる</button>
           </div>
           <p id="community-error" class="commission-error hidden"></p>
@@ -212,7 +230,7 @@
                   <button id="community-commission-btn" class="secondary" type="button">AIチームに委託</button>
                   <button id="community-open-commission-btn" class="secondary hidden" type="button">案件を開く</button>
                 </div>
-                <p id="community-progress" class="muted small"></p>
+                <div id="community-progress" class="community-progress hidden" role="status" aria-live="polite"><img id="community-progress-avatar" src="assets/guide-bear.png" alt="" /><span id="community-progress-text"></span><span class="thinking-dots" aria-hidden="true"><span></span><span></span><span></span></span></div>
                 <h4>議論</h4>
                 <div id="community-messages"></div>
                 <label>あなたのコメント <textarea id="community-comment" rows="3" maxlength="4000" placeholder="補足、質問、方針の修正を伝える"></textarea></label>
@@ -313,12 +331,14 @@
         </div>
 
         <div id="new-meeting-form" class="panel hidden">
-          <h2>新しい会議を作成</h2>
-          <label>タイトル <input id="nm-title" type="text" placeholder="例：次に作る機能を決める" /></label>
-          <label>話し合いたいこと
-            <textarea id="nm-agenda" rows="6" placeholder="何を決めたいか、今の状況や気になる点を自由に書いてください"></textarea>
-          </label>
-          <label>話し合いの目的 <select id="nm-type"></select></label>
+          <div class="guide-heading"><img class="guide-bear" src="assets/guide-bear.png" alt="" /><div><span class="eyebrow">NEW MEETING</span><h2>専門家と話し合いましょう</h2><p>決めたいことを普段の言葉で書いてください。目的に合うAIを招集します。</p></div></div>
+          <div class="meeting-setup-fields">
+            <label>会議の名前 <input id="nm-title" type="text" placeholder="例：次に作る機能を決める" /><span class="field-help">後から見つけやすい短い名前にします。</span></label>
+            <label>話し合いたいこと
+              <textarea id="nm-agenda" rows="6" placeholder="何を決めたいか、今の状況や気になる点を自由に書いてください"></textarea>
+            </label>
+            <label>話し合いの目的 <select id="nm-type"></select><span class="field-help">迷ったら最初のおすすめ設定で大丈夫です。</span></label>
+          </div>
           <details id="nm-advanced" class="settings-card"><summary>詳細設定</summary>
           <p class="settings-intro">参加AIは会議の目的に合わせて選ばれます。必要な場合だけ変更してください。</p>
           <label>プロジェクト対象ディレクトリ（任意。Architect等がコードを読む対象）
@@ -362,7 +382,7 @@
           </div>
 
           <div id="mv-decision" class="panel">
-            <h3>FINAL DECISION</h3>
+            <h3>会議の結論</h3>
             <div id="decision-view"></div>
 
             <div id="decision-form">
@@ -370,7 +390,7 @@
               <label>決定内容 <textarea id="df-text" rows="2"></textarea></label>
               <label>理由（1行1項目） <textarea id="df-reasoning" rows="3"></textarea></label>
               <label>Action Items（1行 "担当: 内容"） <textarea id="df-actions" rows="3"></textarea></label>
-              <label>議決条件を満たさず決定する場合の理由 <textarea id="df-override" rows="2" placeholder="例外として決定する理由を記録"></textarea></label>
+              <details id="df-override-details" class="settings-advanced"><summary>議決条件を満たさず決定する場合</summary><label>例外として決定する理由 <textarea id="df-override" rows="2" placeholder="議決条件を満たしていない理由と、その上で決定する根拠"></textarea></label></details>
               <button id="df-submit">最高開発者として決定する</button>
             </div>
 
@@ -390,7 +410,7 @@
 
       <aside id="discussion-panel">
         <div id="discussion-panel-header">
-          <h2>DISCUSSION</h2>
+          <h2>みんなの発言</h2>
           <button id="discussion-expand-btn" type="button" title="フル画面で表示">⛶ フル画面</button>
         </div>
         <div id="transcript-list"></div>

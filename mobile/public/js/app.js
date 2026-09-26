@@ -49,8 +49,8 @@ function formatTime(iso) {
 }
 
 function avatar(file, alt) {
-  const safe = /^[a-z_]+\.png$/.test(file || '') ? file : 'default.png';
-  return h('img', { src: `/personas/${safe}`, alt, loading: 'lazy', width: 48, height: 48 });
+  const safe = /^[a-z_]+\.png$/.test(file || '') ? file : null;
+  return h('img', { src: safe ? `/personas/${safe}` : '/icons/guide-bear.png', alt, loading: 'lazy', width: 48, height: 48 });
 }
 
 function stanceChip(stance) {
@@ -167,15 +167,24 @@ function renderList() {
     list.replaceChildren(...(meetings.length ? meetings.map((meeting) => h('button', {
       className: 'card meeting-item', type: 'button', onClick: () => { location.hash = `#/m/${meeting.id}`; },
     },
-    h('div', { className: 'meeting-head' },
-      h('span', { className: 'meeting-title' }, `${meeting.typeEmoji || ''} ${meeting.title}`),
-      h('span', { className: `badge ${meeting.status}` }, STATUS[meeting.status] || meeting.status)),
-    h('div', { className: 'meeting-meta' }, `${formatTime(meeting.createdAt)} · ${meeting.typeName} · ${projectName(meeting.projectId)} · 発言${meeting.messages.length}件`),
-    meeting.decision ? h('div', { className: 'meeting-summary' }, '決定:', markdown(meeting.decision.text)) : null,
-    )) : [h('p', { className: 'empty' }, '条件に合う会議がありません。')]));
+    h('div', { className: 'meeting-card-main' },
+      avatar(meeting.participants?.find((participant) => participant.active)?.avatar || meeting.participants?.[0]?.avatar, ''),
+      h('div', { className: 'meeting-card-copy' },
+        h('div', { className: 'meeting-head' },
+          h('span', { className: 'meeting-title' }, `${meeting.typeEmoji || ''} ${meeting.title}`),
+          h('span', { className: `badge ${meeting.status}` }, STATUS[meeting.status] || meeting.status)),
+        h('div', { className: 'meeting-meta' }, `${projectName(meeting.projectId)} · ${meeting.typeName}`))),
+    meeting.decision ? h('div', { className: 'meeting-summary' }, h('span', { className: 'meeting-summary-label' }, '決まったこと'), markdown(meeting.decision.text)) : null,
+    h('div', { className: 'meeting-footer' }, h('span', {}, formatTime(meeting.createdAt)), h('span', {}, `発言 ${meeting.messages.length}件`), h('span', { 'aria-hidden': 'true' }, '→')),
+    )) : [h('div', { className: 'guide-empty' }, h('img', { className: 'guide-bear', src: '/icons/guide-bear.png', alt: '' }), h('h2', {}, '会議が見つかりません'), h('p', {}, '検索の言葉やプロジェクトを変えてみてください。'))]));
   }
   renderItems();
-  app.replaceChildren(h('div', { className: 'filters' }, select), h('div', { className: 'filters' }, search), list, unpairButton());
+  app.replaceChildren(
+    h('section', { className: 'list-hero' }, h('img', { className: 'guide-bear', src: '/icons/guide-bear.png', alt: '' }),
+      h('div', {}, h('p', { className: 'guide-eyebrow' }, 'Sikun Meeting'), h('h1', {}, '会議を振り返る'),
+        h('p', {}, `${snapshot.meetings.length}件の会議をスマホで確認できます。決まったことや専門家の発言をいつでも読み返せます。`))),
+    h('div', { className: 'list-toolbar' }, h('div', { className: 'filters' }, select), h('div', { className: 'filters' }, search)),
+    list, unpairButton());
 }
 
 function unpairButton() {
@@ -239,7 +248,7 @@ function renderDetail(meetingId) {
     h('h2', {}, `発言（${meeting.messages.length}）`),
     meeting.messages.length ? meeting.messages.map((message) => {
       const participant = message.participantId ? participants.get(message.participantId) : null;
-      const name = message.speaker === 'human' ? '👤 最高開発者' : message.speaker === 'system' ? '🗒 system' : label(participant);
+      const name = message.speaker === 'human' ? '👤 最高開発者' : message.speaker === 'system' ? '🗒 システム' : label(participant);
       const file = message.speaker === 'human' ? 'chief.png' : participant?.avatar;
       return h('article', { className: `message ${message.speaker}` },
         avatar(file, name),
