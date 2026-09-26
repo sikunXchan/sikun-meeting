@@ -12,6 +12,8 @@ const ROLE_SKILLS: Record<string, string> = {
   backend: 'implementation',
   qa: 'acceptance-verification',
   security: 'security-review',
+  product: 'product-planning',
+  critic: 'critic-evidence',
 };
 const ALLOWED_PHASES: Record<string, SkillPhase[]> = {
   'requirements-framing': ['meeting', 'consultation', 'planning'],
@@ -19,6 +21,8 @@ const ALLOWED_PHASES: Record<string, SkillPhase[]> = {
   implementation: ['meeting', 'work'],
   'acceptance-verification': ['meeting', 'review', 'goal_check', 'kgi_check'],
   'security-review': ['meeting', 'work', 'review'],
+  'product-planning': ['meeting', 'planning', 'work', 'review'],
+  'critic-evidence': ['meeting', 'review', 'goal_check', 'kgi_check'],
 };
 
 export function appliedSkillsFor(personaId: string, phase: SkillPhase): AppliedSkill[] {

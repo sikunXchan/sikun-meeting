@@ -36,6 +36,12 @@ async function main() {
     }
     throw new Error(`画面の更新が完了しません: ${expression}`);
   }
+  async function capture(filePath) {
+    if (!filePath) return;
+    await send('Page.enable');
+    const shot = await send('Page.captureScreenshot', { format: 'png' });
+    fs.writeFileSync(filePath, Buffer.from(shot.result.data, 'base64'));
+  }
   try {
     const setup = await evaluate(`(() => {
       document.getElementById('project-new-btn').click();
@@ -51,12 +57,15 @@ async function main() {
     if (!focusMode) throw new Error('設定画面で会議の発言欄が閉じません');
     const settings = await evaluate(`(() => {
       const emailAdvanced = document.getElementById('email-template').closest('details');
-      return !emailAdvanced.open && document.getElementById('email-tool').value === 'send_email';
+      return !emailAdvanced.open && document.getElementById('email-tool').value === 'send_email'
+        && !document.getElementById('pv-card-advanced').open
+        && document.getElementById('pv-card-status').value === '検討中';
     })()`);
     if (!settings) throw new Error('メールの詳細設定が既定で閉じていません');
     await evaluate(`(() => {
       const byId = (id) => document.getElementById(id);
       byId('pv-card-editor').open = true;
+      byId('pv-card-advanced').open = true;
       byId('pv-card-name').value = '試験アプリ';
       byId('pv-card-status').value = '試用中';
       byId('pv-card-summary').value = '画面を試す';
@@ -82,29 +91,53 @@ async function main() {
     const card = await evaluate(`(() => {
       const row = document.querySelector('.goal-row');
       return { count: document.querySelectorAll('.goal-row').length,
+        advancedOpen: document.getElementById('pv-card-advanced').open,
         label: row.querySelector('.goal-label').value, target: row.querySelector('.goal-target').value,
         current: row.querySelector('.goal-current').value, evidence: row.querySelector('.goal-evidence').value,
         id: row.dataset.goalId };
     })()`);
-    if (card.count !== 1 || card.label !== '利用完了率' || card.target !== '80'
+    if (card.count !== 1 || !card.advancedOpen || card.label !== '利用完了率' || card.target !== '80'
       || card.current !== '65' || card.evidence !== '9月の計測' || !card.id) {
       throw new Error(`目標の再編集が不正です: ${JSON.stringify(card)}`);
     }
-    if (process.env.SCREENSHOT) {
-      await send('Page.enable');
-      const shot = await send('Page.captureScreenshot', { format: 'png' });
-      fs.writeFileSync(process.env.SCREENSHOT, Buffer.from(shot.result.data, 'base64'));
-    }
+    await capture(process.env.SCREENSHOT);
     await evaluate(`document.getElementById('commission-new-btn').click()`);
+    await waitFor(`!document.getElementById('commission-create').classList.contains('hidden')`);
     const commission = await evaluate(`(() => {
       const modelDetails = document.getElementById('commission-model-consultant').closest('details');
-      return !modelDetails.open && document.getElementById('commission-max-calls').value === '24';
+      const advanced = document.getElementById('commission-advanced');
+      return !advanced.open && !modelDetails.open && advanced.contains(document.getElementById('commission-provider'))
+        && advanced.contains(document.getElementById('commission-dir'))
+        && document.getElementById('commission-provider').value === 'claude'
+        && document.getElementById('commission-max-calls').value === '24';
     })()`);
     if (!commission) throw new Error('委託のモデル詳細が既定で閉じていません');
+    await capture(process.env.SCREENSHOT_COMMISSION);
+    const reset = await evaluate(`(() => {
+      document.getElementById('commission-advanced').open = true;
+      document.getElementById('commission-provider').value = 'codex';
+      document.getElementById('commission-max-calls').value = '99';
+      document.getElementById('commission-create-cancel').click();
+      document.getElementById('commission-new-btn').click();
+      return !document.getElementById('commission-advanced').open
+        && document.getElementById('commission-provider').value === 'claude'
+        && document.getElementById('commission-max-calls').value === '24';
+    })()`);
+    if (!reset) throw new Error('新しい案件に前の詳細設定が残っています');
+    await waitFor(`!document.getElementById('commission-create').classList.contains('hidden')`);
+    await evaluate(`document.getElementById('new-meeting-btn').click()`);
+    const meeting = await evaluate(`(() => {
+      const advanced = document.getElementById('nm-advanced');
+      return !advanced.open && advanced.contains(document.getElementById('nm-personas'))
+        && document.getElementById('nm-type').value === 'product_review'
+        && document.getElementById('nm-agenda').value === '';
+    })()`);
+    if (!meeting) throw new Error('会議の推奨設定が適用されていません');
+    await capture(process.env.SCREENSHOT_MEETING);
     await evaluate(`document.getElementById('mobile-open-btn').click()`);
-    const mobile = await evaluate(`document.getElementById('mobile-view').textContent.includes('1. 公開先を設定') && document.getElementById('mobile-view').textContent.includes('3. スマホで読み取る')`);
+    const mobile = await evaluate(`document.getElementById('mobile-view').textContent.includes('1. 公開先を設定') && document.getElementById('mobile-view').textContent.includes('3. スマホで読み取る') && document.getElementById('mobile-enabled').checked`);
     if (!mobile) throw new Error('スマホ設定の順番が表示されません');
-    console.log(JSON.stringify({ focusMode, emailSettings: settings, validation, card, commission, mobile }, null, 2));
+    console.log(JSON.stringify({ focusMode, emailSettings: settings, validation, card, commission, reset, meeting, mobile }, null, 2));
   } finally {
     socket.close();
   }

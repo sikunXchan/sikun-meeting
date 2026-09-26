@@ -261,6 +261,20 @@
     el('commission-goal').value = '';
     el('commission-criteria').value = '';
     el('commission-dir').value = '';
+    el('commission-provider').value = 'claude';
+    for (const id of ['commission-model-codex', 'commission-model-consultant', 'commission-model-planner',
+      'commission-model-worker', 'commission-model-reviewer', 'commission-model-critical',
+      'commission-model-fallback', 'commission-max-calls', 'commission-max-turns',
+      'commission-model-by-persona', 'commission-max-tokens', 'commission-deadline',
+      'commission-max-cycles', 'commission-retry-limit']) {
+      el(id).value = el(id).defaultValue;
+    }
+    el('commission-autonomy').checked = false;
+    el('commission-continuous').checked = false;
+    el('commission-advanced').open = false;
+    for (const details of el('commission-advanced').querySelectorAll('details')) details.open = false;
+    updateProviderFields();
+    updateAutonomyFields();
     const select = el('commission-card');
     select.replaceChildren(new Option('指定しない', ''));
     const projectId = el('project-select').value;

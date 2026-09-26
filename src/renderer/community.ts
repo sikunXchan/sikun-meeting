@@ -241,6 +241,10 @@
     el('community-title').value = '';
     el('community-body').value = '';
     el('community-dir').value = '';
+    for (const check of document.querySelectorAll('#community-personas input')) {
+      check.checked = ['product', 'architect', 'critic', 'qa'].includes(check.value);
+    }
+    el('community-advanced').open = false;
     el('community-new-details').open = false;
     await openPost(post.id);
   }));

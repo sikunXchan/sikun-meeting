@@ -104,15 +104,17 @@
             <p class="settings-intro">作ったものの現状を残します。次の会議は、この記録を読んでから始まります。</p>
             <div class="settings-fields">
               <label>成果物名 <input id="pv-card-name" maxlength="160" placeholder="例：予約管理アプリ" /></label>
-              <label>種類 <select id="pv-card-kind"><option value="app">アプリ</option><option value="tool">ツール</option><option value="other">その他</option></select></label>
-              <label>いまの状態 <input id="pv-card-status" maxlength="160" placeholder="例：試用中" /></label>
+              <label>いまの状態 <input id="pv-card-status" maxlength="160" value="検討中" placeholder="例：試用中" /></label>
               <label>何ができるものか <textarea id="pv-card-summary" rows="3" placeholder="使う人と主な機能を簡単に書いてください"></textarea></label>
+            </div>
+            <details id="pv-card-advanced" class="settings-advanced"><summary>詳細設定</summary>
+              <label>種類 <select id="pv-card-kind"><option value="app">アプリ</option><option value="tool">ツール</option><option value="other">その他</option></select></label>
               <label>わかっている問題 <textarea id="pv-card-issues" rows="3" placeholder="例：スマホでボタンが押しづらい"></textarea><span class="field-help">複数ある場合は改行で分けます。</span></label>
               <label>次に改善したいこと <textarea id="pv-card-backlog" rows="3" placeholder="例：通知設定を追加する"></textarea><span class="field-help">複数ある場合は改行で分けます。</span></label>
-            </div>
             <div class="settings-subsection"><h4>成果の目標（KGI）</h4><p class="field-help">数値で測る目標があれば追加してください。現在値がまだ分からない場合は空欄で大丈夫です。</p>
               <div id="pv-card-goal-list"></div><button id="pv-card-goal-add" class="secondary" type="button">＋ 目標を追加</button>
             </div>
+            </details>
             <div class="row"><button id="pv-card-save" type="button">カルテを保存</button><button id="pv-card-reset" class="secondary" type="button">新規入力に戻す</button></div>
             <p id="pv-card-error" class="settings-feedback settings-error hidden" role="alert"></p>
           </details>
@@ -123,9 +125,9 @@
             <p class="settings-intro">利用するメールMCPサーバーの接続先を入力します。送信前には下書きの確認ができます。</p>
             <div class="settings-fields">
               <label>接続先URL <input id="email-endpoint" type="url" placeholder="https://example.com/mcp" /><span class="field-help">メールMCPサーバーから案内されたURLを入力します。</span></label>
-              <label>送信機能の名前 <input id="email-tool" placeholder="send_email" value="send_email" /><span class="field-help">サーバー側のツール名です。「接続を確認」で一覧を見られます。</span></label>
             </div>
-            <details class="settings-advanced"><summary>認証・引数の詳細設定</summary>
+            <details id="email-advanced" class="settings-advanced"><summary>詳細設定</summary>
+              <label>送信機能の名前 <input id="email-tool" placeholder="send_email" value="send_email" /><span class="field-help">標準は send_email。「接続を確認」で利用できる名前を見られます。</span></label>
               <label>認証トークンの環境変数名 <input id="email-auth-env" placeholder="EMAIL_MCP_TOKEN" /><span class="field-help">トークン本体はここに入力しません。</span></label>
               <label>送信ツールへの引数（JSON） <textarea id="email-template" rows="4">{"to":"{{toArray}}","subject":"{{subject}}","body":"{{body}}"}</textarea><span class="field-help">接続先のツールが標準形と異なる場合だけ変更します。</span></label>
             </details>
@@ -153,10 +155,12 @@
             <label>スマホ用サイトのURL <input id="mobile-base-url" type="url" placeholder="https://sikun-mobile.vercel.app" autocomplete="off" /><span class="field-help">Vercelに公開したPWAのURLを入力します。</span></label>
             <label>同期トークン <input id="mobile-token" type="password" autocomplete="new-password" placeholder="保存済みなら空欄のまま" /><span class="field-help">Vercelの環境変数 SYNC_TOKEN と同じ値を入力します。</span></label>
             <p id="mobile-token-state" class="field-help"></p>
-            <label class="commission-check"><input id="mobile-enabled" type="checkbox" /> 会議の変更を自動で同期する</label>
-            <p class="field-help">有効にすると30秒ごとに変更を確認します。</p>
           </div>
-          <div class="row"><button id="mobile-save-btn" type="button">保存</button><button id="mobile-sync-btn" class="secondary" type="button">今すぐ同期</button></div>
+          <details class="settings-advanced"><summary>詳細設定</summary>
+            <label class="commission-check"><input id="mobile-enabled" type="checkbox" checked /> 会議の変更を自動で同期する</label>
+            <p class="field-help">有効にすると30秒ごとに変更を確認します。</p>
+          </details>
+          <div class="row"><button id="mobile-save-btn" type="button">保存して同期</button><button id="mobile-sync-btn" class="secondary" type="button">今すぐ同期</button></div>
           <div class="settings-subsection"><h3>2. 同期状況</h3><pre id="mobile-status" class="commission-delivery"></pre></div>
           <section id="mobile-pairing" class="hidden">
             <h3>3. スマホで読み取る</h3>
@@ -177,10 +181,12 @@
             <summary>＋ 課題を投稿</summary>
             <label>タイトル <input id="community-title" type="text" maxlength="160" placeholder="解決したい課題" /></label>
             <label>目的・背景・完了条件 <textarea id="community-body" rows="5" maxlength="8000" placeholder="AIに相談したい内容と、使える結果の条件を書いてください"></textarea></label>
+            <details id="community-advanced" class="settings-advanced"><summary>詳細設定</summary>
             <label>参照する作業ディレクトリ（任意）
               <div class="row"><input id="community-dir" type="text" readonly placeholder="未指定" /><button id="community-choose-dir" class="secondary" type="button">選択…</button></div>
             </label>
-            <details class="community-roster"><summary>参加AIを選ぶ（1〜8人）</summary><div id="community-personas"></div></details>
+            <div class="community-roster"><strong>参加AI（推奨の4人を選択済み）</strong><div id="community-personas"></div></div>
+            </details>
             <button id="community-create-btn" type="button">投稿する</button>
           </details>
           <div class="community-columns">
@@ -228,15 +234,19 @@
           <div class="settings-fields">
           <label>作りたいもの <textarea id="commission-goal" rows="5" placeholder="誰が、何をできるようにしたいですか？"></textarea><span class="field-help">アイデア段階でも大丈夫です。次にAIと企画を詰めます。</span></label>
           <label>完成の目安 <textarea id="commission-criteria" rows="3" placeholder="例：ログインして予定を登録でき、スマホでも確認できる"></textarea><span class="field-help">実際に確認できる結果を書いてください。</span></label>
-          <label>関連する成果物カルテ <select id="commission-card"><option value="">指定しない</option></select><span class="field-help">既存のアプリを改善する場合に選びます。</span></label>
-          <label>作業するフォルダ
-            <div class="row"><input id="commission-dir" type="text" readonly placeholder="未指定なら案件専用フォルダを作成" /><button id="commission-choose-dir" class="secondary" type="button">選択…</button></div>
-          </label>
-          <label>AIの実行エンジン <select id="commission-provider"><option value="claude">Claude</option><option value="codex">Codex</option></select></label>
           </div>
-          <details class="commission-settings settings-card"><summary>利用上限とモデルを変更</summary>
-            <p class="settings-intro">通常は初期設定のままで進められます。利用回数やモデルを指定したい場合だけ変更してください。</p>
-            <label>AIの最大呼び出し回数 <input id="commission-max-calls" type="number" min="1" max="200" value="24" /><span class="field-help">この回数に達すると案件を停止します。</span></label>
+          <details id="commission-advanced" class="settings-card"><summary>詳細設定</summary>
+            <p class="settings-intro">通常は推奨値のままで始められます。Claudeを使い、案件専用フォルダを作り、AI呼び出しは最大24回です。</p>
+            <div class="settings-fields">
+              <label>関連する成果物カルテ <select id="commission-card"><option value="">指定しない</option></select><span class="field-help">既存のアプリを改善する場合に選びます。</span></label>
+              <label>作業するフォルダ
+                <div class="row"><input id="commission-dir" type="text" readonly placeholder="推奨：案件専用フォルダを自動作成" /><button id="commission-choose-dir" class="secondary" type="button">選択…</button></div>
+              </label>
+              <label>AIの実行エンジン <select id="commission-provider"><option value="claude">Claude（推奨）</option><option value="codex">Codex</option></select></label>
+            </div>
+            <section class="settings-subsection"><h3>利用上限</h3>
+              <label>AIの最大呼び出し回数 <input id="commission-max-calls" type="number" min="1" max="200" value="24" /><span class="field-help">この回数に達すると案件を停止します。</span></label>
+            </section>
             <details class="settings-advanced"><summary>モデルを個別に指定する</summary>
             <div class="commission-settings-grid">
               <label class="claude-only">相談 <input id="commission-model-consultant" value="claude-sonnet-5" /></label>
@@ -250,9 +260,8 @@
             </div>
             <label class="claude-only">役割別モデル（1行につき personaId=model）<textarea id="commission-model-by-persona" rows="3" placeholder="engineer=claude-sonnet-5&#10;qa=claude-haiku-4-5-20251001"></textarea></label>
             </details>
-          </details>
-          <details id="commission-autonomy-settings" class="commission-settings settings-card"><summary>自動で作業を続ける設定</summary>
-            <p class="settings-intro">企画をあなたが確定した後、失敗時の再試行やアプリ再起動後の再開を行います。</p>
+            <section id="commission-autonomy-settings" class="settings-subsection"><h3>自動で作業を続ける</h3>
+            <p class="field-help">企画をあなたが確定した後、失敗時の再試行やアプリ再起動後の再開を行います。</p>
             <label class="commission-check"><input id="commission-autonomy" type="checkbox" /> 作業の再試行と再開を有効にする</label>
             <label class="commission-check"><input id="commission-continuous" type="checkbox" /> カルテの数値目標を達成するまで改善を続ける</label>
             <p class="field-help">数値目標を設定した成果物カルテを選ぶ必要があります。</p>
@@ -264,6 +273,7 @@
               <label>失敗時に再試行する回数 <input id="commission-retry-limit" type="number" min="0" max="10" value="3" /></label>
             </div>
             </details>
+            </section>
           </details>
           <div class="row"><button id="commission-create-btn" type="button">ITコンサルタントと相談を始める</button><button id="commission-create-cancel" class="secondary" type="button">キャンセル</button></div>
         </div>
@@ -295,11 +305,13 @@
 
         <div id="new-meeting-form" class="panel hidden">
           <h2>新しい会議を作成</h2>
-          <label>タイトル <input id="nm-title" type="text" /></label>
-          <label>議題（Markdownで記述可。プロジェクト概要・目的・制約を書いておくと全AIの発言に毎回反映されます）
-            <textarea id="nm-agenda" rows="12"></textarea>
+          <label>タイトル <input id="nm-title" type="text" placeholder="例：次に作る機能を決める" /></label>
+          <label>話し合いたいこと
+            <textarea id="nm-agenda" rows="6" placeholder="何を決めたいか、今の状況や気になる点を自由に書いてください"></textarea>
           </label>
-          <label>会議タイプ <select id="nm-type"></select></label>
+          <label>話し合いの目的 <select id="nm-type"></select></label>
+          <details id="nm-advanced" class="settings-card"><summary>詳細設定</summary>
+          <p class="settings-intro">参加AIは会議の目的に合わせて選ばれます。必要な場合だけ変更してください。</p>
           <label>プロジェクト対象ディレクトリ（任意。Architect等がコードを読む対象）
             <div class="row">
               <input id="nm-dir" type="text" readonly placeholder="未指定" />
@@ -309,6 +321,7 @@
           <fieldset id="nm-personas">
             <legend>招集するAI（会議タイプのデフォルトから編集可能）</legend>
           </fieldset>
+          </details>
           <div class="row">
             <button id="nm-submit">会議を作成</button>
             <button id="nm-cancel" type="button" class="secondary">キャンセル</button>

@@ -31,10 +31,15 @@ test('同梱スキルは担当部門と工程で選び、会議の権限を広�
   assert.deepEqual(appliedSkillsFor('engineer', 'review'), []);
   assert.deepEqual(appliedSkillsFor('qa', 'review'), [{ id: 'acceptance-verification', version: '1.0.0' }]);
   assert.deepEqual(appliedSkillsFor('security', 'meeting'), [{ id: 'security-review', version: '1.0.0' }]);
+  assert.deepEqual(appliedSkillsFor('product', 'planning'), [{ id: 'product-planning', version: '1.0.0' }]);
+  assert.deepEqual(appliedSkillsFor('critic', 'goal_check'), [{ id: 'critic-evidence', version: '1.0.0' }]);
+  assert.deepEqual(appliedSkillsFor('critic', 'kgi_check'), [{ id: 'critic-evidence', version: '1.0.0' }]);
   assert.deepEqual(appliedSkillsFor('finance', 'work'), []);
   assert.match(skillPromptFor('architect', 'meeting'), /会議やレビューでは変更を提案/);
   assert.equal(skillPromptFor('architect', 'meeting').includes('description:'), false);
   assert.match(skillPromptFor('security', 'review'), /権限/);
+  assert.match(skillPromptFor('product', 'planning'), /完成条件/);
+  assert.match(skillPromptFor('critic', 'goal_check'), /証拠がない条件は未達/);
   assert.equal(skillPromptFor('finance', 'work'), '');
   assert.deepEqual(approvedTools('engineer', 'meeting'), ['Read', 'Grep', 'Glob']);
 });

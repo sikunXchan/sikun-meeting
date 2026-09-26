@@ -17,6 +17,7 @@ let meetings = [];
 let projects = [];
 let currentMeeting = null;
 let currentProjectId = null;
+let projectViewProjectId = null;
 let editingCardId = null;
 function addGoalRow(goal = {}) {
   const list = document.getElementById('pv-card-goal-list');
@@ -126,26 +127,6 @@ const STANCE_CLASS = {
   '推奨案': 'suggest',
   'リスク指摘': 'risk',
 };
-
-/**
- * 議題欄のMarkdownテンプレート。
- * 議題(agenda)は毎ターン全AIのプロンプトにそのまま入る（promptBuilder.ts）ため、
- * ここに「コードを読んでも分からない文脈」（目的・背景・制約）を
- * 最高開発者があらかじめ書いておけるようにしておく。
- */
-const AGENDA_TEMPLATE = `## プロジェクト概要
-
-
-## 目的・ゴール
-
-
-## 背景・制約（コードだけでは分からない事情）
-
-
-## 今回の会議で決めたいこと
-
-
-`;
 
 /** コード解析に向いている（実装寄りの）ペルソナの優先順位。 */
 const CODE_ANALYST_PERSONA_PRIORITY = [
@@ -304,13 +285,16 @@ function renderMeetingList() {
 function populateMeetingTypeSelect() {
   const select = document.getElementById('nm-type');
   select.innerHTML = '';
+  const labels = { steering_committee: '方針・戦略', architecture_review: '技術設計', product_review: '製品・使いやすさ',
+    incident_review: '障害・原因調査', brainstorming: 'アイデア出し', investment_committee: '投資判断' };
   for (const t of meetingTypes) {
     const opt = document.createElement('option');
     opt.value = t.id;
-    opt.textContent = `${t.emoji} ${t.name} — ${t.description}`;
+    opt.textContent = `${t.emoji} ${labels[t.id] || t.name}`;
     select.appendChild(opt);
   }
-  renderPersonaCheckboxes(meetingTypes[0]?.id);
+  select.value = meetingTypes.some((type) => type.id === 'product_review') ? 'product_review' : meetingTypes[0]?.id;
+  renderPersonaCheckboxes(select.value);
   select.addEventListener('change', () => renderPersonaCheckboxes(select.value));
 }
 
@@ -335,8 +319,15 @@ function wireStaticEvents() {
   document.getElementById('new-meeting-btn').addEventListener('click', () => {
     hideAll();
     document.getElementById('new-meeting-form').classList.remove('hidden');
-    const agenda = document.getElementById('nm-agenda');
-    if (!agenda.value.trim()) agenda.value = AGENDA_TEMPLATE;
+    document.getElementById('nm-title').value = '';
+    document.getElementById('nm-agenda').value = '';
+    document.getElementById('nm-dir').value = '';
+    const type = document.getElementById('nm-type');
+    type.value = meetingTypes.some((entry) => entry.id === 'product_review') ? 'product_review' : meetingTypes[0]?.id;
+    renderPersonaCheckboxes(type.value);
+    document.getElementById('nm-advanced').open = false;
+    document.getElementById('tb-title').textContent = '新しい会議';
+    document.getElementById('tb-agenda').textContent = '';
   });
   document.getElementById('nm-cancel').addEventListener('click', () => {
     hideAll();
@@ -392,6 +383,7 @@ function wireStaticEvents() {
         knownIssues: el('pv-card-issues').value.split('\n'), backlog: el('pv-card-backlog').value.split('\n'), goals,
       });
       editingCardId = null;
+      el('pv-card-reset').click();
       el('pv-card-editor').open = false;
       await openProjectView(currentProjectId);
     } catch (error) {
@@ -401,11 +393,13 @@ function wireStaticEvents() {
   });
   document.getElementById('pv-card-reset').addEventListener('click', () => {
     editingCardId = null;
-    for (const id of ['pv-card-name', 'pv-card-status', 'pv-card-summary', 'pv-card-issues', 'pv-card-backlog']) {
+    for (const id of ['pv-card-name', 'pv-card-summary', 'pv-card-issues', 'pv-card-backlog']) {
       document.getElementById(id).value = '';
     }
+    document.getElementById('pv-card-status').value = document.getElementById('pv-card-status').defaultValue;
     document.getElementById('pv-card-goal-list').replaceChildren();
     document.getElementById('pv-card-error').classList.add('hidden');
+    document.getElementById('pv-card-advanced').open = false;
     document.getElementById('pv-card-kind').value = 'app';
   });
   document.getElementById('email-config-save').addEventListener('click', async () => {
@@ -674,6 +668,13 @@ function renderProjectSelect() {
 async function openProjectView(projectId) {
   if (!projectId) return;
   const project = await api.projects.get(projectId);
+  if (projectViewProjectId !== projectId) {
+    document.getElementById('pv-card-reset').click();
+    document.getElementById('pv-card-editor').open = false;
+    document.getElementById('email-config-details').open = false;
+    document.getElementById('email-advanced').open = false;
+  }
+  projectViewProjectId = projectId;
   currentProjectId = projectId;
   hideAll();
   document.body.classList.add('project-active');
@@ -757,6 +758,7 @@ async function openProjectView(projectId) {
       el('pv-card-backlog').value = latest.backlog.join('\n');
       el('pv-card-goal-list').replaceChildren();
       for (const goal of latest.goals) addGoalRow(goal);
+      el('pv-card-advanced').open = card.kind !== 'app' || latest.knownIssues.length > 0 || latest.backlog.length > 0 || latest.goals.length > 0;
       el('pv-card-editor').open = true;
       el('pv-card-editor').scrollIntoView({ block: 'nearest' });
     });

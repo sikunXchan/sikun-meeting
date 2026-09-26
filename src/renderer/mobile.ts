@@ -16,7 +16,8 @@
 
   function render(view) {
     el('mobile-base-url').value = view.baseUrl || '';
-    el('mobile-enabled').checked = view.enabled;
+    el('mobile-enabled').checked = view.enabled || (!view.baseUrl && view.tokenSource === 'none');
+    el('mobile-save-btn').textContent = el('mobile-enabled').checked ? '保存して同期' : '保存';
     el('mobile-token').value = '';
     el('mobile-token-state').textContent = TOKEN_STATE[view.tokenSource] || '';
     const status = view.status || {};
@@ -55,6 +56,9 @@
     enabled: el('mobile-enabled').checked,
     token: el('mobile-token').value || undefined,
   })));
+  el('mobile-enabled').addEventListener('change', () => {
+    el('mobile-save-btn').textContent = el('mobile-enabled').checked ? '保存して同期' : '保存';
+  });
   el('mobile-sync-btn').addEventListener('click', () => action(() => api.mobile.syncNow()));
   el('mobile-rotate-btn').addEventListener('click', () => {
     if (!confirm('鍵を作り直すと、連携済みのスマホでは読めなくなります。続けますか？')) return;

@@ -51,6 +51,10 @@ test('完了条件が未達なら追加作業を計画し、検証を通るま�
     return current.status === 'delivered' || current.status === 'failed' ? current : null;
   });
   assert.equal(delivered.status, 'delivered', delivered.error);
+  assert.deepEqual(delivered.runs.find((run) => run.phase === 'planning').appliedSkills,
+    [{ id: 'product-planning', version: '1.0.0' }]);
+  assert.deepEqual(delivered.runs.find((run) => run.phase === 'goal_check').appliedSkills,
+    [{ id: 'critic-evidence', version: '1.0.0' }]);
   assert.deepEqual(delivered.runs.find((run) => run.phase === 'consultation').appliedSkills,
     [{ id: 'requirements-framing', version: '1.0.0' }]);
   assert.deepEqual(delivered.runs.find((run) => run.phase === 'work').appliedSkills,

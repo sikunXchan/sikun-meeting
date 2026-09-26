@@ -80,6 +80,13 @@ Claude案件にはClaudeの認証済み環境、Codex案件にはCodex CLIのCha
 - `src/core/skills/catalog.ts` は部門と工程から同梱SKILL.mdを選び、Claudeの会議・委託とCodexの委託で共通の手順をプロンプトへ加える。実行権限は既存の`approvedTools()`と`codexPolicy()`が決め、手順は権限を追加しない。`AgentRun.appliedSkills`にIDと版を記録する。`scripts/copy-static.js`がSKILL.mdを`dist/core/skills/catalog/`へコピーする。
 - `renderer.ts` はカルテのKGIを複数のフォーム行として扱い、編集時に目標IDを維持する。`index.html`はメール認証・引数JSON、委託モデルID、無人運用停止条件を折りたたみ、スマホ同期を設定順に表示する。プロジェクト設定中は空の会議発言欄を隠す。
 
+# 2026-09-26 推奨値と実機試験
+
+- 委託作成では目標と完成条件だけを基本欄に置き、作業先・エンジン・モデル・利用上限・無人運用を一つの「詳細設定」にまとめる。会議はタイトル・議題・目的を基本欄とし、作業先と参加者を詳細設定に移す。カルテ、メール、コミュニティ、スマホ設定も同じ順序にする。保存形式は変えない。
+- Productの計画には`product-planning`、Criticの達成判定には`critic-evidence`を適用する。手順の適用とRun記録は既存の`catalog.ts`を使い、ツール・外部接続・書き込み権限は`capabilities.ts`のままにする。
+- `scripts/qa-electron.js`は実ユーザープロファイルと別の一時プロファイルで開発版を起動する。`scripts/smoke-settings-ui.js`は表示状態と推奨値、`scripts/smoke-commission-ui-live.js`は画面操作から実SDKの工程と受け入れ結果を検証する。`scripts/verify-meeting-actions-browser.js`は実践試験で作ったHTMLをChromeで操作する。
+- 実践試験ではQAのCodex確認工程が読み取り専用のためChromeプロファイルを作れず、HTMLの操作確認を独立して完了できなかった。元の成果物を変更させずにブラウザ操作を行えるハーネスは未実装。QAの差し戻しを自動採用に変更しない。
+
 | 用途 | コマンド |
 |---|---|
 | 同梱スキルと既存機能 | `npm test` |

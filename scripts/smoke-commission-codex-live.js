@@ -11,7 +11,8 @@ async function main() {
     const commission = await ctx.commissionService.create({
       projectId: project.id,
       goal: '作業ディレクトリに greeting.txt を作り、内容を正確に hello とする。確認して納品する。',
-      settings: { provider: 'codex', codexModel: 'gpt-6-sol', maxCalls: 7 },
+      successCriteria: 'greeting.txt が存在し、内容が正確に hello であること。',
+      settings: { provider: 'codex', codexModel: 'gpt-6-sol', maxCalls: 12 },
     });
     await ctx.commissionService.consult(commission.id, 'この小さな試験の企画を一文でまとめてください。');
     await ctx.commissionService.confirmPlan(commission.id, 'greeting.txt に正確に hello と書き、内容を確認して納品する。');
@@ -31,13 +32,19 @@ async function main() {
       error: result.error,
       work: result.workItems.map((entry) => ({ title: entry.title, status: entry.status })),
       artifacts: result.artifacts.map((entry) => ({ path: entry.relativePath, status: entry.status })),
-      runs: result.runs.map((entry) => ({ phase: entry.phase, provider: entry.provider, model: entry.requestedModel, status: entry.status })),
+      runs: result.runs.map((entry) => ({ phase: entry.phase, provider: entry.provider, model: entry.requestedModel, status: entry.status, skills: entry.appliedSkills })),
       directory: result.workingDirectory,
     }));
     if (result.status !== 'delivered') throw new Error(result.error || 'Codex縦断試験が失敗しました');
     if (fs.readFileSync(path.join(result.workingDirectory, 'greeting.txt'), 'utf8').trim() !== 'hello') throw new Error('成果ファイルの内容が不正です');
     if (!result.artifacts.some((entry) => entry.relativePath === 'greeting.txt' && entry.status === 'accepted')) throw new Error('成果ファイルが採用されていません');
     if (!result.runs.every((entry) => entry.provider === 'codex' && entry.requestedModel === 'gpt-6-sol')) throw new Error('Codex以外の実行が混在しました');
+    for (const [phase, skillId] of [['consultation', 'requirements-framing'], ['planning', 'product-planning'],
+      ['work', 'implementation'], ['review', 'acceptance-verification'], ['goal_check', 'critic-evidence']]) {
+      if (!result.runs.some((run) => run.phase === phase && run.appliedSkills?.some((skill) => skill.id === skillId))) {
+        throw new Error(`${phase} の専門スキルが記録されていません`);
+      }
+    }
   } finally {
     const target = path.resolve(dir);
     if (!target.startsWith(`${path.resolve(os.tmpdir())}${path.sep}`)) throw new Error('試験用フォルダが一時領域の外です');

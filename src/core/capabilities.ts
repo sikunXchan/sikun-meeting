@@ -21,6 +21,7 @@ const SKILLS: Record<string, string[]> = {
   it_consultant: ['requirements-framing'], architect: ['architecture-review'],
   engineer: ['implementation'], backend: ['implementation'],
   security: ['security-review'], qa: ['acceptance-verification'],
+  product: ['product-planning'], critic: ['critic-evidence'],
 };
 
 const METHODS: Record<string, string> = {
