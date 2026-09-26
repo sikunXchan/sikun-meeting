@@ -535,6 +535,10 @@ body:has(#empty-state:not(.hidden)) #discussion-panel { display: none; }
 .commission-message.human { background: #fff7de; }
 .commission-panel #commission-send-btn, .commission-panel #commission-confirm-btn,
 .commission-panel #commission-create-btn { min-height: 48px; }
+.commission-goal { margin: 4px 0 8px; font-size: 20px; font-weight: 700; line-height: 1.5; }
+.commission-preview { max-width: 780px; margin: 12px 0 20px; padding: 16px 18px; background: #f8faf7; border: 1px solid #d9e8df; border-radius: 12px; }
+.commission-preview h4 { margin: 0 0 10px; color: #276a65; font-size: 13px; }
+.card-details { margin: 8px 0 12px; color: var(--muted); font-size: 13px; line-height: 1.6; }
 @media (max-width: 760px) {
   #main { padding: 12px; }
   .panel, .commission-panel { padding: 18px; }

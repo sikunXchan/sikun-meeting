@@ -108,10 +108,16 @@
     parent.appendChild(row);
   }
 
+  function renderPlanPreview() {
+    const value = el('commission-plan').value.trim();
+    el('commission-plan-preview').classList.toggle('hidden', !value);
+    el('commission-plan-preview-body').innerHTML = value ? window.renderMarkdownSafe(value) : '';
+  }
+
   function render(snapshot) {
     const { commission: item, events } = snapshot;
     if (item.id !== selectedId) return;
-    el('commission-title').textContent = item.goal;
+    el('commission-title').innerHTML = window.renderMarkdownSafe(item.goal);
     const autonomy = item.settings?.autonomy;
     el('commission-subtitle').textContent = `${item.settings?.provider === 'codex' ? 'Codex' : 'Claude'}${autonomy?.enabled ? ` · 無人運用${autonomy.continuous ? '（KGIまで継続）' : ''}` : ''} · 作業場所: ${item.workingDirectory}`;
     const retryPending = item.status === 'failed' && Boolean(item.autoRetry?.nextAt);
@@ -139,6 +145,7 @@
       : busy && !hasConsultantAnswer ? '相談を開始しています…'
         : !hasConsultantAnswer ? 'まだ回答がありません。「相談する」から再度依頼できます。' : '';
     if (!planEdited) el('commission-plan').value = item.planText || '';
+    renderPlanPreview();
 
     const chat = el('commission-chat');
     chat.replaceChildren();
@@ -341,7 +348,7 @@
     await openCommission(item.id);
     await api.commissions.consult(item.id, goal);
   }));
-  el('commission-plan').addEventListener('input', () => { planEdited = true; });
+  el('commission-plan').addEventListener('input', () => { planEdited = true; renderPlanPreview(); });
   el('commission-send-btn').addEventListener('click', () => action(async () => {
     const message = el('commission-message').value.trim();
     if (!message) throw new Error('相談内容を入力してください');

@@ -78,6 +78,14 @@ async function main() {
     if (!form.visible || !form.bearLoaded || parseFloat(form.fontSize) < 15 || !form.advancedClosed) {
       throw new Error(`依頼フォームが不正です: ${JSON.stringify(form)}`);
     }
+    const preview = await evaluate(`(() => {
+      const field = document.getElementById('commission-plan');
+      field.value = '## 企画案\\n**重要**な条件';
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      const node = document.getElementById('commission-plan-preview');
+      return !node.classList.contains('hidden') && node.innerHTML.includes('<strong>重要</strong>');
+    })()`);
+    if (!preview) throw new Error('企画を編集した際のMarkdownプレビューが表示されません');
     await capture('sikun-commission-form');
     console.log('案内役、フォーム、文字サイズ、詳細設定の初期状態を確認しました。');
   } finally {

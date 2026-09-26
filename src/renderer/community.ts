@@ -57,9 +57,14 @@
     const title = document.createElement('strong');
     title.textContent = post.title;
     const meta = document.createElement('small');
-    meta.textContent = isMemory ? (post.acceptanceNote || '').slice(0, 90)
-      : (post.createdBy === 'ai' ? personaName(post.creatorPersonaId) + 'の提案 · ' : '')
+    if (isMemory) {
+      const preview = document.createElement('div');
+      preview.innerHTML = window.renderMarkdownSafe(post.acceptanceNote || '');
+      meta.textContent = (preview.textContent || '').trim().slice(0, 90);
+    } else {
+      meta.textContent = (post.createdBy === 'ai' ? personaName(post.creatorPersonaId) + 'の提案 · ' : '')
         + postStatus(post) + ' · ' + post.messages.length + '件の発言';
+    }
     button.append(title, meta);
     button.addEventListener('click', () => { void openPost(post.id); });
     return button;

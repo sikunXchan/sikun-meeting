@@ -747,8 +747,9 @@ async function openProjectView(projectId) {
     const body = document.createElement('div');
     body.className = 'markdown-body';
     body.innerHTML = window.renderMarkdownSafe(latest.summary);
-    const details = document.createElement('small');
-    details.textContent = `問題: ${latest.knownIssues.join('、') || 'なし'} / バックログ: ${latest.backlog.join('、') || 'なし'} / KGI: ${latest.goals.map((goal) => `${goal.label} ${goal.current ?? '未測定'}/${goal.target}${goal.unit}`).join('、') || '未設定'} / 決定: ${latest.decisionIds.length}件`;
+    const details = document.createElement('div');
+    details.className = 'card-details markdown-body';
+    details.innerHTML = window.renderMarkdownSafe(`問題: ${latest.knownIssues.join('、') || 'なし'}\nバックログ: ${latest.backlog.join('、') || 'なし'}\nKGI: ${latest.goals.map((goal) => `${goal.label} ${goal.current ?? '未測定'}/${goal.target}${goal.unit}`).join('、') || '未設定'}\n決定: ${latest.decisionIds.length}件`);
     const edit = document.createElement('button');
     edit.type = 'button'; edit.className = 'secondary small-btn'; edit.textContent = '編集';
     edit.addEventListener('click', () => {

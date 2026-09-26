@@ -283,7 +283,7 @@
         </div>
 
         <div id="commission-view" class="panel hidden commission-panel">
-          <div class="commission-header"><div><h2 id="commission-title"></h2><p id="commission-subtitle" class="muted"></p></div><span id="commission-status" class="status-badge"></span></div>
+          <div class="commission-header"><div><span class="eyebrow">依頼内容</span><div id="commission-title" class="commission-goal markdown-body"></div><p id="commission-subtitle" class="muted"></p></div><span id="commission-status" class="status-badge"></span></div>
           <p id="commission-error" class="commission-error hidden"></p>
           <section id="commission-consult-section">
             <div class="guide-heading guide-heading-small"><img class="guide-bear" src="assets/guide-bear.png" alt="" /><div><span class="eyebrow">STEP 2 · 相談</span><h3>企画を一緒に整えましょう</h3><p>回答を読んで気になる点を相談できます。内容に納得したら企画を確定してください。</p></div></div>
@@ -292,6 +292,7 @@
             <label>追加で相談したいこと <textarea id="commission-message" rows="4" placeholder="例：スマホではどこまで操作できますか？"></textarea><span class="field-help">相談を送ると、回答がここに表示されます。</span></label>
             <button id="commission-send-btn" type="button">相談する</button>
             <label>この内容で進める企画 <textarea id="commission-plan" rows="8" placeholder="AIからの企画案がここに表示されます。必要なら書き直せます"></textarea><span class="field-help">ここで確定すると、AIチームの作業が始まります。</span></label>
+            <div id="commission-plan-preview" class="commission-preview hidden"><h4>企画の表示プレビュー</h4><div id="commission-plan-preview-body" class="markdown-body"></div></div>
             <button id="commission-confirm-btn" type="button">この企画でAIチームに任せる</button>
           </section>
           <section id="commission-progress-section" class="hidden">
