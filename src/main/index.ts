@@ -6,6 +6,8 @@ import { IPC_CHANNELS, registerIpcHandlers } from './ipc';
 import { CreateMeetingInput } from '../core/services/meetingService';
 import { AppSettingsStore } from './appSettings';
 import { isAppUrl, isExternalWebUrl } from './security';
+import { MobileSyncService } from '../core/mobile/service';
+import { createTokenStore } from './mobileToken';
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -183,7 +185,10 @@ if (singleInstance) app.whenReady().then(async () => {
   settingsStore = new AppSettingsStore(dataDir);
   session.defaultSession.setPermissionRequestHandler((_contents, permission, callback) => callback(permission === 'clipboard-sanitized-write'));
   session.defaultSession.setPermissionCheckHandler((_contents, permission) => permission === 'clipboard-sanitized-write');
-  registerIpcHandlers(ctx, () => mainWindow);
+  const mobileSync = new MobileSyncService(dataDir, ctx.repo, createTokenStore(dataDir));
+  registerIpcHandlers(ctx, () => mainWindow, mobileSync);
+  mobileSync.start();
+  app.once('before-quit', () => mobileSync.stop());
   try { createTray(); } catch (error) { console.error('[tray] トレイを作成できません', error); }
   applyLoginItem(settingsStore.get().launchAtLogin);
   ctx.commissionService.subscribe(() => updateAutonomyState(ctx));

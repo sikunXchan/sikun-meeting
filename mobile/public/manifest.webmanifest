@@ -1,0 +1,15 @@
+{
+  "name": "Sikun Meeting",
+  "short_name": "Sikun",
+  "description": "AI専門家チームとの会議をスマホで読む",
+  "lang": "ja",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f1e7",
+  "theme_color": "#e8c25a",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

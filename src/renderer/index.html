@@ -60,6 +60,10 @@
           <button id="commission-new-btn" type="button">＋ AIチームに依頼</button>
         </section>
 
+        <section>
+          <button id="mobile-open-btn" class="secondary" type="button">📱 スマホで見る</button>
+        </section>
+
         <section id="sidebar-roster" class="hidden">
           <h2>AI ROSTER</h2>
           <h3>ACTIVE <span id="active-count" class="count"></span></h3>
@@ -128,6 +132,25 @@
           <button id="audit-run" class="secondary" type="button">今すぐ監査</button>
           <p id="audit-status" class="muted small"></p>
           <div id="audit-records"></div>
+        </div>
+
+        <div id="mobile-view" class="panel hidden commission-panel">
+          <h2>スマホで会議を見る</h2>
+          <p class="muted">会議・発言・決定をこのパソコンで暗号化し、VercelにデプロイしたPWAへ送ります。Vercel側は暗号文だけを保存し、読むための鍵は二次元コードでスマホにだけ渡します。</p>
+          <p id="mobile-error" class="commission-error hidden"></p>
+          <label>公開先URL（Vercelのドメイン） <input id="mobile-base-url" type="url" placeholder="https://sikun-mobile.vercel.app" autocomplete="off" /></label>
+          <label>同期トークン（Vercelの環境変数 SYNC_TOKEN と同じ値） <input id="mobile-token" type="password" autocomplete="new-password" placeholder="保存済みの場合は空欄のまま" /></label>
+          <p id="mobile-token-state" class="muted"></p>
+          <label class="commission-check"><input id="mobile-enabled" type="checkbox" /> 会議が変わったら自動で送る（30秒ごとに確認）</label>
+          <div class="row"><button id="mobile-save-btn" type="button">保存</button><button id="mobile-sync-btn" class="secondary" type="button">今すぐ同期</button></div>
+          <pre id="mobile-status" class="commission-delivery"></pre>
+          <section id="mobile-pairing" class="hidden">
+            <h3>スマホで読み取る</h3>
+            <p class="muted">この二次元コードは会議を読むための鍵です。他の人に見せないでください。</p>
+            <img id="mobile-qr" alt="スマホで読み取る二次元コード" width="280" height="280" />
+            <details><summary>URLをコピーして送る</summary><input id="mobile-pairing-url" type="text" readonly /></details>
+            <button id="mobile-rotate-btn" class="secondary" type="button">鍵を作り直す（連携済みのスマホは読めなくなります）</button>
+          </section>
         </div>
 
         <div id="community-view" class="panel hidden community-panel">
@@ -358,5 +381,6 @@
   <script src="renderer.js"></script>
   <script src="commission.js"></script>
   <script src="community.js"></script>
+  <script src="mobile.js"></script>
 </body>
 </html>

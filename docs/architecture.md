@@ -63,3 +63,14 @@ Claude案件にはClaudeの認証済み環境、Codex案件にはCodex CLIのCha
 | 用途 | コマンド |
 |---|---|
 | 画面の隔離と無人運用欄の確認 | Electronを`--remote-debugging-port=9222`で起動後 `node scripts/smoke-security-ui.js` |
+
+# 2026-09-26 スマホ閲覧（PWA）
+
+- `src/core/mobile/snapshot.ts` が会議を読み取り用の形にし、`envelope.ts` がHKDF-SHA256で鍵とIDを導いてAES-256-GCM（gzip後）で暗号化する。`service.ts` の `MobileSyncService` が30秒ごとに内容のハッシュを比べ、変わったときだけ `PUT /api/snapshot` へ送る。4MBを超えると古い会議から省く。設定は `mobile-sync.json`、トークンは `src/main/mobileToken.ts` が `safeStorage` で `mobile-token.bin` に保存する。
+- `mobile/` はVercelのプロジェクト（Root Directory `mobile`）。`api/snapshot.js` がVercel Blob（非公開）に `snapshots/<id>.json` を保存・取得・削除し、検証は `lib/handler.js` が行う。`public/` はPWAで、`js/crypto.js` がWebCryptoで復号する。`js/sanitize.js`、`vendor/marked.umd.js`、`personas/` はデスクトップのビルド時に `scripts/sync-mobile-assets.js` がコピーする。
+
+| 用途 | コマンド |
+|---|---|
+| PWAとAPIを手元で動かす | `SYNC_TOKEN=... node scripts/serve-mobile-local.js 3000` |
+| スマホ閲覧の縦断確認 | `node scripts/smoke-mobile-pwa.js desktop|phone|offline`（環境変数はスクリプト冒頭を参照） |
+| PWAのアイコン生成 | `npx electron scripts/make-mobile-icons.js` |

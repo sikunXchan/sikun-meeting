@@ -1,5 +1,7 @@
 import { ipcMain, dialog, BrowserWindow, shell, IpcMainInvokeEvent } from 'electron';
 import { assertTrustedSender } from './security';
+import * as QRCode from 'qrcode';
+import { MobileSyncService } from '../core/mobile/service';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AppContext, PERSONAS, MEETING_TYPES } from '../core';
@@ -68,11 +70,15 @@ export const IPC_CHANNELS = {
   emailSend: 'email:send',
   auditList: 'audit:list',
   auditRun: 'audit:run',
+  mobileGet: 'mobile:get',
+  mobileConfigure: 'mobile:configure',
+  mobileSyncNow: 'mobile:syncNow',
+  mobileRotateKey: 'mobile:rotateKey',
 } as const;
 
 type Handler = (event: IpcMainInvokeEvent, ...args: any[]) => unknown;
 
-export function registerIpcHandlers(ctx: AppContext, getWindow: () => BrowserWindow | null): void {
+export function registerIpcHandlers(ctx: AppContext, getWindow: () => BrowserWindow | null, mobile?: MobileSyncService): void {
   const handle = (channel: string, handler: Handler): void => {
     ipcMain.handle(channel, (event, ...args) => {
       assertTrustedSender(event);
@@ -131,6 +137,19 @@ export function registerIpcHandlers(ctx: AppContext, getWindow: () => BrowserWin
   handle(IPC_CHANNELS.emailSend, (_e, id: string) => ctx.emailService.sendDraft(id));
   handle(IPC_CHANNELS.auditList, (_e, projectId: string) => ctx.auditService.list(projectId));
   handle(IPC_CHANNELS.auditRun, (_e, projectId: string) => ctx.auditService.run(projectId));
+  const mobileView = async () => {
+    if (!mobile) throw new Error('スマホ同期を利用できません');
+    const view = mobile.view();
+    const qr = view.pairingUrl ? await QRCode.toDataURL(view.pairingUrl, { errorCorrectionLevel: 'M', margin: 2, width: 280 }) : null;
+    return { ...view, qr };
+  };
+  handle(IPC_CHANNELS.mobileGet, () => mobileView());
+  handle(IPC_CHANNELS.mobileConfigure, async (_e, input: { baseUrl: string; enabled: boolean; token?: string }) => {
+    await mobile?.configure({ baseUrl: String(input?.baseUrl ?? ''), enabled: input?.enabled === true, token: typeof input?.token === 'string' ? input.token : undefined });
+    return mobileView();
+  });
+  handle(IPC_CHANNELS.mobileSyncNow, async () => { await mobile?.syncNow({ force: true }); return mobileView(); });
+  handle(IPC_CHANNELS.mobileRotateKey, async () => { await mobile?.rotateKey(); return mobileView(); });
   handle(
     IPC_CHANNELS.projectsToggleActionItem,
     (_e, projectId: string, actionItemId: string, done: boolean) =>

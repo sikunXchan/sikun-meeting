@@ -374,6 +374,7 @@ fieldset input[type="checkbox"] { width: auto; }
 /* --- AIチームへの委託 --- */
 body.commission-active #discussion-panel { display: none; }
 body.community-active #discussion-panel { display: none; }
+body.mobile-active #discussion-panel { display: none; }
 .commission-panel { max-width: 980px; margin: 0 auto; padding: 24px; }
 .commission-panel h2 { margin: 0 0 8px; font-size: 22px; }
 .commission-panel h3 { margin: 28px 0 10px; font-size: 15px; }

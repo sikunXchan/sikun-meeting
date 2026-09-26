@@ -55,6 +55,24 @@ Codexを使った実例として、[sikun-cyber-security](https://github.com/sik
 
 ウィンドウを閉じてもトレイに常駐し、二重起動は既存のウィンドウを表示します。トレイのメニューで常駐の有無と、Windows・macOSのログイン時起動を切り替えられます。
 
+## スマホで見る（PWA）
+
+会議の発言・立場・決定・Action Itemをスマホのブラウザで読めます（読み取り専用）。パソコンで暗号化してからVercelへ送るので、Vercel側には暗号文だけが残り、読むための鍵は二次元コードでスマホにだけ渡します。
+
+### Vercelへのデプロイ
+
+1. Vercelで「Add New → Project」からこのGitHubリポジトリを選び、**Root Directory を `mobile`**、Framework Preset を **Other** にしてデプロイします（`mobile/vercel.json` に出力先とセキュリティヘッダーを設定済み）。
+2. プロジェクトの「Storage」で **Blob** ストアを **Private** で作成し、このプロジェクトに接続します。保存APIは `@vercel/blob` の非公開保存を使います（[Private storage](https://vercel.com/docs/vercel-blob/private-storage)）。
+3. 「Settings → Environment Variables」に `SYNC_TOKEN` を追加します。値は推測されにくい乱数にします（例：`node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"` の出力）。追加後に再デプロイします。
+
+### パソコンとスマホの連携
+
+1. Sikun Meetingのサイドバーで「📱 スマホで見る」を開き、公開先URL（例：`https://sikun-mobile.vercel.app`）と、上の `SYNC_TOKEN` と同じ値を入れ、「会議が変わったら自動で送る」をオンにして保存します。トークンはOSの暗号化保存に入ります。使えない環境では環境変数 `SIKUN_MOBILE_SYNC_TOKEN` に設定してアプリを再起動します。
+2. 表示された二次元コードをスマホのカメラで読み取ります。開いたページを共有メニューから「ホーム画面に追加」すると、アプリのように起動できます。
+3. スマホを紛失したときなどは「鍵を作り直す」を押すと、古い鍵では読めなくなり、Vercel上の古い暗号文も削除されます。
+
+デプロイ前に手元で試す場合は `SYNC_TOKEN=16文字以上の値 node scripts/serve-mobile-local.js 3000` を起動し、公開先URLに `http://127.0.0.1:3000` を入れます。
+
 ## 会議の判断・成果物・外部実行
 
 - 初回の意見は参加AIごとに非公開で収集し、全員分がそろってから公開します。公開後は通常の討論に移ります。失敗した呼び出しは発言として保存せず、再開時に失敗した参加者からやり直します。
@@ -102,7 +120,7 @@ npm run build     # tsc + 静的アセットのコピー
 npm start          # ビルド後 Electron を起動
 npm run dev         # 同上（--devフラグ付き）
 npm run typecheck   # 型チェックのみ
-npm test            # 委託案件・無人運用・画面隔離のテスト
+npm test            # 委託案件・無人運用・画面隔離・スマホ同期のテスト
 node scripts/smoke-codex-agent.js            # Codex SDKの単発試験
 node scripts/smoke-commission-codex-live.js  # Codex案件の実行試験
 node scripts/run-scs-commission.js           # SCSのlocalhost検証をCodex案件として実行

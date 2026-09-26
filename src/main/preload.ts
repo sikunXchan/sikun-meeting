@@ -64,6 +64,10 @@ const IPC_CHANNELS = {
   emailSend: 'email:send',
   auditList: 'audit:list',
   auditRun: 'audit:run',
+  mobileGet: 'mobile:get',
+  mobileConfigure: 'mobile:configure',
+  mobileSyncNow: 'mobile:syncNow',
+  mobileRotateKey: 'mobile:rotateKey',
 } as const;
 
 /**
@@ -132,6 +136,12 @@ const api = {
   audit: {
     list: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.auditList, projectId),
     run: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.auditRun, projectId),
+  },
+  mobile: {
+    get: () => ipcRenderer.invoke(IPC_CHANNELS.mobileGet),
+    configure: (input: { baseUrl: string; enabled: boolean; token?: string }) => ipcRenderer.invoke(IPC_CHANNELS.mobileConfigure, input),
+    syncNow: () => ipcRenderer.invoke(IPC_CHANNELS.mobileSyncNow),
+    rotateKey: () => ipcRenderer.invoke(IPC_CHANNELS.mobileRotateKey),
   },
   meetings: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.meetingsList),

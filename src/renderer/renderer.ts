@@ -598,6 +598,7 @@ function hideAll() {
   document.getElementById('commission-create').classList.add('hidden');
   document.getElementById('commission-view').classList.add('hidden');
   document.getElementById('community-view').classList.add('hidden');
+  document.getElementById('mobile-view').classList.add('hidden');
 }
 
 function renderProjectSelect() {

@@ -18,7 +18,7 @@
   };
 
   function show(id) {
-    for (const panel of ['empty-state', 'new-meeting-form', 'meeting-view', 'project-view', 'commission-create', 'commission-view', 'community-view']) {
+    for (const panel of ['empty-state', 'new-meeting-form', 'meeting-view', 'project-view', 'commission-create', 'commission-view', 'community-view', 'mobile-view']) {
       el(panel).classList.add('hidden');
     }
     document.body.classList.remove('community-active');

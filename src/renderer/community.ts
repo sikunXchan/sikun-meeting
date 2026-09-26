@@ -31,7 +31,7 @@
 
   function show() {
     for (const id of ['empty-state', 'new-meeting-form', 'meeting-view', 'project-view',
-      'commission-create', 'commission-view', 'community-view']) {
+      'commission-create', 'commission-view', 'community-view', 'mobile-view']) {
       el(id).classList.add('hidden');
     }
     document.body.classList.remove('commission-active');
