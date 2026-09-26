@@ -6,6 +6,7 @@ import { PERSONAS } from '../personas';
 import { ProjectService } from '../services/projectService';
 import { CommissionStore } from './store';
 import { compareSnapshots, snapshotWorkspace } from './artifacts';
+import { BrowserReviewSession } from './browserReview';
 import {
   ActivityEvent, AgentClient, AgentResponse, AgentRun, AutonomySettings, Commission, CommissionSettings,
   ConsultationMessage, CycleRecord, GoalCheck, KgiMeasurement, WorkItem,
@@ -566,7 +567,22 @@ export class CommissionService {
             })));
           });
           await this.event(id, 'state', `${work.title}: ${changes.length}件のファイル変更を検出`);
-          const reviewPrompt = `確定した企画:\n${snapshot.planText}\n\n仕事: ${work.title}\n所管: ${work.domainPersonaId}\n確認条件: ${work.acceptance}\n担当AIの報告:\n${response.text}\n変更ファイル:\n${changes.map((change) => `${change.change} ${change.relativePath}`).join('\n') || 'なし'}\n\n作業ディレクトリの成果物と必要な検証を確認してください。あなたは${work.reviewerPersonaId}として採用可否を判断します。JSONのみで {"approved":true/false,"note":"根拠と修正点"} と回答してください。`;
+          let reviewPrompt = `確定した企画:\n${snapshot.planText}\n\n仕事: ${work.title}\n所管: ${work.domainPersonaId}\n確認条件: ${work.acceptance}\n担当AIの報告:\n${response.text}\n変更ファイル:\n${changes.map((change) => `${change.change} ${change.relativePath}`).join('\n') || 'なし'}\n\n作業ディレクトリの成果物と必要な検証を確認してください。あなたは${work.reviewerPersonaId}として採用可否を判断します。JSONのみで {"approved":true/false,"note":"根拠と修正点"} と回答してください。`;
+          const htmlFiles = changes.filter((change) => change.change !== 'deleted' && /\.html?$/i.test(change.relativePath))
+            .map((change) => change.relativePath);
+          let browserReview: BrowserReviewSession | undefined;
+          if (work.reviewerPersonaId === 'qa' && htmlFiles.length) {
+            const candidate = new BrowserReviewSession(snapshot.workingDirectory, htmlFiles);
+            try {
+              await candidate.start();
+              browserReview = candidate;
+              reviewPrompt += candidate.instructions();
+              await this.event(id, 'state', `${work.title}: QAのブラウザ実機確認を開始`);
+            } catch (error) {
+              await candidate.close();
+              reviewPrompt += `\n\nブラウザ実機確認は起動できませんでした: ${error instanceof Error ? error.message : String(error)}。未検証の動作を合格扱いにしないでください。`;
+            }
+          }
           let review: AgentResponse;
           try {
             review = await this.callAgent(id, 'review', work.reviewerPersonaId, reviewPrompt, 'full', controller.signal, work.id);
@@ -583,6 +599,12 @@ export class CommissionService {
               })));
             });
             throw error;
+          } finally {
+            if (browserReview) {
+              const trace = browserReview.summary();
+              await browserReview.close();
+              await this.event(id, 'state', `${work.title}: ブラウザ確認 ${trace || '操作なし'}`);
+            }
           }
           const afterReview = await snapshotWorkspace(snapshot.workingDirectory);
           const reviewChanges = compareSnapshots(after, afterReview);

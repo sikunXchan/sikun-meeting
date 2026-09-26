@@ -19,3 +19,4 @@
 | [20260926-specialist-skills](20260926-specialist-skills/) | 部門と作業段階に合わせた同梱専門スキル | 完了 | 2026-09-26 |
 | [20260926-settings-ux](20260926-settings-ux/) | 設定画面の入力と説明の改善 | 完了 | 2026-09-26 |
 | [20260926-defaults-and-live-trial](20260926-defaults-and-live-trial/) | 推奨値と詳細設定、Product/Criticの専門手順、実SDKでの縦断試験 | 実装中 | 2026-09-26 |
+| [20260926-browser-qa-trial](20260926-browser-qa-trial/) | 隔離ブラウザでの独立QAと利用者の実依頼 | 実装中 | 2026-09-26 |
