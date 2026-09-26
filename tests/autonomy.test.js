@@ -102,6 +102,8 @@ test('Codex案件は部門と工程に応じてサンドボックスとネット
       assert.equal(options.sandboxMode, 'read-only', `${personaId} ${phase}`);
       assert.equal(options.networkAccessEnabled, false, `${personaId} ${phase}`);
       assert.equal(options.webSearchEnabled, false);
+      if (phase === 'consultation' || phase === 'delivery') assert.equal(options.modelReasoningEffort, 'low');
+      else assert.equal(options.modelReasoningEffort, undefined);
     }
   }
 });

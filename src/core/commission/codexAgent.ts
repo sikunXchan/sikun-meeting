@@ -16,6 +16,7 @@ export function codexThreadOptions(request: Pick<AgentRequest, 'personaId' | 'to
   const policy = codexPolicy(request.personaId, codexPhase(request));
   return {
     model: request.model,
+    modelReasoningEffort: request.phase === 'consultation' || request.phase === 'delivery' ? 'low' : undefined,
     workingDirectory: request.workingDirectory,
     sandboxMode: policy.sandboxMode,
     approvalPolicy: 'never',
@@ -65,7 +66,7 @@ export class CodexAgentClient implements AgentClient {
         : request.phase === 'delivery'
           ? '保存済みの仕事と内部確認記録だけから納品文を作ってください。ファイル閲覧やコマンド実行はしないでください。'
           : request.phase === 'consultation'
-            ? '相談に必要な場合だけ指定されたファイルを読み、.venv、node_modulesなどの依存ディレクトリは探索しないでください。'
+            ? 'この段階は企画相談です。まず発注者の意図から短い企画案を返してください。既存機能について事実確認が必要なときだけ関連する文書やコードを最大3ファイル読み、広範囲の探索や試行錯誤のコマンド実行は避けてください。未確認のことは断定せず、質問は最大2件に絞ってください。実装・テストは企画確定後に行います。'
             : '必要なファイルだけを読み、.venv、node_modulesなどの依存ディレクトリは探索しないでください。';
       const prompt = `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}${skillPromptFor(persona.id, request.phase)}\n発注者が確定した企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。\n${request.tools === 'read' ? 'この段階ではファイルを変更しないでください。' : '実際に必要な作業を行ってください。'}\n${restricted}${phaseInstruction}\n\n${request.prompt}`;
       const execute = async (): Promise<void> => {
