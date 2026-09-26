@@ -591,7 +591,7 @@ function wireStaticEvents() {
       return;
     }
     currentMinutes = await api.minutes.get(currentMeeting.id);
-    document.getElementById('minutes-view').textContent = currentMinutes.markdown;
+    document.getElementById('minutes-view').innerHTML = window.renderMarkdownSafe(currentMinutes.markdown);
     panel.classList.remove('hidden');
   });
 
@@ -682,7 +682,7 @@ async function openProjectView(projectId) {
   document.body.classList.add('project-active');
   document.getElementById('project-view').classList.remove('hidden');
   document.getElementById('pv-name').textContent = `📋 ${project.name}`;
-  document.getElementById('pv-description').textContent = project.description || '';
+  document.getElementById('pv-description').innerHTML = window.renderMarkdownSafe(project.description || '');
 
   const list = document.getElementById('pv-action-items');
   list.innerHTML = '';
@@ -708,7 +708,8 @@ async function openProjectView(projectId) {
     body.appendChild(assignee);
     const desc = document.createElement('div');
     desc.className = 'ai-desc';
-    desc.textContent = item.description;
+    desc.classList.add('markdown-body');
+    desc.innerHTML = window.renderMarkdownSafe(item.description);
     body.appendChild(desc);
     const source = document.createElement('div');
     source.className = 'ai-source';
@@ -743,8 +744,9 @@ async function openProjectView(projectId) {
     row.className = 'community-card';
     const title = document.createElement('strong');
     title.textContent = `${card.name} · v${latest.version} · ${latest.status}`;
-    const body = document.createElement('p');
-    body.textContent = latest.summary;
+    const body = document.createElement('div');
+    body.className = 'markdown-body';
+    body.innerHTML = window.renderMarkdownSafe(latest.summary);
     const details = document.createElement('small');
     details.textContent = `問題: ${latest.knownIssues.join('、') || 'なし'} / バックログ: ${latest.backlog.join('、') || 'なし'} / KGI: ${latest.goals.map((goal) => `${goal.label} ${goal.current ?? '未測定'}/${goal.target}${goal.unit}`).join('、') || '未設定'} / 決定: ${latest.decisionIds.length}件`;
     const edit = document.createElement('button');
@@ -796,12 +798,15 @@ async function renderAudits(projectId) {
     const row = document.createElement('div'); row.className = 'community-card';
     const title = document.createElement('strong');
     title.textContent = `${new Date(audit.createdAt).toLocaleString('ja-JP')} · 会議${audit.meetingIds.length}件 · KGI${audit.goalProgress.length}件`;
-    const assessment = document.createElement('p'); assessment.textContent = audit.assessment;
+    const assessment = document.createElement('div'); assessment.className = 'markdown-body'; assessment.innerHTML = window.renderMarkdownSafe(audit.assessment);
     row.append(title, assessment);
     for (const finding of audit.findings) {
-      const detail = document.createElement('p');
-      detail.textContent = `${finding.kind}: ${finding.finding}（参照: ${finding.referenceId}）`;
-      row.appendChild(detail);
+      const detail = document.createElement('div');
+      detail.className = 'markdown-body';
+      detail.innerHTML = window.renderMarkdownSafe(`${finding.kind}: ${finding.finding}`);
+      const reference = document.createElement('small');
+      reference.textContent = `参照: ${finding.referenceId}`;
+      row.append(detail, reference);
     }
     container.appendChild(row);
   }
@@ -815,9 +820,14 @@ async function renderEmailDrafts(projectId) {
     const row = document.createElement('div'); row.className = 'community-card';
     const title = document.createElement('strong');
     title.textContent = `${draft.status === 'draft' ? '送信待ち' : draft.status} · ${draft.subject}`;
-    const detail = document.createElement('p');
-    detail.textContent = `宛先: ${draft.to.join('、')}\n${draft.body}\n${draft.result || ''}`;
-    row.append(title, detail);
+    const destination = document.createElement('div');
+    destination.textContent = `宛先: ${draft.to.join('、')}`;
+    const detail = document.createElement('div');
+    detail.className = 'markdown-body';
+    detail.innerHTML = window.renderMarkdownSafe(draft.body);
+    const result = document.createElement('div');
+    result.textContent = draft.result || '';
+    row.append(title, destination, detail, result);
     if (draft.status === 'draft') {
       const send = document.createElement('button'); send.type = 'button'; send.textContent = '内容を確認して送信';
       send.addEventListener('click', async () => {
@@ -841,7 +851,7 @@ async function selectMeeting(id) {
   document.getElementById('sidebar-roster').classList.remove('hidden');
   document.getElementById('sidebar-chief').classList.remove('hidden');
   document.getElementById('minutes-panel').classList.add('hidden');
-  document.getElementById('minutes-view').textContent = '';
+  document.getElementById('minutes-view').replaceChildren();
   currentMinutes = null;
   editingActionItemId = null;
   document.getElementById('thinking-banner').classList.add('hidden');
@@ -859,7 +869,7 @@ function renderMeetingView() {
   const type = meetingTypeById(m.meetingTypeId);
 
   document.getElementById('tb-title').textContent = `${type ? type.emoji : ''} ${m.title}`;
-  document.getElementById('tb-agenda').textContent = m.agenda;
+  document.getElementById('tb-agenda').innerHTML = window.renderMarkdownSafe(m.agenda);
   const statusBadge = document.getElementById('tb-status');
   statusBadge.textContent = { CREATED: '未開始', IN_PROGRESS: '進行中', CONCLUDED: '終了' }[m.status] || m.status;
   statusBadge.className = `status-badge ${m.status}`;
@@ -1248,9 +1258,9 @@ function renderDecision(m) {
     form.classList.add('hidden');
     const d = m.decision;
     if (d.overrideReason) {
-      const override = document.createElement('p');
-      override.className = 'muted small';
-      override.textContent = '議決条件の例外理由: ' + d.overrideReason;
+      const override = document.createElement('div');
+      override.className = 'muted small markdown-body';
+      override.innerHTML = window.renderMarkdownSafe('議決条件の例外理由: ' + d.overrideReason);
       view.appendChild(override);
     }
 
@@ -1261,8 +1271,8 @@ function renderDecision(m) {
     goTag.textContent = '🟢 GO';
     callout.appendChild(goTag);
     const text = document.createElement('div');
-    text.className = 'decision-text';
-    text.textContent = d.decisionText;
+    text.className = 'decision-text markdown-body';
+    text.innerHTML = window.renderMarkdownSafe(d.decisionText);
     callout.appendChild(text);
     view.appendChild(callout);
 
@@ -1273,7 +1283,8 @@ function renderDecision(m) {
         'REASONING',
         d.reasoning.map((r) => {
           const s = document.createElement('span');
-          s.textContent = r;
+          s.className = 'markdown-body';
+          s.innerHTML = window.renderMarkdownSafe(r);
           return s;
         })
       )
@@ -1355,12 +1366,14 @@ function buildActionItemViewRow(m, item) {
   const wrap = document.createElement('div');
   wrap.className = 'action-item-row';
 
-  const text = document.createElement('span');
-  text.className = 'action-item-text' + (item.done ? ' done' : '');
+  const text = document.createElement('div');
+  text.className = 'action-item-text markdown-body' + (item.done ? ' done' : '');
   const assignee = document.createElement('b');
   assignee.textContent = `[${item.assignee}] `;
   text.appendChild(assignee);
-  text.appendChild(document.createTextNode(item.description));
+  const description = document.createElement('div');
+  description.innerHTML = window.renderMarkdownSafe(item.description);
+  text.appendChild(description);
   wrap.appendChild(text);
 
   const icons = document.createElement('span');

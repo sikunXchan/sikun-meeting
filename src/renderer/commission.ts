@@ -102,7 +102,8 @@
       row.appendChild(strong);
     }
     const content = document.createElement('div');
-    content.textContent = body;
+    content.className = 'markdown-body';
+    content.innerHTML = window.renderMarkdownSafe(body);
     row.appendChild(content);
     parent.appendChild(row);
   }
@@ -193,7 +194,7 @@
     for (const event of events.slice(-80).reverse()) {
       addTextRow(eventList, `commission-event ${event.kind}`, new Date(event.at).toLocaleString('ja-JP'), event.detail);
     }
-    el('commission-delivery').textContent = item.delivery || (item.status === 'delivered' ? '納品レポートがありません' : '作業完了後に表示されます。');
+    el('commission-delivery').innerHTML = window.renderMarkdownSafe(item.delivery || (item.status === 'delivered' ? '納品レポートがありません' : '作業完了後に表示されます。'));
   }
 
   function renderAutonomy(item) {

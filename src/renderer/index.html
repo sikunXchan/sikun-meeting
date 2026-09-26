@@ -97,7 +97,7 @@
 
         <div id="project-view" class="panel hidden">
           <h2 id="pv-name"></h2>
-          <p id="pv-description" class="muted"></p>
+          <div id="pv-description" class="muted markdown-body"></div>
           <h3>Action Items</h3>
           <ul id="pv-action-items"></ul>
           <p id="pv-empty" class="muted small hidden">この会議で決定されたAction Itemsはまだありません。</p>
@@ -205,7 +205,7 @@
               <p id="community-thread-empty" class="muted">課題を投稿するか、左の一覧から選んでください。</p>
               <div id="community-thread-content" class="hidden">
                 <div class="community-thread-header"><h3 id="community-post-title"></h3><span id="community-post-status" class="status-badge"></span></div>
-                <p id="community-post-body"></p>
+                <div id="community-post-body" class="markdown-body"></div>
                 <p id="community-post-roster" class="muted small"></p>
                 <div class="row community-actions">
                   <button id="community-run-btn" type="button">AIに意見を求める</button>
@@ -219,13 +219,13 @@
                 <button id="community-comment-btn" class="secondary" type="button">コメントする</button>
                 <div id="community-linked-work" class="hidden">
                   <h4>委託案件の進行</h4><div id="community-work-list"></div>
-                  <h4>納品</h4><pre id="community-delivery"></pre>
+                  <h4>納品</h4><div id="community-delivery" class="markdown-body"></div>
                 </div>
                 <div class="community-accept">
                   <h4>知識として採用</h4>
                   <label>次の案件に引き継ぐ内容 <textarea id="community-accept-note" rows="3" maxlength="2000" placeholder="採用した結論・成果・注意点"></textarea></label>
                   <button id="community-accept-btn" class="secondary" type="button">採用して共有する</button>
-                  <p id="community-accepted-note" class="muted small"></p>
+                  <div id="community-accepted-note" class="muted small markdown-body"></div>
                 </div>
               </div>
             </section>
@@ -303,7 +303,7 @@
             <div id="commission-autonomy-section" class="hidden"><h3>無人運用と継続サイクル</h3><div id="commission-autonomy-info" class="commission-work-list"></div></div>
             <h3>AI実行履歴・モデル</h3><div id="commission-runs" class="commission-events"></div>
             <h3>活動記録</h3><div id="commission-events" class="commission-events"></div>
-            <h3>納品</h3><pre id="commission-delivery" class="commission-delivery"></pre>
+            <h3>納品</h3><div id="commission-delivery" class="commission-delivery markdown-body"></div>
             <div id="commission-revision-section" class="hidden"><label>修正・調整 <textarea id="commission-revision" rows="3" placeholder="直したい点を伝えてください"></textarea></label><button id="commission-revise-btn" type="button">修正を依頼する</button></div>
           </section>
         </div>
@@ -378,7 +378,7 @@
                 <span class="spacer"></span>
                 <button id="minutes-download-btn" class="secondary small-btn">⬇️ ダウンロード</button>
               </div>
-              <pre id="minutes-view"></pre>
+              <div id="minutes-view" class="markdown-body"></div>
             </div>
           </div>
         </div>

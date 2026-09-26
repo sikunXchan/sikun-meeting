@@ -46,6 +46,12 @@ async function main() {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     if (!ready) throw new Error('起動後の画面初期化が終わりません');
+    const markdown = await evaluate(`(() => {
+      const html = window.renderMarkdownSafe('**太字**\\n- 項目\\n<script>alert(1)</script>\\n[危険](javascript:alert(1))');
+      return { bold: html.includes('<strong>太字</strong>'), list: html.includes('<li>項目</li>'),
+        scriptRemoved: !html.includes('<script'), unsafeLinkRemoved: !html.includes('javascript:') };
+    })()`);
+    if (!Object.values(markdown).every(Boolean)) throw new Error(`Markdownの表示・除去が不正です: ${JSON.stringify(markdown)}`);
     const welcome = await evaluate(`(() => {
       const bear = document.querySelector('#empty-state .guide-bear');
       return { visible: !document.getElementById('empty-state').classList.contains('hidden'),

@@ -54,4 +54,15 @@
     clean(template.content);
     return template.innerHTML;
   };
+
+  // 会議以外の画面も同じ変換と許可リストを通して本文を表示する。
+  window.renderMarkdownSafe = (text) => {
+    const source = String(text ?? '');
+    if (!window.marked) {
+      const node = document.createElement('div');
+      node.textContent = source;
+      return node.innerHTML.replace(/\n/g, '<br>');
+    }
+    return window.sanitizeHtml(window.marked.parse(source, { gfm: true, breaks: true }));
+  };
 })();

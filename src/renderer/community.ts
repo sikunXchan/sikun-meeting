@@ -106,7 +106,8 @@
       const label = message.author === 'human' ? 'あなた' : personaName(message.authorId);
       author.textContent = label + ' · ' + new Date(message.createdAt).toLocaleString('ja-JP');
       const body = document.createElement('div');
-      body.textContent = message.content;
+      body.className = 'markdown-body';
+      body.innerHTML = window.renderMarkdownSafe(message.content);
       row.append(author, body);
       list.appendChild(row);
     }
@@ -129,7 +130,7 @@
       row.textContent = '企画確定後に仕事が表示されます。';
       list.appendChild(row);
     }
-    el('community-delivery').textContent = commission.delivery || '納品後に表示されます。';
+    el('community-delivery').innerHTML = window.renderMarkdownSafe(commission.delivery || '納品後に表示されます。');
   }
 
   function renderPost(post, commission) {
@@ -138,14 +139,14 @@
     el('community-thread-content').classList.remove('hidden');
     el('community-post-title').textContent = post.title;
     el('community-post-status').textContent = postStatus(post, commission);
-    el('community-post-body').textContent = post.body;
+    el('community-post-body').innerHTML = window.renderMarkdownSafe(post.body);
     el('community-post-roster').textContent = (post.createdBy === 'ai' ? '投稿: ' + personaName(post.creatorPersonaId) + ' · ' : '')
       + '参加AI: ' + post.personaIds.map(personaName).join('、')
       + (post.workingDirectory ? ' · 参照先: ' + post.workingDirectory : '');
     el('community-commission-btn').classList.toggle('hidden', !!post.commissionId);
     el('community-open-commission-btn').classList.toggle('hidden', !post.commissionId);
-    el('community-accepted-note').textContent = post.acceptedAt
-      ? '採用済み: ' + (post.acceptanceNote || '') : '';
+    el('community-accepted-note').innerHTML = post.acceptedAt
+      ? window.renderMarkdownSafe('採用済み: ' + (post.acceptanceNote || '')) : '';
     const input = el('community-accept-note');
     if (document.activeElement !== input) input.value = post.acceptanceNote || '';
     renderMessages(post);

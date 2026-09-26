@@ -36,9 +36,8 @@ function h(tag, props = {}, ...children) {
 
 function markdown(text) {
   const node = h('div', { className: 'markdown' });
-  const html = window.marked ? window.marked.parse(text || '', { gfm: true, breaks: true }) : null;
-  if (html === null || !window.sanitizeHtml) node.textContent = text || '';
-  else node.innerHTML = window.sanitizeHtml(html);
+  if (window.renderMarkdownSafe) node.innerHTML = window.renderMarkdownSafe(text);
+  else node.textContent = text || '';
   return node;
 }
 
@@ -172,7 +171,7 @@ function renderList() {
       h('span', { className: 'meeting-title' }, `${meeting.typeEmoji || ''} ${meeting.title}`),
       h('span', { className: `badge ${meeting.status}` }, STATUS[meeting.status] || meeting.status)),
     h('div', { className: 'meeting-meta' }, `${formatTime(meeting.createdAt)} · ${meeting.typeName} · ${projectName(meeting.projectId)} · 発言${meeting.messages.length}件`),
-    meeting.decision ? h('div', { className: 'meeting-summary' }, `決定: ${meeting.decision.text}`) : null,
+    meeting.decision ? h('div', { className: 'meeting-summary' }, '決定:', markdown(meeting.decision.text)) : null,
     )) : [h('p', { className: 'empty' }, '条件に合う会議がありません。')]));
   }
   renderItems();
@@ -208,16 +207,16 @@ function renderDetail(meetingId) {
     const decision = meeting.decision;
     sections.push(h('section', { className: 'card' },
       h('h2', {}, '決定'),
-      h('div', { className: 'decision-text' }, decision.text),
+      h('div', { className: 'decision-text' }, markdown(decision.text)),
       h('div', { className: 'muted' }, formatTime(decision.decidedAt)),
       decision.overrideReason ? h('p', { className: 'muted' }, `議決条件は未達。人間の例外判断の理由: ${decision.overrideReason}`) : null,
-      decision.reasoning.length ? h('ul', { className: 'list' }, decision.reasoning.map((reason) => h('li', {}, reason))) : null));
+      decision.reasoning.length ? h('ul', { className: 'list' }, decision.reasoning.map((reason) => h('li', {}, markdown(reason)))) : null));
     if (decision.actionItems.length) {
       sections.push(h('section', { className: 'card' },
         h('h2', {}, 'Action Item'),
         decision.actionItems.map((item) => h('div', { className: `action ${item.done ? 'done' : ''}` },
           h('span', { 'aria-label': item.done ? '完了' : '未完了' }, item.done ? '☑' : '☐'),
-          h('span', { className: 'action-text' }, item.description),
+          h('div', { className: 'action-text' }, markdown(item.description)),
           h('span', { className: 'muted' }, item.assignee)))));
     }
     if (decision.stances.length) {
