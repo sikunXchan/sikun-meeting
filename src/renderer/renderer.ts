@@ -18,6 +18,55 @@ let projects = [];
 let currentMeeting = null;
 let currentProjectId = null;
 let editingCardId = null;
+function addGoalRow(goal = {}) {
+  const list = document.getElementById('pv-card-goal-list');
+  const row = document.createElement('div');
+  row.className = 'goal-row';
+  if (goal.id) row.dataset.goalId = goal.id;
+  const fields = [
+    ['label', '指標', 'text', '例：初回利用完了率'],
+    ['target', '目標値', 'number', '例：80'],
+    ['current', '現在値（任意）', 'number', '未測定なら空欄'],
+    ['unit', '単位', 'text', '例：%'],
+    ['evidence', '測定根拠（任意）', 'text', '例：9月の利用記録'],
+  ];
+  for (const [key, title, type, placeholder] of fields) {
+    const label = document.createElement('label');
+    label.textContent = title;
+    const input = document.createElement('input');
+    input.className = `goal-${key}`;
+    input.type = type;
+    if (type === 'number') input.step = 'any';
+    input.placeholder = placeholder;
+    input.value = goal[key] ?? '';
+    label.appendChild(input);
+    row.appendChild(label);
+  }
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'secondary goal-remove';
+  remove.textContent = 'この目標を削除';
+  remove.addEventListener('click', () => row.remove());
+  row.appendChild(remove);
+  list.appendChild(row);
+  return row;
+}
+
+function readGoalRows() {
+  return [...document.querySelectorAll('#pv-card-goal-list .goal-row')].map((row, index) => {
+    const field = (name) => row.querySelector(`.goal-${name}`).value.trim();
+    const label = field('label');
+    const targetText = field('target');
+    const currentText = field('current');
+    if (!label || targetText === '' || !Number.isFinite(Number(targetText))
+      || (currentText !== '' && !Number.isFinite(Number(currentText)))) {
+      row.querySelector(!label ? '.goal-label' : targetText === '' || !Number.isFinite(Number(targetText)) ? '.goal-target' : '.goal-current').focus();
+      throw new Error(`${index + 1}件目の目標は、指標と数値の目標値を入力してください`);
+    }
+    return { id: row.dataset.goalId, label, target: Number(targetText),
+      current: currentText === '' ? null : Number(currentText), unit: field('unit'), evidence: field('evidence') };
+  });
+}
 /** 議事録パネルで現在表示中のMinutesView（ダウンロードで参照する）。議事録自体は編集不可。 */
 let currentMinutes = null;
 /** FINAL DECISIONのAction Itemsのうち、現在編集フォームを開いている項目のid。'new'なら新規追加中。 */
@@ -330,17 +379,13 @@ function wireStaticEvents() {
     document.getElementById('project-new-form').classList.add('hidden');
   });
   document.getElementById('project-dashboard-btn').addEventListener('click', () => openProjectView(currentProjectId));
+  document.getElementById('pv-card-goal-add').addEventListener('click', () => addGoalRow().querySelector('.goal-label').focus());
   document.getElementById('pv-card-save').addEventListener('click', async () => {
     if (!currentProjectId) return;
     const el = (id) => document.getElementById(id);
+    el('pv-card-error').classList.add('hidden');
     try {
-      const goals = el('pv-card-goals').value.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => {
-        const [label, targetText, currentText, unit, evidence] = line.split('|').map((part) => part.trim());
-        if (!label || !targetText || !Number.isFinite(Number(targetText)) || (currentText && !Number.isFinite(Number(currentText)))) {
-          throw new Error('KGIは「指標 | 目標値 | 現在値 | 単位 | 測定根拠」で入力してください');
-        }
-        return { label, target: Number(targetText), current: currentText ? Number(currentText) : null, unit: unit || '', evidence: evidence || '' };
-      });
+      const goals = readGoalRows();
       await api.projects.upsertArtifactCard(currentProjectId, {
         id: editingCardId || undefined, name: el('pv-card-name').value, kind: el('pv-card-kind').value,
         status: el('pv-card-status').value, summary: el('pv-card-summary').value,
@@ -349,13 +394,18 @@ function wireStaticEvents() {
       editingCardId = null;
       el('pv-card-editor').open = false;
       await openProjectView(currentProjectId);
-    } catch (error) { alert(error.message || String(error)); }
+    } catch (error) {
+      el('pv-card-error').textContent = error.message || String(error);
+      el('pv-card-error').classList.remove('hidden');
+    }
   });
   document.getElementById('pv-card-reset').addEventListener('click', () => {
     editingCardId = null;
-    for (const id of ['pv-card-name', 'pv-card-status', 'pv-card-summary', 'pv-card-issues', 'pv-card-backlog', 'pv-card-goals']) {
+    for (const id of ['pv-card-name', 'pv-card-status', 'pv-card-summary', 'pv-card-issues', 'pv-card-backlog']) {
       document.getElementById(id).value = '';
     }
+    document.getElementById('pv-card-goal-list').replaceChildren();
+    document.getElementById('pv-card-error').classList.add('hidden');
     document.getElementById('pv-card-kind').value = 'app';
   });
   document.getElementById('email-config-save').addEventListener('click', async () => {
@@ -591,6 +641,7 @@ async function submitNewMeeting() {
 function hideAll() {
   document.body.classList.remove('commission-active');
   document.body.classList.remove('community-active');
+  document.body.classList.remove('project-active');
   document.getElementById('empty-state').classList.add('hidden');
   document.getElementById('new-meeting-form').classList.add('hidden');
   document.getElementById('meeting-view').classList.add('hidden');
@@ -625,6 +676,7 @@ async function openProjectView(projectId) {
   const project = await api.projects.get(projectId);
   currentProjectId = projectId;
   hideAll();
+  document.body.classList.add('project-active');
   document.getElementById('project-view').classList.remove('hidden');
   document.getElementById('pv-name').textContent = `📋 ${project.name}`;
   document.getElementById('pv-description').textContent = project.description || '';
@@ -703,8 +755,8 @@ async function openProjectView(projectId) {
       el('pv-card-summary').value = latest.summary;
       el('pv-card-issues').value = latest.knownIssues.join('\n');
       el('pv-card-backlog').value = latest.backlog.join('\n');
-      el('pv-card-goals').value = latest.goals.map((goal) =>
-        [goal.label, goal.target, goal.current ?? '', goal.unit, goal.evidence].join(' | ')).join('\n');
+      el('pv-card-goal-list').replaceChildren();
+      for (const goal of latest.goals) addGoalRow(goal);
       el('pv-card-editor').open = true;
       el('pv-card-editor').scrollIntoView({ block: 'nearest' });
     });

@@ -43,7 +43,7 @@
     for (const panel of ['empty-state', 'new-meeting-form', 'meeting-view', 'project-view', 'commission-create', 'commission-view', 'community-view']) {
       el(panel).classList.add('hidden');
     }
-    document.body.classList.remove('community-active', 'commission-active');
+    document.body.classList.remove('community-active', 'commission-active', 'project-active');
     document.body.classList.add('mobile-active');
     el('tb-title').textContent = 'スマホで会議を見る';
     el('tb-agenda').textContent = '';

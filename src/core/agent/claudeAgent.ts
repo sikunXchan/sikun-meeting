@@ -1,6 +1,7 @@
 import type { query as QueryFn, SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { Persona } from '../types';
 import { approvedTools, capabilityFor, methodFor } from '../capabilities';
+import { skillPromptFor } from '../skills/catalog';
 import * as path from 'path';
 import * as fs from 'fs';
 import { app } from 'electron';
@@ -106,7 +107,7 @@ export async function runAgentTurn(
   const q = query({
     prompt,
     options: {
-      systemPrompt: `${persona.systemPrompt}\n\n部門別の確認手順: ${methodFor(persona.id)}`,
+      systemPrompt: `${persona.systemPrompt}\n\n部門別の確認手順: ${methodFor(persona.id)}${skillPromptFor(persona.id, 'meeting')}`,
       model: capability.model,
       tools: approvedTools(persona.id, 'meeting'),
       permissionMode: 'dontAsk',

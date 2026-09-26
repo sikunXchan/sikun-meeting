@@ -21,7 +21,7 @@
     for (const panel of ['empty-state', 'new-meeting-form', 'meeting-view', 'project-view', 'commission-create', 'commission-view', 'community-view', 'mobile-view']) {
       el(panel).classList.add('hidden');
     }
-    document.body.classList.remove('community-active');
+    document.body.classList.remove('community-active', 'project-active');
     document.body.classList.toggle('commission-active', id.startsWith('commission-'));
     if (id.startsWith('commission-')) {
       el('tb-title').textContent = 'AIチームへの委託';

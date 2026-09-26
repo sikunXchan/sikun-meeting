@@ -14,6 +14,7 @@ const { AuditService } = require('../dist/core/audit/service');
 const { EmailStore } = require('../dist/core/email/store');
 const { EmailService } = require('../dist/core/email/service');
 const { approvedTools, capabilityFor, methodFor } = require('../dist/core/capabilities');
+const { appliedSkillsFor, skillPromptFor } = require('../dist/core/skills/catalog');
 
 test('部門別モデルと工程別ツールを分け、監査・会議を読み取り専用にする', () => {
   assert.notEqual(capabilityFor('critic').model, capabilityFor('innovator').model);
@@ -22,6 +23,20 @@ test('部門別モデルと工程別ツールを分け、監査・会議を読�
   assert.equal(approvedTools('finance', 'work').includes('Bash'), false);
   assert.equal(approvedTools('finance', 'meeting').includes('Write'), false);
   assert.equal(methodFor('security').includes('security-review'), true);
+});
+
+test('同梱スキルは担当部門と工程で選び、会議の権限を広げない', () => {
+  assert.deepEqual(appliedSkillsFor('it_consultant', 'consultation'), [{ id: 'requirements-framing', version: '1.0.0' }]);
+  assert.deepEqual(appliedSkillsFor('engineer', 'work'), [{ id: 'implementation', version: '1.0.0' }]);
+  assert.deepEqual(appliedSkillsFor('engineer', 'review'), []);
+  assert.deepEqual(appliedSkillsFor('qa', 'review'), [{ id: 'acceptance-verification', version: '1.0.0' }]);
+  assert.deepEqual(appliedSkillsFor('security', 'meeting'), [{ id: 'security-review', version: '1.0.0' }]);
+  assert.deepEqual(appliedSkillsFor('finance', 'work'), []);
+  assert.match(skillPromptFor('architect', 'meeting'), /会議やレビューでは変更を提案/);
+  assert.equal(skillPromptFor('architect', 'meeting').includes('description:'), false);
+  assert.match(skillPromptFor('security', 'review'), /権限/);
+  assert.equal(skillPromptFor('finance', 'work'), '');
+  assert.deepEqual(approvedTools('engineer', 'meeting'), ['Read', 'Grep', 'Glob']);
 });
 
 async function fixture(t) {

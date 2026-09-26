@@ -74,3 +74,13 @@ Claude案件にはClaudeの認証済み環境、Codex案件にはCodex CLIのCha
 | PWAとAPIを手元で動かす | `SYNC_TOKEN=... node scripts/serve-mobile-local.js 3000` |
 | スマホ閲覧の縦断確認 | `node scripts/smoke-mobile-pwa.js desktop|phone|offline`（環境変数はスクリプト冒頭を参照） |
 | PWAのアイコン生成 | `npx electron scripts/make-mobile-icons.js` |
+
+# 2026-09-26 同梱専門スキルと設定画面
+
+- `src/core/skills/catalog.ts` は部門と工程から同梱SKILL.mdを選び、Claudeの会議・委託とCodexの委託で共通の手順をプロンプトへ加える。実行権限は既存の`approvedTools()`と`codexPolicy()`が決め、手順は権限を追加しない。`AgentRun.appliedSkills`にIDと版を記録する。`scripts/copy-static.js`がSKILL.mdを`dist/core/skills/catalog/`へコピーする。
+- `renderer.ts` はカルテのKGIを複数のフォーム行として扱い、編集時に目標IDを維持する。`index.html`はメール認証・引数JSON、委託モデルID、無人運用停止条件を折りたたみ、スマホ同期を設定順に表示する。プロジェクト設定中は空の会議発言欄を隠す。
+
+| 用途 | コマンド |
+|---|---|
+| 同梱スキルと既存機能 | `npm test` |
+| 設定画面の実機確認 | Electronを`--remote-debugging-port=9222`で起動後 `node scripts/smoke-settings-ui.js` |

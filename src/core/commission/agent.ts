@@ -3,6 +3,7 @@ import { getPersonaById } from '../personas';
 import { loadQuery, resolveClaudeBinaryPath } from '../agent/claudeAgent';
 import { AgentClient, AgentRequest, AgentResponse } from './types';
 import { approvedTools, methodFor } from '../capabilities';
+import { skillPromptFor } from '../skills/catalog';
 
 function toolSummary(name: string, input: unknown): string {
   if (input && typeof input === 'object') {
@@ -32,7 +33,7 @@ export class SdkAgentClient implements AgentClient {
       const conversation = query({
         prompt: request.prompt,
         options: {
-          systemPrompt: `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}\n発注者が確定した企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。`,
+          systemPrompt: `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}${skillPromptFor(persona.id, request.phase)}\n発注者が確定した企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。`,
           cwd: request.workingDirectory,
           model: request.model,
           fallbackModel: request.fallbackModel,

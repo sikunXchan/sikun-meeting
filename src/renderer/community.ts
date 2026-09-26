@@ -34,7 +34,7 @@
       'commission-create', 'commission-view', 'community-view', 'mobile-view']) {
       el(id).classList.add('hidden');
     }
-    document.body.classList.remove('commission-active');
+    document.body.classList.remove('commission-active', 'project-active');
     document.body.classList.add('community-active');
     el('community-view').classList.remove('hidden');
   }

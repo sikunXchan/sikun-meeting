@@ -4,6 +4,7 @@ import type { ThreadEvent, ThreadOptions } from '@openai/codex-sdk';
 import { getPersonaById } from '../personas';
 import { AgentClient, AgentRequest, AgentResponse } from './types';
 import { codexPolicy, methodFor } from '../capabilities';
+import { skillPromptFor } from '../skills/catalog';
 
 type CodexModule = typeof import('@openai/codex-sdk');
 
@@ -66,7 +67,7 @@ export class CodexAgentClient implements AgentClient {
           : request.phase === 'consultation'
             ? '相談に必要な場合だけ指定されたファイルを読み、.venv、node_modulesなどの依存ディレクトリは探索しないでください。'
             : '必要なファイルだけを読み、.venv、node_modulesなどの依存ディレクトリは探索しないでください。';
-      const prompt = `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}\n発注者が確定した企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。\n${request.tools === 'read' ? 'この段階ではファイルを変更しないでください。' : '実際に必要な作業を行ってください。'}\n${restricted}${phaseInstruction}\n\n${request.prompt}`;
+      const prompt = `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}${skillPromptFor(persona.id, request.phase)}\n発注者が確定した企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。\n${request.tools === 'read' ? 'この段階ではファイルを変更しないでください。' : '実際に必要な作業を行ってください。'}\n${restricted}${phaseInstruction}\n\n${request.prompt}`;
       const execute = async (): Promise<void> => {
         const turn = await thread.runStreamed(prompt, { signal: controller.signal });
         for await (const event of turn.events as AsyncGenerator<ThreadEvent>) {

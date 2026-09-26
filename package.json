@@ -1,7 +1,7 @@
 {
   "name": "sikun-meeting",
   "productName": "Sikun Meeting",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "人間が最高開発者としてAI専門家チームを円陣に招集し、議論させ、意思決定を行うデスクトップアプリ",
   "private": true,
   "main": "dist/main/index.js",

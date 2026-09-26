@@ -133,6 +133,32 @@ body {
 .panel input, .panel select, .panel textarea, #new-meeting-form input, #new-meeting-form select, #new-meeting-form textarea {
   width: 100%; padding: 6px 8px; margin-top: 4px; font: inherit; border: 1px solid #ccc; border-radius: 6px; background: #fff;
 }
+.panel :is(input, select, textarea):focus-visible, button:focus-visible, summary:focus-visible {
+  outline: 2px solid #916f18; outline-offset: 2px;
+}
+.settings-card { margin: 22px 0; padding: 18px 20px; border: 1px solid var(--border); border-radius: 12px; background: #fcfaf5; }
+.settings-card > summary { cursor: pointer; font-size: 15px; font-weight: 700; }
+.settings-card[open] > summary { margin-bottom: 14px; }
+.settings-card label, .settings-open label { font-weight: 600; line-height: 1.45; }
+.settings-card :is(input, select, textarea), .settings-open :is(input, select, textarea) { padding: 10px 12px; border-color: #cfc5af; border-radius: 8px; font-weight: 400; }
+.settings-intro { color: #625a4e; line-height: 1.6; font-size: 13px; margin: 0 0 18px; }
+.settings-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; max-width: 680px; }
+.settings-fields > label { margin: 0; }
+.field-help { display: block; margin-top: 5px; color: #625a4e; font-size: 12px; font-weight: 400; line-height: 1.5; }
+.settings-subsection { margin: 20px 0; padding-top: 16px; border-top: 1px solid var(--border); }
+.settings-subsection h4 { margin: 0 0 4px; font-size: 14px; }
+.settings-subsection h3 { margin-top: 0; }
+.settings-advanced { margin: 18px 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: white; }
+.settings-advanced summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+.settings-advanced[open] summary { margin-bottom: 12px; }
+.settings-feedback { min-height: 1.4em; margin: 12px 0 0; font-size: 13px; line-height: 1.5; }
+.settings-error { color: #9a2925; }
+#project-view { max-width: 1000px; margin: 0 auto; }
+.goal-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 14px; margin: 12px 0; padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+.goal-row label { margin: 0; }
+.goal-row label:first-child, .goal-row label:last-of-type { grid-column: 1 / -1; }
+.goal-remove { justify-self: start; margin-top: 8px; }
+@media (max-width: 650px) { .goal-row { grid-template-columns: 1fr; } .goal-row label:first-child, .goal-row label:last-of-type { grid-column: auto; } }
 .row { display: flex; gap: 8px; align-items: center; }
 .row input, .row select { flex: 1; margin-top: 0; }
 
@@ -375,6 +401,7 @@ fieldset input[type="checkbox"] { width: auto; }
 body.commission-active #discussion-panel { display: none; }
 body.community-active #discussion-panel { display: none; }
 body.mobile-active #discussion-panel { display: none; }
+body.project-active #discussion-panel { display: none; }
 .commission-panel { max-width: 980px; margin: 0 auto; padding: 24px; }
 .commission-panel h2 { margin: 0 0 8px; font-size: 22px; }
 .commission-panel h3 { margin: 28px 0 10px; font-size: 15px; }
@@ -383,6 +410,8 @@ body.mobile-active #discussion-panel { display: none; }
 .commission-panel .row input { flex: 1; min-width: 0; }
 .commission-settings { margin: 18px 0; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
 .commission-settings summary { cursor: pointer; font-size: 13px; font-weight: 700; }
+.commission-settings.settings-card { padding: 18px 20px; border-radius: 12px; }
+.commission-settings.settings-card > summary { font-size: 15px; }
 .commission-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
 .commission-check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .commission-check input { width: auto; margin: 0; }

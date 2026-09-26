@@ -99,27 +99,38 @@
           <h3>成果物カルテ</h3>
           <p class="muted small">アプリ・ツールごとの現状とKGIを記録します。新しい会議は開始時点の版を読みます。</p>
           <div id="pv-card-list"></div>
-          <details id="pv-card-editor">
+          <details id="pv-card-editor" class="settings-card">
             <summary>＋ カルテを作成・編集</summary>
-            <label>成果物名 <input id="pv-card-name" maxlength="160" /></label>
-            <label>種類 <select id="pv-card-kind"><option value="app">アプリ</option><option value="tool">ツール</option><option value="other">その他</option></select></label>
-            <label>現状 <input id="pv-card-status" maxlength="160" placeholder="開発中・運用中・要検証など" /></label>
-            <label>概要 <textarea id="pv-card-summary" rows="3"></textarea></label>
-            <label>既知の問題（1行1件） <textarea id="pv-card-issues" rows="3"></textarea></label>
-            <label>改善バックログ（1行1件） <textarea id="pv-card-backlog" rows="3"></textarea></label>
-            <label>KGI（1行に「指標 | 目標値 | 現在値 | 単位 | 測定根拠」。現在値は空欄可） <textarea id="pv-card-goals" rows="3" placeholder="初回利用完了率 | 80 | 65 | % | 2026-09-25の計測"></textarea></label>
+            <p class="settings-intro">作ったものの現状を残します。次の会議は、この記録を読んでから始まります。</p>
+            <div class="settings-fields">
+              <label>成果物名 <input id="pv-card-name" maxlength="160" placeholder="例：予約管理アプリ" /></label>
+              <label>種類 <select id="pv-card-kind"><option value="app">アプリ</option><option value="tool">ツール</option><option value="other">その他</option></select></label>
+              <label>いまの状態 <input id="pv-card-status" maxlength="160" placeholder="例：試用中" /></label>
+              <label>何ができるものか <textarea id="pv-card-summary" rows="3" placeholder="使う人と主な機能を簡単に書いてください"></textarea></label>
+              <label>わかっている問題 <textarea id="pv-card-issues" rows="3" placeholder="例：スマホでボタンが押しづらい"></textarea><span class="field-help">複数ある場合は改行で分けます。</span></label>
+              <label>次に改善したいこと <textarea id="pv-card-backlog" rows="3" placeholder="例：通知設定を追加する"></textarea><span class="field-help">複数ある場合は改行で分けます。</span></label>
+            </div>
+            <div class="settings-subsection"><h4>成果の目標（KGI）</h4><p class="field-help">数値で測る目標があれば追加してください。現在値がまだ分からない場合は空欄で大丈夫です。</p>
+              <div id="pv-card-goal-list"></div><button id="pv-card-goal-add" class="secondary" type="button">＋ 目標を追加</button>
+            </div>
             <div class="row"><button id="pv-card-save" type="button">カルテを保存</button><button id="pv-card-reset" class="secondary" type="button">新規入力に戻す</button></div>
+            <p id="pv-card-error" class="settings-feedback settings-error hidden" role="alert"></p>
           </details>
           <h3>会議の結論をメールで実行</h3>
           <p class="muted small">確定した会議から下書きを作り、内容を確認してから送信します。送信にはメール用MCPサーバーが必要です。</p>
-          <details id="email-config-details">
-            <summary>メールMCP接続設定</summary>
-            <label>MCPサーバーURL <input id="email-endpoint" placeholder="https://example.com/mcp" /></label>
-            <label>送信ツール名 <input id="email-tool" placeholder="send_email" /></label>
-            <label>認証トークンを格納した環境変数名（任意） <input id="email-auth-env" placeholder="EMAIL_MCP_TOKEN" /></label>
-            <label>ツール引数テンプレート（JSON） <textarea id="email-template" rows="4">{"to":"{{toArray}}","subject":"{{subject}}","body":"{{body}}"}</textarea></label>
+          <details id="email-config-details" class="settings-card">
+            <summary>メール接続を設定</summary>
+            <p class="settings-intro">利用するメールMCPサーバーの接続先を入力します。送信前には下書きの確認ができます。</p>
+            <div class="settings-fields">
+              <label>接続先URL <input id="email-endpoint" type="url" placeholder="https://example.com/mcp" /><span class="field-help">メールMCPサーバーから案内されたURLを入力します。</span></label>
+              <label>送信機能の名前 <input id="email-tool" placeholder="send_email" value="send_email" /><span class="field-help">サーバー側のツール名です。「接続を確認」で一覧を見られます。</span></label>
+            </div>
+            <details class="settings-advanced"><summary>認証・引数の詳細設定</summary>
+              <label>認証トークンの環境変数名 <input id="email-auth-env" placeholder="EMAIL_MCP_TOKEN" /><span class="field-help">トークン本体はここに入力しません。</span></label>
+              <label>送信ツールへの引数（JSON） <textarea id="email-template" rows="4">{"to":"{{toArray}}","subject":"{{subject}}","body":"{{body}}"}</textarea><span class="field-help">接続先のツールが標準形と異なる場合だけ変更します。</span></label>
+            </details>
             <div class="row"><button id="email-config-save" type="button">設定を保存</button><button id="email-test" class="secondary" type="button">接続してツールを確認</button></div>
-            <p id="email-connection-result" class="muted small"></p>
+            <p id="email-connection-result" class="settings-feedback" role="status" aria-live="polite"></p>
           </details>
           <label>元の会議 <select id="email-meeting"></select></label>
           <label>宛先（カンマ区切り） <input id="email-to" placeholder="name@example.com" /></label>
@@ -138,14 +149,17 @@
           <h2>スマホで会議を見る</h2>
           <p class="muted">会議・発言・決定をこのパソコンで暗号化し、VercelにデプロイしたPWAへ送ります。Vercel側は暗号文だけを保存し、読むための鍵は二次元コードでスマホにだけ渡します。</p>
           <p id="mobile-error" class="commission-error hidden"></p>
-          <label>公開先URL（Vercelのドメイン） <input id="mobile-base-url" type="url" placeholder="https://sikun-mobile.vercel.app" autocomplete="off" /></label>
-          <label>同期トークン（Vercelの環境変数 SYNC_TOKEN と同じ値） <input id="mobile-token" type="password" autocomplete="new-password" placeholder="保存済みの場合は空欄のまま" /></label>
-          <p id="mobile-token-state" class="muted"></p>
-          <label class="commission-check"><input id="mobile-enabled" type="checkbox" /> 会議が変わったら自動で送る（30秒ごとに確認）</label>
+          <div class="settings-card settings-open"><h3>1. 公開先を設定</h3>
+            <label>スマホ用サイトのURL <input id="mobile-base-url" type="url" placeholder="https://sikun-mobile.vercel.app" autocomplete="off" /><span class="field-help">Vercelに公開したPWAのURLを入力します。</span></label>
+            <label>同期トークン <input id="mobile-token" type="password" autocomplete="new-password" placeholder="保存済みなら空欄のまま" /><span class="field-help">Vercelの環境変数 SYNC_TOKEN と同じ値を入力します。</span></label>
+            <p id="mobile-token-state" class="field-help"></p>
+            <label class="commission-check"><input id="mobile-enabled" type="checkbox" /> 会議の変更を自動で同期する</label>
+            <p class="field-help">有効にすると30秒ごとに変更を確認します。</p>
+          </div>
           <div class="row"><button id="mobile-save-btn" type="button">保存</button><button id="mobile-sync-btn" class="secondary" type="button">今すぐ同期</button></div>
-          <pre id="mobile-status" class="commission-delivery"></pre>
+          <div class="settings-subsection"><h3>2. 同期状況</h3><pre id="mobile-status" class="commission-delivery"></pre></div>
           <section id="mobile-pairing" class="hidden">
-            <h3>スマホで読み取る</h3>
+            <h3>3. スマホで読み取る</h3>
             <p class="muted">この二次元コードは会議を読むための鍵です。他の人に見せないでください。</p>
             <img id="mobile-qr" alt="スマホで読み取る二次元コード" width="280" height="280" />
             <details><summary>URLをコピーして送る</summary><input id="mobile-pairing-url" type="text" readonly /></details>
@@ -211,14 +225,19 @@
           <h2>AIチームへ依頼する</h2>
           <p class="muted">最初にITコンサルタントAIと企画を相談します。企画を確定すると、AIチームが実装から納品まで進めます。</p>
           <p id="commission-create-error" class="commission-error hidden"></p>
-          <label>達成したい目標 <textarea id="commission-goal" rows="5" placeholder="何を作り、どう使いたいかを書いてください"></textarea></label>
-          <label>完成と判断する条件 <textarea id="commission-criteria" rows="3" placeholder="検証できる完了条件やKGIを書いてください。未入力なら目標文を使います"></textarea></label>
-          <label>関連する成果物カルテ <select id="commission-card"><option value="">指定しない</option></select></label>
-          <label>作業ディレクトリ
+          <div class="settings-fields">
+          <label>作りたいもの <textarea id="commission-goal" rows="5" placeholder="誰が、何をできるようにしたいですか？"></textarea><span class="field-help">アイデア段階でも大丈夫です。次にAIと企画を詰めます。</span></label>
+          <label>完成の目安 <textarea id="commission-criteria" rows="3" placeholder="例：ログインして予定を登録でき、スマホでも確認できる"></textarea><span class="field-help">実際に確認できる結果を書いてください。</span></label>
+          <label>関連する成果物カルテ <select id="commission-card"><option value="">指定しない</option></select><span class="field-help">既存のアプリを改善する場合に選びます。</span></label>
+          <label>作業するフォルダ
             <div class="row"><input id="commission-dir" type="text" readonly placeholder="未指定なら案件専用フォルダを作成" /><button id="commission-choose-dir" class="secondary" type="button">選択…</button></div>
           </label>
-          <label>実行エンジン <select id="commission-provider"><option value="claude">Claude</option><option value="codex">Codex</option></select></label>
-          <details class="commission-settings"><summary>モデルと利用上限</summary>
+          <label>AIの実行エンジン <select id="commission-provider"><option value="claude">Claude</option><option value="codex">Codex</option></select></label>
+          </div>
+          <details class="commission-settings settings-card"><summary>利用上限とモデルを変更</summary>
+            <p class="settings-intro">通常は初期設定のままで進められます。利用回数やモデルを指定したい場合だけ変更してください。</p>
+            <label>AIの最大呼び出し回数 <input id="commission-max-calls" type="number" min="1" max="200" value="24" /><span class="field-help">この回数に達すると案件を停止します。</span></label>
+            <details class="settings-advanced"><summary>モデルを個別に指定する</summary>
             <div class="commission-settings-grid">
               <label class="claude-only">相談 <input id="commission-model-consultant" value="claude-sonnet-5" /></label>
               <label class="claude-only">計画・担当決定（重要） <input id="commission-model-planner" value="claude-opus-5-5" /></label>
@@ -227,21 +246,24 @@
               <label class="claude-only">重要判断 <input id="commission-model-critical" value="claude-opus-5-5" /></label>
               <label class="claude-only">混雑・利用不可時の代替 <input id="commission-model-fallback" value="claude-haiku-4-5-20251001" /></label>
               <label class="codex-only hidden">Codexモデル <input id="commission-model-codex" value="gpt-6-sol" /></label>
-              <label>最大呼び出し回数 <input id="commission-max-calls" type="number" min="1" max="200" value="24" /></label>
               <label class="claude-only">1回の最大ターン数 <input id="commission-max-turns" type="number" min="1" max="100" value="12" /></label>
             </div>
             <label class="claude-only">役割別モデル（1行につき personaId=model）<textarea id="commission-model-by-persona" rows="3" placeholder="engineer=claude-sonnet-5&#10;qa=claude-haiku-4-5-20251001"></textarea></label>
+            </details>
           </details>
-          <details id="commission-autonomy-settings" class="commission-settings"><summary>無人運用</summary>
-            <p class="muted">企画の確定は人間が行います。確定後は失敗時の自動再試行と再起動後の自動再開を行い、メールは送信しません。</p>
-            <label class="commission-check"><input id="commission-autonomy" type="checkbox" /> 無人運用（自動再試行・再起動後の自動再開）</label>
-            <label class="commission-check"><input id="commission-continuous" type="checkbox" /> KGIを達成するまで改善を続ける（KGIを設定した成果物カルテが必要）</label>
+          <details id="commission-autonomy-settings" class="commission-settings settings-card"><summary>自動で作業を続ける設定</summary>
+            <p class="settings-intro">企画をあなたが確定した後、失敗時の再試行やアプリ再起動後の再開を行います。</p>
+            <label class="commission-check"><input id="commission-autonomy" type="checkbox" /> 作業の再試行と再開を有効にする</label>
+            <label class="commission-check"><input id="commission-continuous" type="checkbox" /> カルテの数値目標を達成するまで改善を続ける</label>
+            <p class="field-help">数値目標を設定した成果物カルテを選ぶ必要があります。</p>
+            <details class="settings-advanced"><summary>停止条件を調整する</summary>
             <div class="commission-settings-grid">
-              <label>トークン予算（空欄は無制限） <input id="commission-max-tokens" type="number" min="1" step="1000" placeholder="例: 5000000" /></label>
-              <label>期限（空欄は無期限） <input id="commission-deadline" type="datetime-local" /></label>
+              <label>トークン予算 <input id="commission-max-tokens" type="number" min="1" step="1000" placeholder="例：5000000" /><span class="field-help">空欄は上限なし。AIの利用量を制限したいときに入力します。</span></label>
+              <label>終了日時 <input id="commission-deadline" type="datetime-local" /><span class="field-help">空欄は期限なし。</span></label>
               <label>最大サイクル数 <input id="commission-max-cycles" type="number" min="1" max="100" value="10" /></label>
-              <label>連続した自動再試行の回数 <input id="commission-retry-limit" type="number" min="0" max="10" value="3" /></label>
+              <label>失敗時に再試行する回数 <input id="commission-retry-limit" type="number" min="0" max="10" value="3" /></label>
             </div>
+            </details>
           </details>
           <div class="row"><button id="commission-create-btn" type="button">ITコンサルタントと相談を始める</button><button id="commission-create-cancel" class="secondary" type="button">キャンセル</button></div>
         </div>

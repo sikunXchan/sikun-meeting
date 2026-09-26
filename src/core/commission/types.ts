@@ -97,6 +97,7 @@ export interface AgentRun {
   phase: 'consultation' | 'planning' | 'work' | 'review' | 'goal_check' | 'kgi_check' | 'delivery';
   workItemId?: string;
   personaId: string;
+  appliedSkills?: { id: string; version: string }[];
   requestedModel: string;
   observedModels: string[];
   effectiveModel?: string;

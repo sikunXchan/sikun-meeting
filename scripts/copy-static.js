@@ -15,6 +15,8 @@ for (const entry of fs.readdirSync(srcDir)) {
 }
 
 fs.cpSync(path.join(srcDir, 'assets'), path.join(destDir, 'assets'), { recursive: true });
+fs.cpSync(path.join(__dirname, '..', 'src', 'core', 'skills', 'catalog'),
+  path.join(__dirname, '..', 'dist', 'core', 'skills', 'catalog'), { recursive: true });
 
 // 発言のMarkdown/Mermaidレンダリング用ライブラリ（ブラウザ向けUMD/グローバルビルドをそのまま同梱）。
 // レンダラーはバンドラーを使わない素の<script>読み込み構成のため、npm経由ではなくここでファイルごとコピーする。

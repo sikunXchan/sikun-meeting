@@ -11,6 +11,7 @@ import {
   ConsultationMessage, CycleRecord, GoalCheck, KgiMeasurement, WorkItem,
 } from './types';
 import { ArtifactGoal } from '../types';
+import { appliedSkillsFor } from '../skills/catalog';
 
 /** 予算・上限・無進捗など、再試行しても結果が変わらない意図的な停止。 */
 export class CommissionHalt extends Error {}
@@ -379,6 +380,7 @@ export class CommissionService {
       : snapshot.settings.modelByPersona?.[personaId] || (important ? snapshot.settings.criticalModel : phaseModel);
     const run: AgentRun = {
       id: randomUUID(), provider, phase, workItemId, personaId, requestedModel: model,
+      appliedSkills: appliedSkillsFor(personaId, phase),
       observedModels: [], status: 'running', startedAt: new Date().toISOString(),
       estimatedCostUsd: 0, numTurns: 0,
     };

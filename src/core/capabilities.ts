@@ -18,11 +18,9 @@ const CODE_ROLES = new Set(['architect', 'engineer', 'backend', 'devops', 'cloud
 const STRONG_ROLES = new Set(['critic', 'security', 'finance', 'legal', 'architect', 'auditor']);
 const FAST_ROLES = new Set(['innovator']);
 const SKILLS: Record<string, string[]> = {
-  architect: ['design-review'], engineer: ['implementation'], backend: ['implementation'],
-  devops: ['operations'], cloud: ['operations'], security: ['security-review'],
-  qa: ['verification'], finance: ['financial-review'], legal: ['legal-review'],
-  researcher: ['source-check'], writer: ['documentation'], designer: ['interface-review'],
-  critic: ['counterargument'], innovator: ['idea-generation'],
+  it_consultant: ['requirements-framing'], architect: ['architecture-review'],
+  engineer: ['implementation'], backend: ['implementation'],
+  security: ['security-review'], qa: ['acceptance-verification'],
 };
 
 const METHODS: Record<string, string> = {
