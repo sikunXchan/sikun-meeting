@@ -8,7 +8,7 @@ const { Repository } = require('../dist/core/store/repository');
 const { ProjectService } = require('../dist/core/services/projectService');
 const { CommissionStore } = require('../dist/core/commission/store');
 const { CommissionService } = require('../dist/core/commission/service');
-const { codexThreadOptions } = require('../dist/core/commission/codexAgent');
+const { codexThreadOptions, codexOptionsForPhase } = require('../dist/core/commission/codexAgent');
 
 function reply(text, tokens = 0) {
   return { text, observedModels: ['test-model'], estimatedCostUsd: 0, numTurns: 1, tokens };
@@ -102,10 +102,21 @@ test('Codex案件は部門と工程に応じてサンドボックスとネット
       assert.equal(options.sandboxMode, 'read-only', `${personaId} ${phase}`);
       assert.equal(options.networkAccessEnabled, false, `${personaId} ${phase}`);
       assert.equal(options.webSearchEnabled, false);
-      if (phase === 'consultation' || phase === 'delivery') assert.equal(options.modelReasoningEffort, 'low');
+      if (phase === 'consultation' || phase === 'planning' || phase === 'delivery') assert.equal(options.modelReasoningEffort, 'low');
       else assert.equal(options.modelReasoningEffort, undefined);
     }
   }
+});
+
+test('Codexの企画相談・計画・納品では探索ツールを有効化しない', () => {
+  for (const phase of ['consultation', 'planning', 'delivery']) {
+    const options = codexOptionsForPhase(phase);
+    assert.equal(options.config.features.shell_tool, false);
+    assert.equal(options.config.features.code_mode_host, false);
+    assert.equal(options.config.features.apps, false);
+  }
+  assert.equal(codexOptionsForPhase('work').config, undefined);
+  assert.equal(codexOptionsForPhase('review').config, undefined);
 });
 
 test('無人運用では一時的な失敗を自動で再試行して納品まで進む', async (t) => {

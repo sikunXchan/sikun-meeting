@@ -27,6 +27,7 @@ export class SdkAgentClient implements AgentClient {
     const models = new Set<string>();
     let effectiveModel: string | undefined;
     let result: AgentResponse | null = null;
+    let toolCalls = 0;
     try {
       const tools = approvedTools(request.personaId,
         request.tools === 'read' ? 'read' : request.phase === 'review' ? 'review' : 'work');
@@ -56,15 +57,19 @@ export class SdkAgentClient implements AgentClient {
           for (const block of message.message.content) {
             const tool = block as unknown as { type?: string; name?: string; input?: unknown };
             if (tool.type === 'tool_use' && tool.name) {
+              toolCalls++;
               await request.onTool?.(toolSummary(tool.name, tool.input));
             }
           }
         }
         if (message.type === 'result') {
           for (const model of Object.keys(message.modelUsage ?? {})) models.add(model);
-          const tokens = Object.values(message.modelUsage ?? {}).reduce((sum, usage) => sum
-            + (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0)
-            + (usage.cacheReadInputTokens ?? 0) + (usage.cacheCreationInputTokens ?? 0), 0);
+          const usage = Object.values(message.modelUsage ?? {});
+          const inputTokens = usage.reduce((sum, item) => sum + (item.inputTokens ?? 0)
+            + (item.cacheReadInputTokens ?? 0) + (item.cacheCreationInputTokens ?? 0), 0);
+          const cachedInputTokens = usage.reduce((sum, item) => sum + (item.cacheReadInputTokens ?? 0), 0);
+          const outputTokens = usage.reduce((sum, item) => sum + (item.outputTokens ?? 0), 0);
+          const tokens = inputTokens + outputTokens;
           if (message.subtype !== 'success' || message.is_error) {
             throw Object.assign(new Error(message.subtype === 'success' ? message.result : `AI実行が ${message.subtype} で停止しました`), {
               observedModels: [...models],
@@ -72,6 +77,10 @@ export class SdkAgentClient implements AgentClient {
               estimatedCostUsd: message.total_cost_usd,
               numTurns: message.num_turns,
               tokens,
+              inputTokens,
+              cachedInputTokens,
+              outputTokens,
+              toolCalls,
             });
           }
           result = {
@@ -81,6 +90,10 @@ export class SdkAgentClient implements AgentClient {
             estimatedCostUsd: message.total_cost_usd,
             numTurns: message.num_turns,
             tokens,
+            inputTokens,
+            cachedInputTokens,
+            outputTokens,
+            toolCalls,
           };
         }
       }

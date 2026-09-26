@@ -109,6 +109,10 @@ export interface AgentRun {
   estimatedCostUsd: number;
   numTurns: number;
   tokens?: number;
+  inputTokens?: number;
+  cachedInputTokens?: number;
+  outputTokens?: number;
+  toolCalls?: number;
 }
 
 export interface ActivityEvent {
@@ -206,6 +210,10 @@ export interface AgentResponse {
   estimatedCostUsd: number;
   numTurns: number;
   tokens?: number;
+  inputTokens?: number;
+  cachedInputTokens?: number;
+  outputTokens?: number;
+  toolCalls?: number;
 }
 
 export interface AgentClient {

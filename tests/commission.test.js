@@ -70,6 +70,23 @@ function response(text, model = 'test-model') {
   return { text, observedModels: [model], estimatedCostUsd: 0.01, numTurns: 1 };
 }
 
+test('入力・キャッシュ・出力・ツール回数を実行履歴に保存する', async (t) => {
+  const agent = { async run() {
+    return { ...response('企画案'), tokens: 135, inputTokens: 120,
+      cachedInputTokens: 90, outputTokens: 15, toolCalls: 2 };
+  } };
+  const f = await fixture(agent); t.after(f.cleanup);
+  const item = await f.service.create({ projectId: f.project.id, goal: '相談する' });
+  const updated = await f.service.consult(item.id, '相談');
+  assert.deepEqual({
+    tokens: updated.runs[0].tokens,
+    inputTokens: updated.runs[0].inputTokens,
+    cachedInputTokens: updated.runs[0].cachedInputTokens,
+    outputTokens: updated.runs[0].outputTokens,
+    toolCalls: updated.runs[0].toolCalls,
+  }, { tokens: 135, inputTokens: 120, cachedInputTokens: 90, outputTokens: 15, toolCalls: 2 });
+});
+
 async function fixture(agent) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sikun-commission-'));
   const repo = new Repository(new JsonStore(dir));

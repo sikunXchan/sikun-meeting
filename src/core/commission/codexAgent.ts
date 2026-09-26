@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { ThreadEvent, ThreadOptions } from '@openai/codex-sdk';
+import type { CodexOptions, ThreadEvent, ThreadOptions } from '@openai/codex-sdk';
 import { getPersonaById } from '../personas';
 import { AgentClient, AgentRequest, AgentResponse } from './types';
 import { codexPolicy, methodFor } from '../capabilities';
@@ -16,7 +16,7 @@ export function codexThreadOptions(request: Pick<AgentRequest, 'personaId' | 'to
   const policy = codexPolicy(request.personaId, codexPhase(request));
   return {
     model: request.model,
-    modelReasoningEffort: request.phase === 'consultation' || request.phase === 'delivery' ? 'low' : undefined,
+    modelReasoningEffort: request.phase === 'consultation' || request.phase === 'planning' || request.phase === 'delivery' ? 'low' : undefined,
     workingDirectory: request.workingDirectory,
     sandboxMode: policy.sandboxMode,
     approvalPolicy: 'never',
@@ -26,6 +26,17 @@ export function codexThreadOptions(request: Pick<AgentRequest, 'personaId' | 'to
   };
 }
 const importCodex = new Function('return import("@openai/codex-sdk")') as () => Promise<CodexModule>;
+
+export function codexOptionsForPhase(phase: AgentRequest['phase'], codexPathOverride?: string): CodexOptions {
+  const textOnly = phase === 'consultation' || phase === 'planning' || phase === 'delivery';
+  return {
+    ...(codexPathOverride ? { codexPathOverride } : {}),
+    ...(textOnly ? { config: { features: {
+      shell_tool: false, code_mode_host: false, apps: false, plugins: false,
+      multi_agent: false, remote_plugin: false, browser_use: false, skill_search: false,
+    } } } : {}),
+  };
+}
 
 function packagedCodexPath(): string | undefined {
   const candidate = path.join(process.resourcesPath || '', 'codex-runtime', 'bin', 'codex.exe');
@@ -38,7 +49,7 @@ export class CodexAgentClient implements AgentClient {
     if (!persona) throw new Error(`Unknown personaId: ${request.personaId}`);
     const { Codex } = await importCodex();
     const codexPathOverride = packagedCodexPath();
-    const codex = new Codex(codexPathOverride ? { codexPathOverride } : undefined);
+    const codex = new Codex(codexOptionsForPhase(request.phase, codexPathOverride));
     const controller = new AbortController();
     let rejectCancellation: (error: Error) => void = () => undefined;
     const cancelled = new Promise<never>((_, reject) => { rejectCancellation = reject; });
@@ -55,7 +66,10 @@ export class CodexAgentClient implements AgentClient {
     }, limitMs);
     let text = '';
     let completed = false;
-    let tokens = 0;
+    let inputTokens = 0;
+    let cachedInputTokens = 0;
+    let outputTokens = 0;
+    let toolCalls = 0;
     try {
       const thread = codex.startThread(codexThreadOptions(request));
       const restricted = codexPhase(request) === 'work' && !codexPolicy(request.personaId, 'work').canRunCode
@@ -66,7 +80,7 @@ export class CodexAgentClient implements AgentClient {
         : request.phase === 'delivery'
           ? '保存済みの仕事と内部確認記録だけから納品文を作ってください。ファイル閲覧やコマンド実行はしないでください。'
           : request.phase === 'consultation'
-            ? 'この段階は企画相談です。まず発注者の意図から短い企画案を返してください。既存機能について事実確認が必要なときだけ関連する文書やコードを最大3ファイル読み、広範囲の探索や試行錯誤のコマンド実行は避けてください。未確認のことは断定せず、質問は最大2件に絞ってください。実装・テストは企画確定後に行います。'
+            ? 'この段階は企画相談です。発注者の意図から短い企画案を返してください。ファイル調査やツール実行は行わず、既存機能で未確認の点は未確認と明記してください。質問は最大2件に絞り、コードの事実確認・実装・テストは企画確定後に行います。'
             : '必要なファイルだけを読み、.venv、node_modulesなどの依存ディレクトリは探索しないでください。';
       const prompt = `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}${skillPromptFor(persona.id, request.phase)}\n発注者が確定した企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。\n${request.tools === 'read' ? 'この段階ではファイルを変更しないでください。' : '実際に必要な作業を行ってください。'}\n${restricted}${phaseInstruction}\n\n${request.prompt}`;
       const execute = async (): Promise<void> => {
@@ -75,15 +89,22 @@ export class CodexAgentClient implements AgentClient {
           if (event.type === 'item.completed') {
             const item = event.item;
             if (item.type === 'agent_message') text = item.text;
-            if (item.type === 'command_execution') await request.onTool?.(`コマンド実行: ${item.status}`);
+            if (item.type === 'command_execution') {
+              toolCalls++;
+              await request.onTool?.(`コマンド実行: ${item.status}`);
+            }
             if (item.type === 'file_change') {
+              toolCalls++;
               const paths = item.changes.map((change) => change.path).join(', ');
               await request.onTool?.(`ファイル変更: ${paths.slice(0, 240)}`);
             }
+            if (item.type === 'mcp_tool_call' || item.type === 'web_search') toolCalls++;
           }
           if (event.type === 'turn.completed') {
             completed = true;
-            tokens += (event.usage?.input_tokens ?? 0) + (event.usage?.output_tokens ?? 0);
+            inputTokens += event.usage?.input_tokens ?? 0;
+            cachedInputTokens += event.usage?.cached_input_tokens ?? 0;
+            outputTokens += event.usage?.output_tokens ?? 0;
           }
           if (event.type === 'turn.failed') throw new Error(event.error.message);
           if (event.type === 'error') throw new Error(event.message);
@@ -98,7 +119,11 @@ export class CodexAgentClient implements AgentClient {
         effectiveModel: undefined,
         estimatedCostUsd: 0,
         numTurns: 1,
-        tokens,
+        tokens: inputTokens + outputTokens,
+        inputTokens,
+        cachedInputTokens,
+        outputTokens,
+        toolCalls,
       };
     } finally {
       clearTimeout(timer);

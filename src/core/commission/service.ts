@@ -407,6 +407,10 @@ export class CommissionService {
         current.estimatedCostUsd = response.estimatedCostUsd;
         current.numTurns = response.numTurns;
         current.tokens = response.tokens ?? 0;
+        current.inputTokens = response.inputTokens;
+        current.cachedInputTokens = response.cachedInputTokens;
+        current.outputTokens = response.outputTokens;
+        current.toolCalls = response.toolCalls;
       });
       await this.event(id, 'message', `${personaId}: ${phase} を完了`, run.id);
       if (provider === 'claude' && snapshot.settings.fallbackModel && response.effectiveModel === snapshot.settings.fallbackModel && model !== snapshot.settings.fallbackModel) {
@@ -426,6 +430,10 @@ export class CommissionService {
         if (Number.isFinite(usage?.estimatedCostUsd)) current.estimatedCostUsd = usage.estimatedCostUsd!;
         if (Number.isFinite(usage?.numTurns)) current.numTurns = usage.numTurns!;
         if (Number.isFinite(usage?.tokens)) current.tokens = usage.tokens!;
+        if (Number.isFinite(usage?.inputTokens)) current.inputTokens = usage.inputTokens!;
+        if (Number.isFinite(usage?.cachedInputTokens)) current.cachedInputTokens = usage.cachedInputTokens!;
+        if (Number.isFinite(usage?.outputTokens)) current.outputTokens = usage.outputTokens!;
+        if (Number.isFinite(usage?.toolCalls)) current.toolCalls = usage.toolCalls!;
       });
       await this.event(id, 'error', `${personaId}: ${detail}`, run.id);
       throw error;

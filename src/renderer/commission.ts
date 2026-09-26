@@ -194,7 +194,16 @@
     const runs = el('commission-runs');
     runs.replaceChildren();
     for (const run of item.runs.slice().reverse()) {
-      addTextRow(runs, 'commission-event', `${run.provider === 'codex' ? 'Codex' : 'Claude'} · ${run.personaId} · ${run.phase} · ${run.status}`, `要求モデル ${run.requestedModel} / 応答モデル ${run.effectiveModel || '未確認'} / 使用モデル ${run.observedModels.join(', ') || '未確認'} / ${run.numTurns}ターン / ${(run.tokens ?? 0).toLocaleString('ja-JP')}トークン`);
+      const count = (value) => value.toLocaleString('ja-JP');
+      const usage = [`合計 ${count(run.tokens ?? 0)} トークン`];
+      if (Number.isFinite(run.inputTokens) && Number.isFinite(run.outputTokens)) {
+        usage.push(`入力 ${count(run.inputTokens)}（キャッシュ再利用 ${count(run.cachedInputTokens ?? 0)}）`);
+        usage.push(`出力 ${count(run.outputTokens)}`);
+      }
+      const steps = run.provider === 'codex' ? `AI実行 ${run.numTurns} 回` : `モデル応答 ${run.numTurns} ターン`;
+      if (Number.isFinite(run.toolCalls)) usage.push(`ツール操作 ${count(run.toolCalls)} 回`);
+      addTextRow(runs, 'commission-event', `${run.provider === 'codex' ? 'Codex' : 'Claude'} · ${run.personaId} · ${run.phase} · ${run.status}`,
+        `要求モデル ${run.requestedModel} / 応答モデル ${run.effectiveModel || '未確認'} / 使用モデル ${run.observedModels.join(', ') || '未確認'}\n${steps} / ${usage.join(' / ')}`);
     }
     const eventList = el('commission-events');
     eventList.replaceChildren();
