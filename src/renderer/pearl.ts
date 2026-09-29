@@ -136,6 +136,34 @@
           row.append(details);
         }
         row.append(make('small','skill-version',skill.id+' v'+skill.version));
+        const metrics=make('details','skill-resource skill-metrics');metrics.append(make('summary','','版ごとの実績'));
+        const result=make('div','skill-metrics-result');result.setAttribute('aria-live','polite');
+        const refresh=click('更新',loadMetrics,'text-button');metrics.append(refresh,result);row.append(metrics);
+        async function loadMetrics(){
+          refresh.disabled=true;result.replaceChildren(make('p','field-help','集計中…'));
+          try{
+            const report=await api.personas.skillMetrics(),rows=report.rows.filter(r=>r.id===skill.id&&r.personaId===member.id);
+            result.replaceChildren();
+            if(!rows.length)result.append(make('p','field-help','作業・確認の実行記録はまだありません。'));
+            const groups=new Map();
+            for(const entry of rows){const key=JSON.stringify([entry.phase,entry.provider,entry.model]);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(entry);}
+            for(const entries of groups.values()){
+              const first=entries[0],wrap=make('div','markdown-body'),table=make('table');
+              table.append(make('caption','',`${first.phase==='work'?'作業の差し戻し率':'確認時の差し戻し判定率'} · ${first.provider==='unknown'?'実行元不明':first.provider} · ${first.model==='unknown'?'モデル不明':first.model}`));
+              const head=make('thead'),tr=make('tr');for(const label of ['版','確認済み','差し戻し','率','未集計','失敗 / 中断']){const th=make('th','',label);th.scope='col';tr.append(th);}head.append(tr);table.append(head);
+              const body=make('tbody');
+              for(const r of entries){const line=make('tr');line.title=`${r.commissionCount}件の依頼 / 実行${r.runs}回 / 実行中${r.running}回`;
+                for(const value of ['v'+r.version,r.reviewed,r.returned,r.returnRate===null?'—':(r.returnRate*100).toFixed(1)+'%',r.unlinked,r.failed+' / '+r.interrupted])line.append(make('td','',String(value)));
+                body.append(line);
+              }table.append(body);wrap.append(table);result.append(wrap);
+            }
+            result.append(make('p','field-help','率 = 差し戻し ÷ 確認済みの実行回数。再試行は別の実行として数えます。未集計は、完了した実行のうち判定との対応がないものです。'));
+            result.append(make('p','field-help','案件の難しさや確認者が異なるため、この率だけで改善効果は断定できません。確認側の率は、そのスキルの合格率ではありません。'));
+            if(report.excludedDecisions)result.append(make('p','field-help',`全依頼のうち、対応不明・重複などの判定${report.excludedDecisions}件を集計から除外しています。`));
+          }catch(e){result.replaceChildren(make('p','field-help','実績を取得できません: '+e.message));}
+          finally{refresh.disabled=false;}
+        }
+        metrics.addEventListener('toggle',()=>{if(metrics.open)void loadMetrics();});
       }
       el('specialist-skill-list').append(row);
     }filterSkills();

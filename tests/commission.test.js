@@ -51,16 +51,27 @@ test('完了条件が未達なら追加作業を計画し、検証を通るま�
     return current.status === 'delivered' || current.status === 'failed' ? current : null;
   });
   assert.equal(delivered.status, 'delivered', delivered.error);
+  for (const decision of delivered.reviewDecisions) {
+    const work = delivered.runs.find(run => run.id === decision.workRunId);
+    const review = delivered.runs.find(run => run.id === decision.reviewRunId);
+    assert.equal(work.phase, 'work'); assert.equal(review.phase, 'review');
+    assert.equal(work.workItemId, decision.workItemId); assert.equal(review.workItemId, decision.workItemId);
+    assert.equal(review.personaId, decision.reviewerPersonaId);
+  }
+  const {skillMetricsFor} = require('../dist/core/skills/metrics');
+  const persisted = new CommissionStore(f.dir).get(delivered.id);
+  assert.deepEqual(persisted.reviewDecisions, delivered.reviewDecisions);
+  assert.equal(skillMetricsFor([persisted]).rows.filter(row => row.phase === 'work').reduce((n,row)=>n+row.reviewed,0), 2);
   assert.deepEqual(delivered.runs.find((run) => run.phase === 'planning').appliedSkills,
-    [{ id: 'product-planning', version: '1.0.0' }]);
+    [{ id: 'product-planning', version: '1.1.0' }]);
   assert.deepEqual(delivered.runs.find((run) => run.phase === 'goal_check').appliedSkills,
-    [{ id: 'critic-evidence', version: '1.0.0' }]);
+    [{ id: 'critic-evidence', version: '1.1.0' }]);
   assert.deepEqual(delivered.runs.find((run) => run.phase === 'consultation').appliedSkills,
-    [{ id: 'requirements-framing', version: '1.0.0' }]);
+    [{ id: 'requirements-framing', version: '1.1.0' }]);
   assert.deepEqual(delivered.runs.find((run) => run.phase === 'work').appliedSkills,
-    [{ id: 'implementation', version: '1.0.0' }]);
+    [{ id: 'implementation', version: '1.1.0' }]);
   assert.deepEqual(delivered.runs.find((run) => run.phase === 'review').appliedSkills,
-    [{ id: 'acceptance-verification', version: '1.1.0' }]);
+    [{ id: 'acceptance-verification', version: '1.2.0' }]);
   assert.equal(planCount, 2);
   assert.deepEqual(delivered.goalChecks.map((check) => check.complete), [false, true]);
   assert.equal(fs.existsSync(path.join(delivered.workingDirectory, 'manual.txt')), true);

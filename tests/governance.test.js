@@ -26,15 +26,15 @@ test('部門別モデルと工程別ツールを分け、監査・会議を読�
 });
 
 test('同梱スキルは担当部門と工程で選び、会議の権限を広げない', () => {
-  assert.deepEqual(appliedSkillsFor('it_consultant', 'consultation'), [{ id: 'requirements-framing', version: '1.0.0' }]);
-  assert.deepEqual(appliedSkillsFor('engineer', 'work'), [{ id: 'implementation', version: '1.0.0' }]);
+  assert.deepEqual(appliedSkillsFor('it_consultant', 'consultation'), [{ id: 'requirements-framing', version: '1.1.0' }]);
+  assert.deepEqual(appliedSkillsFor('engineer', 'work'), [{ id: 'implementation', version: '1.1.0' }]);
   assert.deepEqual(appliedSkillsFor('engineer', 'review'), []);
-  assert.deepEqual(appliedSkillsFor('qa', 'review'), [{ id: 'acceptance-verification', version: '1.1.0' }]);
-  assert.deepEqual(appliedSkillsFor('security', 'meeting'), [{ id: 'security-review', version: '1.0.0' }]);
-  assert.deepEqual(appliedSkillsFor('product', 'planning'), [{ id: 'product-planning', version: '1.0.0' }]);
-  assert.deepEqual(appliedSkillsFor('critic', 'goal_check'), [{ id: 'critic-evidence', version: '1.0.0' }]);
-  assert.deepEqual(appliedSkillsFor('critic', 'kgi_check'), [{ id: 'critic-evidence', version: '1.0.0' }]);
-  assert.deepEqual(appliedSkillsFor('finance', 'work'), [{ id: 'financial-analysis', version: '1.0.0' }]);
+  assert.deepEqual(appliedSkillsFor('qa', 'review'), [{ id: 'acceptance-verification', version: '1.2.0' }]);
+  assert.deepEqual(appliedSkillsFor('security', 'meeting'), [{ id: 'security-review', version: '1.1.0' }]);
+  assert.deepEqual(appliedSkillsFor('product', 'planning'), [{ id: 'product-planning', version: '1.1.0' }]);
+  assert.deepEqual(appliedSkillsFor('critic', 'goal_check'), [{ id: 'critic-evidence', version: '1.1.0' }]);
+  assert.deepEqual(appliedSkillsFor('critic', 'kgi_check'), [{ id: 'critic-evidence', version: '1.1.0' }]);
+  assert.deepEqual(appliedSkillsFor('finance', 'work'), [{ id: 'financial-analysis', version: '1.1.0' }]);
   assert.match(skillPromptFor('architect', 'meeting'), /会議やレビューでは変更を提案/);
   assert.equal(skillPromptFor('architect', 'meeting').includes('description:'), false);
   assert.match(skillPromptFor('security', 'review'), /権限/);

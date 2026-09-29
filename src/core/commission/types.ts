@@ -77,6 +77,9 @@ export interface WorkDecision {
 export interface ReviewDecision {
   id: string;
   workItemId: string;
+  /** 旧記録には存在しない。推測で補完せず、対応が明示された判定だけを集計する。 */
+  workRunId?: string;
+  reviewRunId?: string;
   reviewerPersonaId: string;
   approved: boolean;
   note: string;

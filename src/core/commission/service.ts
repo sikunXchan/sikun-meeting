@@ -659,6 +659,7 @@ export class CommissionService {
             })));
             current.reviewDecisions.push({
               id: randomUUID(), workItemId: work.id, reviewerPersonaId: work.reviewerPersonaId,
+              workRunId, reviewRunId,
               approved: verdict.approved, note: verdict.note, artifactIds: [...artifactIds, ...reviewArtifactIds],
               decidedAt: new Date().toISOString(),
             });

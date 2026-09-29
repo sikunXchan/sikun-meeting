@@ -7,6 +7,7 @@ import * as QRCode from 'qrcode';
 import { MobileSyncService } from '../core/mobile/service';
 import * as fs from 'fs';
 import { skillDetailsFor } from '../core/skills/catalog';
+import { skillMetricsFor } from '../core/skills/metrics';
 import { AppContext, PERSONAS, MEETING_TYPES } from '../core';
 import { CreateMeetingInput } from '../core/services/meetingService';
 import { FinalizeDecisionInput } from '../core/services/decisionService';
@@ -21,6 +22,7 @@ import { EmailMcpConfig } from '../core/email/types';
 export const IPC_CHANNELS = {
   personasList: 'personas:list',
   personasSkills: 'personas:skills',
+  personasSkillMetrics: 'personas:skillMetrics',
   homeRequested: 'navigation:home',
   meetingTypesList: 'meetingTypes:list',
   projectsList: 'projects:list',
@@ -141,6 +143,7 @@ export function registerIpcHandlers(ctx: AppContext, getWindow: () => BrowserWin
   handle(IPC_CHANNELS.personasList, () => PERSONAS);
   handle(IPC_CHANNELS.personasSkills, () => PERSONAS.map(({ id, name, roleTitle, expertise, avatar }) =>
     ({ id, name, roleTitle, expertise, avatar, skills: skillDetailsFor(id) })));
+  handle(IPC_CHANNELS.personasSkillMetrics, () => skillMetricsFor(ctx.commissionService.list()));
   handle(IPC_CHANNELS.meetingTypesList, () => MEETING_TYPES);
 
   handle(IPC_CHANNELS.projectsList, () => ctx.projectService.listProjects());

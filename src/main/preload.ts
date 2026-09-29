@@ -11,6 +11,7 @@ import type { EmailMcpConfig } from '../core/email/types';
 const IPC_CHANNELS = {
   personasList: 'personas:list',
   personasSkills: 'personas:skills',
+  personasSkillMetrics: 'personas:skillMetrics',
   homeRequested: 'navigation:home',
   meetingTypesList: 'meetingTypes:list',
   projectsList: 'projects:list',
@@ -94,6 +95,7 @@ const api = {
   personas: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.personasList),
     skills: () => ipcRenderer.invoke(IPC_CHANNELS.personasSkills),
+    skillMetrics: () => ipcRenderer.invoke(IPC_CHANNELS.personasSkillMetrics),
   },
   meetingTypes: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.meetingTypesList),
