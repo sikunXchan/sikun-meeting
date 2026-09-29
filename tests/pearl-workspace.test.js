@@ -30,13 +30,20 @@ test('PDF signature and workbook content are previewed with bounded rows and lit
  const book=new Workbook(),sheet=book.addWorksheet('売上');sheet.addRows([['月','売上'],['9月',124],['<script>bad()</script>',{formula:'1+1',result:2}]]);sheet.getCell('A201').value='last';await book.xlsx.writeFile(path.join(dir,'sales.xlsx'));
  const result=await readArtifactPreview(item('sales.xlsx'),'a');assert.equal(result.kind,'sheet');assert.equal(result.sheets[0].rows.length,200);assert.equal(result.sheets[0].truncated,true);assert.equal(result.sheets[0].rows[2][0],'<script>bad()</script>');assert.equal(result.sheets[0].rows[2][1],'2');
 });
-test('references are snapshotted into the request folder and supplied to the agent',async t=>{
+test('references are snapshotted outside the work folder and arbitrary renderer paths are rejected',async t=>{
  const dir=folder(t),repo=new Repository(new JsonStore(dir)),project=await new ProjectService(repo).createProject('test','');let request;
  const store=new CommissionStore(dir),service=new CommissionService(store,repo,{async run(r){request=r;return {text:'企画です',observedModels:['test'],numTurns:1,estimatedCostUsd:0};}},dir);
- const file=path.join(dir,'source.txt');fs.writeFileSync(file,'original');const created=await service.create({projectId:project.id,goal:'資料を読む',referenceFiles:[file]});
- fs.writeFileSync(file,'modified');assert.equal(fs.readFileSync(path.join(created.workingDirectory,created.referenceFiles[0]),'utf8'),'original');await service.consult(created.id,created.goal);assert.ok(request.prompt.includes(created.referenceFiles[0]));
- await assert.rejects(service.create({projectId:project.id,goal:'test',referenceFiles:[dir]}),/ファイル/);await assert.rejects(service.create({projectId:project.id,goal:'test',referenceFiles:Array(11).fill(file)}),/10件/);
+ const file=path.join(dir,'source.txt');fs.writeFileSync(file,'original');
+ const {ReferenceSelections}=require('../dist/main/referenceSelections'),selections=new ReferenceSelections();
+ const [selected]=selections.select(7,[file]);fs.writeFileSync(file,'modified');
+ const created=await selections.consume(7,[selected.id],files=>service.create({projectId:project.id,goal:'資料を読む'},files));
+ assert.equal(fs.readFileSync(created.referenceFiles[0],'utf8'),'original');assert.ok(!created.referenceFiles[0].startsWith(created.workingDirectory+path.sep));
+ assert.deepEqual(fs.readdirSync(created.workingDirectory),[]);
+ await service.consult(created.id,created.goal);assert.ok(request.prompt.includes(created.referenceFiles[0]));
+ await assert.rejects(service.create({projectId:project.id,goal:'test',referenceFiles:[file]}),/選択ダイアログ/);
+ await assert.rejects(service.create({projectId:project.id,goal:'test',referenceIds:[selected.id]}),/選択ダイアログ/);
 });
+
 test('automatic meetings finish without human approval and preserve distinct decision state',async t=>{
  const prompts=[],agent=async(_p,prompt)=>{prompts.push(prompt);return {text:prompt.includes('提示された記録だけ')?'## 方向性\nA案。ただし検証を継続。':'【立場: 賛成】\n試験導入を提案します。',isError:false};};
  const f=await meeting(t,agent);await f.auto.start(f.m.id);await done(f.auto,f.m.id);const result=f.repo.getMeeting(f.m.id);

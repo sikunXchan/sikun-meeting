@@ -1,3 +1,4 @@
+import { ReferenceSelections } from './referenceSelections';
 import { WorkspaceSettingsStore } from './workspaceSettings';
 import { MeetingAutomationService } from '../core/services/meetingAutomationService';
 import { app, ipcMain, dialog, BrowserWindow, shell, IpcMainInvokeEvent } from 'electron';
@@ -92,6 +93,9 @@ export const IPC_CHANNELS = {
 type Handler = (event: IpcMainInvokeEvent, ...args: any[]) => unknown;
 
 export function registerIpcHandlers(ctx: AppContext, getWindow: () => BrowserWindow | null, mobile?: MobileSyncService): void {
+  const references = new ReferenceSelections();
+  const selectionEpochs = new Map<number, object>();
+  const choosing = new Set<number>();
   const meetingEdits = new Set<string>([
     IPC_CHANNELS.discussionAskAll, IPC_CHANNELS.discussionAskSpecific,
     IPC_CHANNELS.discussionRebuttal, IPC_CHANNELS.discussionHumanSpeak,
@@ -112,7 +116,26 @@ export function registerIpcHandlers(ctx: AppContext, getWindow: () => BrowserWin
   const automatic=new MeetingAutomationService(ctx.repo,ctx.discussionService,(id)=>getWindow()?.webContents.send(IPC_CHANNELS.meetingsAutoProgress,id),(event)=>getWindow()?.webContents.send(IPC_CHANNELS.discussionProgress,event));
   handle(IPC_CHANNELS.preferencesGet,()=>preferences.get());
   handle(IPC_CHANNELS.preferencesSave,(_e,value)=>preferences.set(value));
-  handle(IPC_CHANNELS.chooseFiles,async()=>{const win=getWindow();if(!win)return [];const result=await dialog.showOpenDialog(win,{properties:['openFile','multiSelections'],title:'参考資料を選択'});return result.canceled?[]:result.filePaths.slice(0,10);});
+  handle(IPC_CHANNELS.chooseFiles, async (event, retainedIds: unknown = []) => {
+    const sender = event.sender, owner = sender.id, win = getWindow();
+    if (!win || win.webContents.id !== owner) throw new Error('参考資料を選択できません');
+    if (choosing.has(owner)) throw new Error('資料選択ダイアログは開いています');
+    if (!selectionEpochs.has(owner)) {
+      selectionEpochs.set(owner, {});
+      sender.on('did-start-navigation', (_event, _url, inPlace, mainFrame) => {
+        if (mainFrame && !inPlace) { references.clear(owner); selectionEpochs.set(owner, {}); }
+      });
+      sender.once('destroyed', () => { references.clear(owner); selectionEpochs.delete(owner); });
+    }
+    const epoch = selectionEpochs.get(owner);
+    const retained = references.select(owner, [], retainedIds);
+    choosing.add(owner);
+    try {
+      const result = await dialog.showOpenDialog(win, { properties: ['openFile', 'multiSelections'], title: '参考資料を選択' });
+      if (sender.isDestroyed() || selectionEpochs.get(owner) !== epoch) throw new Error('参考資料を選び直してください');
+      return result.canceled ? retained : references.select(owner, result.filePaths, retainedIds);
+    } finally { choosing.delete(owner); }
+  });
   handle(IPC_CHANNELS.meetingsStartAuto,(_e,id:string)=>automatic.start(id));
   handle(IPC_CHANNELS.meetingsPauseAuto,(_e,id:string)=>automatic.pause(id));
   handle(IPC_CHANNELS.personasList, () => PERSONAS);
@@ -128,7 +151,11 @@ export function registerIpcHandlers(ctx: AppContext, getWindow: () => BrowserWin
   handle(IPC_CHANNELS.projectsUpsertArtifactCard, (_e, projectId: string, input: UpsertArtifactCardInput) =>
     ctx.projectService.upsertArtifactCard(projectId, input));
   handle(IPC_CHANNELS.commissionsList, (_e, projectId?: string) => ctx.commissionService.list(projectId));
-  handle(IPC_CHANNELS.commissionsCreate, (_e, input: CreateCommissionInput) => ctx.commissionService.create(input));
+  handle(IPC_CHANNELS.commissionsCreate, (event, input: CreateCommissionInput) => {
+    if (!input || typeof input !== 'object' || 'referenceFiles' in input) throw new Error('参考資料は選択ダイアログから指定してください');
+    const { referenceIds = [], ...details } = input;
+    return references.consume(event.sender.id, referenceIds, files => ctx.commissionService.create(details, files));
+  });
   handle(IPC_CHANNELS.commissionsFromActionItem, (_e, projectId: string, actionItemId: string) => ctx.commissionService.fromActionItem(projectId, actionItemId));
   handle(IPC_CHANNELS.commissionsGet, (_e, id: string) => ctx.commissionService.get(id));
   handle(IPC_CHANNELS.commissionsConsult, (_e, id: string, text: string) => ctx.commissionService.consult(id, text));

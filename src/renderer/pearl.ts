@@ -38,9 +38,9 @@
   composer.prepend(shortcuts);el('commission-goal').placeholder='依頼したいことを書いてください';el('commission-goal').rows=3;
   const files=make('div','reference-files');files.id='pearl-reference-files';el('commission-goal').after(files);
   window.requestReferenceFiles=[];
-  function renderReferences(){files.replaceChildren();for(const file of window.requestReferenceFiles){const chip=make('span','reference-chip');chip.append(document.createTextNode(file.split(/[\\/]/).pop()),click('×',()=>{window.requestReferenceFiles=window.requestReferenceFiles.filter(f=>f!==file);renderReferences();},'chip-remove'));chip.lastChild.setAttribute('aria-label',file.split(/[\\/]/).pop()+'を外す');files.append(chip);}}
+  function renderReferences(){files.replaceChildren();for(const file of window.requestReferenceFiles){const chip=make('span','reference-chip');chip.append(document.createTextNode(file.name),click('×',()=>{window.requestReferenceFiles=window.requestReferenceFiles.filter(f=>f!==file);renderReferences();},'chip-remove'));chip.lastChild.setAttribute('aria-label',file.name+'を外す');files.append(chip);}}
   const footer=composer.querySelector('.composer-footer'),tools=make('div','composer-tools');
-  const attach=click('',async()=>{try{const selected=await api.system.chooseFiles();window.requestReferenceFiles=[...new Set([...window.requestReferenceFiles,...selected])].slice(0,10);renderReferences();}catch(e){el('commission-create-error').textContent=e.message;el('commission-create-error').classList.remove('hidden');}});attach.id='pearl-attach';attach.innerHTML=icon('plus')+'資料';
+  const attach=click('',async()=>{try{const selected=await api.system.chooseFiles(window.requestReferenceFiles.map(file=>file.id));window.requestReferenceFiles=selected;renderReferences();}catch(e){el('commission-create-error').textContent=e.message;el('commission-create-error').classList.remove('hidden');}});attach.id='pearl-attach';attach.innerHTML=icon('plus')+'資料';
   const details=click('',()=>{el('commission-advanced').open=!el('commission-advanced').open;});details.innerHTML=icon('chevron')+'詳細';details.setAttribute('aria-controls','commission-advanced');details.setAttribute('aria-expanded','false');
   el('commission-advanced').addEventListener('toggle',()=>details.setAttribute('aria-expanded',String(el('commission-advanced').open)));
   tools.append(attach,details);footer.prepend(tools);footer.after(el('commission-advanced'));
@@ -124,7 +124,19 @@
     skillMembers=members;
     for(const member of members){const row=make('details','specialist-skill');row.dataset.personaId=member.id;row.dataset.search=(member.name+' '+member.roleTitle+' '+member.expertise).toLocaleLowerCase();
       const heading=make('summary'),img=make('img');img.src='assets/personas/'+member.avatar;img.alt='';const copy=make('span');copy.append(make('strong','',member.name),make('small','',member.roleTitle));heading.append(img,copy);row.append(heading);
-      for(const skill of member.skills){row.append(make('p','field-help',skill.phases.map(p=>phaseLabels[p]).join(' / ')));const body=make('div','markdown-body');body.innerHTML=window.renderMarkdownSafe(skill.instructions);row.append(body,make('small','skill-version',skill.id+' v'+skill.version));}
+      for(const skill of member.skills){
+        row.append(make('p','field-help',skill.phases.map(p=>phaseLabels[p]).join(' / ')));
+        const body=make('div','markdown-body');
+        body.innerHTML=window.renderMarkdownSafe(skill.instructions.replace(/\[([^\]]+)\]\((?:references|scripts)\/[^)]+\)/g,'$1（同梱資料）'));
+        row.append(body);
+        for(const resource of skill.resources||[]){
+          const details=make('details','skill-resource');details.append(make('summary','',resource.name));
+          if(resource.name.endsWith('.md')){const content=make('div','markdown-body');content.innerHTML=window.renderMarkdownSafe(resource.content);details.append(content);}
+          else details.append(make('pre','',resource.content));
+          row.append(details);
+        }
+        row.append(make('small','skill-version',skill.id+' v'+skill.version));
+      }
       el('specialist-skill-list').append(row);
     }filterSkills();
   }).catch(e=>el('specialist-skill-count').textContent='スキルを取得できません: '+e.message);

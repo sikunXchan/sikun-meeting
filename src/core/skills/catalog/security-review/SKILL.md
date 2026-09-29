@@ -1,5 +1,6 @@
 ---
 name: security-review
+version: 1.0.0
 description: セキュリティ担当が権限境界、秘密情報、外部送信、入力元の信頼性を確認するときに使う。
 ---
 

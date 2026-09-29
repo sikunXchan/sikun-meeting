@@ -1,5 +1,6 @@
 ---
 name: product-planning
+version: 1.0.0
 description: Product担当が確定した企画と完成条件を、優先順位のある少数の仕事と検証可能な成果に分けるときに使う。
 ---
 

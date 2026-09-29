@@ -60,7 +60,7 @@ test('完了条件が未達なら追加作業を計画し、検証を通るま�
   assert.deepEqual(delivered.runs.find((run) => run.phase === 'work').appliedSkills,
     [{ id: 'implementation', version: '1.0.0' }]);
   assert.deepEqual(delivered.runs.find((run) => run.phase === 'review').appliedSkills,
-    [{ id: 'acceptance-verification', version: '1.0.0' }]);
+    [{ id: 'acceptance-verification', version: '1.1.0' }]);
   assert.equal(planCount, 2);
   assert.deepEqual(delivered.goalChecks.map((check) => check.complete), [false, true]);
   assert.equal(fs.existsSync(path.join(delivered.workingDirectory, 'manual.txt')), true);

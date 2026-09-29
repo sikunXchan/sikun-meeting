@@ -206,7 +206,7 @@ const api = {
   system: {
     getPreferences: () => ipcRenderer.invoke(IPC_CHANNELS.preferencesGet),
     savePreferences: (value:unknown) => ipcRenderer.invoke(IPC_CHANNELS.preferencesSave,value),
-    chooseFiles: () => ipcRenderer.invoke(IPC_CHANNELS.chooseFiles),
+    chooseFiles: (retainedIds: string[] = []) => ipcRenderer.invoke(IPC_CHANNELS.chooseFiles, retainedIds),
     chooseDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.chooseDirectory),
   },
   /**

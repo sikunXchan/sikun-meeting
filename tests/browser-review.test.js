@@ -14,7 +14,7 @@ test('QA browser can exercise an HTML artifact without editing it or opening oth
   if (!browsers.some(fs.existsSync)) return t.skip('Chrome/Edge unavailable');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sikun-browser-test-'));
   const file = path.join(root, 'index.html');
-  const original = '<!doctype html><input id="name"><button id="go" onclick="document.querySelector(\'#answer\').textContent=document.querySelector(\'#name\').value">Go</button><div id="answer"></div><div id="net"></div><script>fetch("https://example.com/").then(()=>net.textContent="reached").catch(()=>net.textContent="blocked")</script>';
+  const original = '<!doctype html><input id="name" aria-label="Name"><button id="go" onclick="document.querySelector(\'#answer\').textContent=document.querySelector(\'#name\').value">Go</button><div id="answer"></div><div id="net"></div><script>fetch("https://example.com/").then(()=>net.textContent="reached").catch(()=>net.textContent="blocked")</script>';
   fs.writeFileSync(file, original);
   fs.writeFileSync(path.join(root, '.secret.html'), 'hidden');
   const session = new BrowserReviewSession(root, ['index.html']);
@@ -29,6 +29,15 @@ test('QA browser can exercise an HTML artifact without editing it or opening oth
     };
     assert.equal((await fetch(origin + '/help')).status, 401);
     assert.equal((await call('/open', { file: 'index.html' })).data.ok, true);
+    assert.equal((await call('/press', { key: 'Tab' })).data.result.focus.id, 'name');
+    assert.equal((await call('/press', { key: 'Tab' })).data.result.focus.id, 'go');
+    assert.equal((await call('/press', { key: 'Shift+Tab' })).data.result.focus.id, 'name');
+    assert.equal((await call('/press', { key: 'F12' })).status, 400);
+    const ax = (await call('/accessibility')).data.result;
+    assert.ok(ax.nodes.some(n => n.role === 'textbox' && n.name === 'Name'));
+    assert.match(ax.note, /未検証/);
+    assert.equal((await call('/viewport', { width: '390', height: '844' })).data.result.width, 390);
+    assert.equal((await call('/viewport', { width: '1', height: '99999' })).status, 400);
     assert.equal((await call('/type', { selector: '#name', text: 'Sikun' })).data.result.value, 'Sikun');
     assert.equal((await call('/click', { selector: '#go' })).data.result.clicked, true);
     assert.equal((await call('/state?selector=%23answer')).data.result.text, 'Sikun');

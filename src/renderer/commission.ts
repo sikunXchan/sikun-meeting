@@ -552,7 +552,7 @@
     const item = await api.commissions.create({ projectId, goal,
       successCriteria: successCriteria || goal,
       artifactCardId: el('commission-card').value || undefined,
-      workingDirectory: el('commission-dir').value || undefined, referenceFiles: window.requestReferenceFiles || [], settings });
+      workingDirectory: el('commission-dir').value || undefined, referenceIds: (window.requestReferenceFiles || []).map(file => file.id), settings });
     window.dispatchEvent(new Event('request:submitted'));
     el('commission-goal').value = '';
     resetRequestFields();

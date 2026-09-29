@@ -1,5 +1,6 @@
 ---
 name: data-pipelines
+version: 1.0.0
 description: データ処理の実装を担当する専門家の実行・確認手順。
 ---
 

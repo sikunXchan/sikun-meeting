@@ -1,5 +1,6 @@
 ---
 name: technical-writing
+version: 1.0.0
 description: 文書作成と手順検証を担当する専門家の実行・確認手順。
 ---
 

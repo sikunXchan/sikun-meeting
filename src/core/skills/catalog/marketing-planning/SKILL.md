@@ -1,5 +1,6 @@
 ---
 name: marketing-planning
+version: 1.0.0
 description: 訴求と施策の設計を担当する専門家の実行・確認手順。
 ---
 

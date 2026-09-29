@@ -3,7 +3,7 @@ const {PERSONAS,getPersonaById}=require('../dist/core/personas');
 const {SPECIALIST_PROFILES}=require('../dist/core/specialties');
 const {MEETING_TYPES}=require('../dist/core/meetingTypes');
 const {approvedTools,codexPolicy}=require('../dist/core/capabilities');
-const {appliedSkillsFor,skillPromptFor}=require('../dist/core/skills/catalog');
+const {appliedSkillsFor,skillPromptFor,skillDetailsFor}=require('../dist/core/skills/catalog');
 const {JsonStore}=require('../dist/core/store/jsonStore'),{Repository}=require('../dist/core/store/repository');
 const {ProjectService}=require('../dist/core/services/projectService'),{MeetingService}=require('../dist/core/services/meetingService');
 const {DiscussionService}=require('../dist/core/services/discussionService');
@@ -28,7 +28,7 @@ test('新分野のコード実行と閲覧権限を分け、仕事と確認で�
   assert.equal(approvedTools(profile.id,'review').includes('Write'),false);
   assert.equal(codexPolicy(profile.id,'review').sandboxMode,'read-only');
   assert.equal(codexPolicy(profile.id,'work').networkAccessEnabled,Boolean(profile.canRunCode));
-  for(const phase of ['meeting','work','review']){const prompt=skillPromptFor(profile.id,phase);assert.ok(prompt.includes(profile.outputs[0]));assert.ok(prompt.includes(profile.review));assert.ok(prompt.includes('権限を追加しない'));assert.equal(appliedSkillsFor(profile.id,phase).length,1);}
+  for(const phase of ['meeting','work','review']){const prompt=skillPromptFor(profile.id,phase);assert.ok(prompt.includes(profile.outputs[0]));assert.ok(prompt.includes(skillDetailsFor(profile.id)[0].instructions));assert.ok(prompt.includes('権限を追加しない'));assert.equal(appliedSkillsFor(profile.id,phase).length,1);}
  }
 });
 
@@ -51,7 +51,7 @@ for(const profile of SPECIALIST_PROFILES)test(`${profile.name}: 自動で担当�
  const agent={async run(r){calls.push(r);let text;
   if(r.phase==='consultation')text=profile.outputs[0]+'と検証記録を作成する企画';
   else if(r.phase==='planning'){
-   assert.ok(r.prompt.includes(profile.expertise));assert.ok(r.prompt.includes(profile.outputs[0]));
+   assert.ok(r.prompt.includes(profile.id+':'+profile.roleTitle.replace(/の専門家$/, '')));
    text=JSON.stringify({tasks:[{title:profile.outputs[0],instructions:'specialist.mdを作成',acceptance:'根拠と確認項目がある',ownerPersonaId:profile.id,domainPersonaId:profile.id,reviewerPersonaId:'critic'},
     {title:'技術支援の結果を分野の担当者が確認',instructions:'support.mdを作成',acceptance:'所管の確認を通過',ownerPersonaId:'engineer',domainPersonaId:profile.id,reviewerPersonaId:profile.id}]});
   } else if(r.phase==='work'){const file=r.personaId===profile.id?'specialist.md':'support.md';fs.writeFileSync(path.join(r.workingDirectory,file),'# '+profile.outputs[0]+'\n\n検証用の成果物。根拠と確認項目。');text=file+'を作成';}
@@ -60,7 +60,7 @@ for(const profile of SPECIALIST_PROFILES)test(`${profile.name}: 自動で担当�
   else text='成果物を納品しました';
   return response(text);
  }};
- const service=new CommissionService(store,f.repo,agent,f.dir),item=await service.create({projectId:project.id,goal:profile.outputs[0],successCriteria:'根拠と確認記録をファイルに保存',settings:{executionMode:'automatic',modelByPersona:{[profile.id]:'specialist-test-model'}}});
+ const service=new CommissionService(store,f.repo,agent,f.dir,undefined,{browserFactory:()=>({async start(){},instructions(){return '\nBrowser test fixture';},summary(){return '';},async close(){}})}),item=await service.create({projectId:project.id,goal:profile.outputs[0],successCriteria:'根拠と確認記録をファイルに保存',settings:{executionMode:'automatic',modelByPersona:{[profile.id]:'specialist-test-model'}}});
  await service.consult(item.id,item.goal);const done=await delivered(store,item.id);
  assert.equal(done.workItems.length,2);assert.ok(done.workItems.every(w=>w.status==='accepted'));assert.ok(done.goalChecks.at(-1).complete);
  assert.ok(done.artifacts.filter(a=>a.status==='accepted').length>=2);
@@ -73,5 +73,5 @@ test('Claudeの実行クライアントへ新分野の専門手順とツール�
  claude.loadQuery=async()=>async function* (input){seen.push(input);yield {type:'result',subtype:'success',is_error:false,result:'検証用の応答',modelUsage:{},total_cost_usd:0,num_turns:1};};
  t.after(()=>{claude.loadQuery=original;});
  const {SdkAgentClient}=require('../dist/core/commission/agent'),client=new SdkAgentClient();
- for(const profile of SPECIALIST_PROFILES){await client.run({provider:'claude',phase:'work',personaId:profile.id,prompt:'検証用',workingDirectory:process.cwd(),model:'test',tools:'full',maxTurns:1,abortSignal:new AbortController().signal});const options=seen.at(-1).options;assert.ok(options.systemPrompt.includes(profile.review));assert.ok(options.systemPrompt.includes(profile.outputs[0]));assert.deepEqual(options.allowedTools,approvedTools(profile.id,'work'));}
+ for(const profile of SPECIALIST_PROFILES){await client.run({provider:'claude',phase:'work',personaId:profile.id,prompt:'検証用',workingDirectory:process.cwd(),model:'test',tools:'full',maxTurns:1,abortSignal:new AbortController().signal});const options=seen.at(-1).options;assert.ok(options.systemPrompt.includes(skillDetailsFor(profile.id)[0].instructions));assert.ok(options.systemPrompt.includes(profile.outputs[0]));assert.deepEqual(options.allowedTools,approvedTools(profile.id,'work'));}
 });

@@ -111,7 +111,7 @@ export class BrowserReviewSession {
   private trace: string[] = [];
   private rootReal = '';
 
-  constructor(private readonly root: string, private readonly htmlFiles: string[]) {}
+  constructor(private readonly root: string, private readonly htmlFiles: string[], private readonly allowNewHtml = false) {}
 
   async start(): Promise<void> {
     const binary = browserExecutable();
@@ -149,7 +149,7 @@ export class BrowserReviewSession {
 
   instructions(): string {
     const files = this.htmlFiles.slice(0, 30).map((file) => `- ${file}`).join('\n');
-    return `\n\nブラウザ実機確認を利用できます。読み取り専用のまま、curl.exe で次の127.0.0.1の口を呼んでください。認証トークンを報告文へ転記しないでください。\nURL: ${this.origin}\nAuthorization: Bearer ${this.token}\n対象HTML:\n${files}\n最初に GET /help を呼び、POST /open で対象を開いてください。入力・クリック・状態確認・再読込を行い、実測した状態を採否の根拠にしてください。外部URLや任意JavaScriptは利用できません。ブラウザが失敗した場合は未検証として扱ってください。`;
+    return `\n\nブラウザ実機確認を利用できます。ファイルを編集しない検証APIです。${process.platform === 'win32' ? 'curl.exe' : 'curl'} で次の127.0.0.1の口を呼んでください。認証トークンを報告文へ転記しないでください。\nURL: ${this.origin}\nAuthorization: Bearer ${this.token}\n対象HTML:\n${files || '作成したローカルHTMLの相対パスを指定してください'}\n最初に GET /help を呼び、POST /open で対象を開いてください。入力・クリック・キーボード操作・画面幅変更・アクセシビリティツリー確認・再読込を行い、実測した状態を採否の根拠にしてください。外部URLや任意JavaScriptは利用できません。読み上げ音声やモバイル実機の検査は提供しません。ブラウザが失敗した場合は未検証として扱ってください。`;
   }
 
   summary(): string { return this.trace.join(' / ').slice(0, 1500); }
@@ -174,7 +174,7 @@ export class BrowserReviewSession {
 
   private async navigate(relative: string): Promise<unknown> {
     await this.safeFile(relative);
-    if (!this.htmlFiles.includes(relative)) throw new Error('確認対象のHTMLではありません');
+    if (!this.htmlFiles.includes(relative) && !(this.allowNewHtml && /\.html?$/i.test(relative))) throw new Error('確認対象のHTMLではありません');
     const url = `${this.origin}/files/${relative.split(/[\\/]/).map(encodeURIComponent).join('/')}`;
     const navigation = await this.devtools!.send('Page.navigate', { url });
     if (navigation.errorText) throw new Error(`ページを開けません: ${navigation.errorText}`);
@@ -207,8 +207,8 @@ export class BrowserReviewSession {
       }
       if (request.headers.authorization !== `Bearer ${this.token}`) return sendJson(response, 401, { error: '認証が必要です' });
       if (url.pathname === '/help' && request.method === 'GET') return sendJson(response, 200, {
-        usage: 'curl.exe -s -H "Authorization: Bearer TOKEN" URL/PATH',
-        routes: ['GET /help', 'POST /open --data-urlencode "file=relative/path.html"', 'POST /type --data-urlencode "selector=#id" --data-urlencode "text=value"', 'POST /click --data-urlencode "selector=#id"', 'GET /state?selector=%23id', 'POST /reload'],
+        usage: `${process.platform === 'win32' ? 'curl.exe' : 'curl'} -s -H "Authorization: Bearer TOKEN" URL/PATH`,
+        routes: ['GET /help', 'POST /open --data-urlencode "file=relative/path.html"', 'POST /type --data-urlencode "selector=#id" --data-urlencode "text=value"', 'POST /click --data-urlencode "selector=#id"', 'POST /press --data-urlencode "key=Tab" (Shift+Tab, Enter, Space, Escape, ArrowUp/Down/Left/Right)', 'POST /viewport --data-urlencode "width=390" --data-urlencode "height=844"', 'GET /accessibility', 'GET /state?selector=%23id', 'POST /reload'],
         files: this.htmlFiles.slice(0, 30),
       });
       if (++this.actions > MAX_ACTIONS) return sendJson(response, 429, { error: '操作回数の上限です' });
@@ -225,6 +225,30 @@ export class BrowserReviewSession {
       } else if (url.pathname === '/click' && request.method === 'POST') {
         result = await this.evaluate(`(() => { const e=document.querySelector(${JSON.stringify(selector)}); if (!e || !(e instanceof HTMLElement)) return {error:'要素が見つかりません'}; e.click(); return {clicked:true}; })()`);
         this.trace.push(`click ${selector}`);
+      } else if (url.pathname === '/press' && request.method === 'POST') {
+        const key = input.get('key') ?? '';
+        const keys: Record<string, [string, number, number]> = { Tab: ['Tab', 9, 0], 'Shift+Tab': ['Tab', 9, 8], Enter: ['Enter', 13, 0], Space: [' ', 32, 0], Escape: ['Escape', 27, 0], ArrowLeft: ['ArrowLeft', 37, 0], ArrowUp: ['ArrowUp', 38, 0], ArrowRight: ['ArrowRight', 39, 0], ArrowDown: ['ArrowDown', 40, 0] };
+        const definition = keys[key];
+        if (!definition) throw new Error('対応していないキーです');
+        const [value, windowsVirtualKeyCode, modifiers] = definition;
+        await this.devtools!.send('Input.dispatchKeyEvent', { type: 'keyDown', key: value, windowsVirtualKeyCode, modifiers, ...(key === 'Enter' ? { text: '\r' } : key === 'Space' ? { text: ' ' } : {}) });
+        await this.devtools!.send('Input.dispatchKeyEvent', { type: 'keyUp', key: value, windowsVirtualKeyCode, modifiers });
+        result = await this.evaluate('({focus:{tag:document.activeElement?.tagName,id:document.activeElement?.id,text:document.activeElement?.textContent?.slice(0,200)}})');
+        this.trace.push(`press ${key}`);
+      } else if (url.pathname === '/viewport' && request.method === 'POST') {
+        const width = Number(input.get('width')), height = Number(input.get('height'));
+        if (!Number.isInteger(width) || !Number.isInteger(height) || width < 320 || width > 2560 || height < 240 || height > 2160) throw new Error('画面サイズが範囲外です');
+        await this.devtools!.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
+        result = await this.evaluate('({width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth})');
+        this.trace.push(`viewport ${width}x${height}`);
+      } else if (url.pathname === '/accessibility' && request.method === 'GET') {
+        const tree = await this.devtools!.send('Accessibility.getFullAXTree');
+        const nodes = tree.nodes.filter((node: any) => !node.ignored);
+        result = { truncated: nodes.length > 300, nodes: nodes.slice(0, 300).map((node: any) => ({
+          id: node.nodeId, parentId: node.parentId, role: node.role?.value, name: String(node.name?.value ?? '').slice(0, 300),
+          properties: node.properties?.filter((property: any) => ['focused', 'focusable', 'disabled', 'checked', 'expanded', 'required', 'invalid', 'level', 'live'].includes(property.name)),
+        })), note: 'アクセシビリティツリーの検査。音声読み上げは未検証。' };
+        this.trace.push('accessibility');
       } else if (url.pathname === '/state' && request.method === 'GET') {
         result = await this.evaluate(`(() => { const s=${JSON.stringify(selector)}; if (!s) return {title:document.title,url:location.pathname,text:document.body?.innerText.slice(0,4000)}; const e=document.querySelector(s); return {count:document.querySelectorAll(s).length,text:e?.textContent?.slice(0,2000)??null,value:'value' in (e??{})?e.value:null,checked:'checked' in (e??{})?e.checked:null}; })()`);
         this.trace.push(`state ${selector || 'page'}`);

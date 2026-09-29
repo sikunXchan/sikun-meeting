@@ -1,4 +1,4 @@
-import { SPECIALIST_PROFILES, specialistProfileFor, specialistSkillId } from './specialties';
+import { SPECIALIST_PROFILES } from './specialties';
 import { skillIdsFor } from './skills/catalog';
 /** 実行時に参照する部門別能力。プロンプト上の肩書きだけで権限を決めない。 */
 export interface PersonaCapability {
@@ -12,6 +12,12 @@ export interface PersonaCapability {
 const READ = ['Read', 'Grep', 'Glob'];
 const EDIT = [...READ, 'Edit', 'Write'];
 const CODE = [...EDIT, 'Bash'];
+const WEB_ROLES = new Set(['researcher', 'legal']);
+const BROWSER_ROLES = new Set(['qa', 'frontend', 'accessibility', 'mobile']);
+export function canReviewInBrowser(personaId: string): boolean { return BROWSER_ROLES.has(personaId); }
+export function canResearchWeb(personaId: string, phase: string): boolean {
+  return WEB_ROLES.has(personaId) && (phase === 'work' || phase === 'review');
+}
 const STRONG = 'claude-opus-5-5';
 const STANDARD = 'claude-sonnet-5';
 const FAST = 'claude-haiku-4-5-20251001';
@@ -35,8 +41,6 @@ const METHODS: Record<string, string> = {
 };
 
 export function methodFor(personaId: string): string {
-  const specialist = specialistProfileFor(personaId);
-  if (specialist) return `適用するアプリ内専門手順: ${specialistSkillId(personaId)}。${specialist.review}`;
   const names = skillIdsFor(personaId);
   const procedure = METHODS[personaId] ?? '事実、推測、未確認事項を分け、担当領域の根拠を示す。';
   return `${names.length ? `適用するアプリ内専門手順: ${names.join('、')}。` : ''}${procedure}`;
@@ -48,8 +52,8 @@ export function capabilityFor(personaId: string): PersonaCapability {
   return {
     model,
     meetingTools: [...READ],
-    workTools: canRunCode ? [...CODE] : [...EDIT],
-    reviewTools: canRunCode ? [...READ, 'Bash'] : [...READ],
+    workTools: [...(canRunCode ? CODE : EDIT), ...(WEB_ROLES.has(personaId) ? ['WebSearch', 'WebFetch'] : [])],
+    reviewTools: [...(canRunCode ? [...READ, 'Bash'] : READ), ...(WEB_ROLES.has(personaId) ? ['WebSearch', 'WebFetch'] : [])],
     skills: skillIdsFor(personaId),
   };
 }

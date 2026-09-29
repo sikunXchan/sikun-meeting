@@ -1,5 +1,6 @@
 ---
 name: ai-evaluation
+version: 1.0.0
 description: AIの比較と評価を担当する専門家の実行・確認手順。
 ---
 

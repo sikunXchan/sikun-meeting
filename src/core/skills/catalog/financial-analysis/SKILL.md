@@ -1,5 +1,6 @@
 ---
 name: financial-analysis
+version: 1.0.0
 description: 費用と収支の検討を担当する専門家の実行・確認手順。
 ---
 

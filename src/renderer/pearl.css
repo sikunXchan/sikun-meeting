@@ -581,4 +581,7 @@
 .pearl-ui .specialist-skill small{color:var(--muted);}
 .pearl-ui .specialist-skill .markdown-body{font-size:13px;line-height:1.85;margin:14px 0;}
 .pearl-ui .specialist-skill .markdown-body h1{font-size:17px;}
+.pearl-ui .pearl-settings-content,.pearl-ui .skill-resource{min-width:0;}
+.pearl-ui .skill-resource .markdown-body,.pearl-ui .skill-resource pre{max-width:100%;overflow-x:auto;}
+@media(max-width:760px){.pearl-ui .pearl-settings-layout{grid-template-columns:minmax(0,1fr);}.pearl-ui #pearl-settings-nav{min-height:0;}}
 @media(max-width:760px){.pearl-ui #request-existing-panel{grid-template-columns:1fr;}.pearl-ui #request-existing-panel #workspace-active-jobs,.pearl-ui #request-existing-panel #workspace-recent-files{display:block;}}

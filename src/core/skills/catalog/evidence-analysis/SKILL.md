@@ -1,5 +1,6 @@
 ---
 name: evidence-analysis
+version: 1.0.0
 description: データの整理と判断材料を担当する専門家の実行・確認手順。
 ---
 

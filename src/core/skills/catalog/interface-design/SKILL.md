@@ -1,5 +1,6 @@
 ---
 name: interface-design
+version: 1.0.0
 description: 操作設計とデザインを担当する専門家の実行・確認手順。
 ---
 

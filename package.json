@@ -1,7 +1,7 @@
 {
   "name": "sikun-meeting",
   "productName": "Sikun Meeting",
-  "version": "0.8.6",
+  "version": "0.8.7",
   "description": "AIチームに依頼し、会議から成果物まで進めるワークスペース",
   "private": true,
   "main": "dist/main/index.js",

@@ -1,5 +1,6 @@
 ---
 name: implementation
+version: 1.0.0
 description: エンジニアが承認済みの仕事を実装し、受け入れ条件に沿って検証・報告するときに使う。
 ---
 

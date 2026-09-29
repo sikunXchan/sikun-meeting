@@ -1,5 +1,6 @@
 ---
 name: idea-experiments
+version: 1.0.0
 description: 発想と試作計画を担当する専門家の実行・確認手順。
 ---
 

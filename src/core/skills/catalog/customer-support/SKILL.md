@@ -1,5 +1,6 @@
 ---
 name: customer-support
+version: 1.0.0
 description: 問い合わせ対応と切り分けを担当する専門家の実行・確認手順。
 ---
 

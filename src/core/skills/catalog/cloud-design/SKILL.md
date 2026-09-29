@@ -1,5 +1,6 @@
 ---
 name: cloud-design
+version: 1.0.0
 description: クラウド構成と運用設計を担当する専門家の実行・確認手順。
 ---
 

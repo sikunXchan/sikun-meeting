@@ -101,7 +101,7 @@ test('Codex案件は部門と工程に応じてサンドボックスとネット
       const options = codexThreadOptions({ ...base, personaId, tools: 'read', phase });
       assert.equal(options.sandboxMode, 'read-only', `${personaId} ${phase}`);
       assert.equal(options.networkAccessEnabled, false, `${personaId} ${phase}`);
-      assert.equal(options.webSearchEnabled, false);
+      assert.equal(options.webSearchMode, 'disabled');
       if (phase === 'consultation' || phase === 'planning' || phase === 'delivery') assert.equal(options.modelReasoningEffort, 'low');
       else assert.equal(options.modelReasoningEffort, undefined);
     }

@@ -1,5 +1,6 @@
 ---
 name: critic-evidence
+version: 1.0.0
 description: Critic担当が独立した反証、完成条件の検証、KGIの実測値と根拠の照合をするときに使う。
 ---
 

@@ -29,7 +29,7 @@ test('同梱スキルは担当部門と工程で選び、会議の権限を広�
   assert.deepEqual(appliedSkillsFor('it_consultant', 'consultation'), [{ id: 'requirements-framing', version: '1.0.0' }]);
   assert.deepEqual(appliedSkillsFor('engineer', 'work'), [{ id: 'implementation', version: '1.0.0' }]);
   assert.deepEqual(appliedSkillsFor('engineer', 'review'), []);
-  assert.deepEqual(appliedSkillsFor('qa', 'review'), [{ id: 'acceptance-verification', version: '1.0.0' }]);
+  assert.deepEqual(appliedSkillsFor('qa', 'review'), [{ id: 'acceptance-verification', version: '1.1.0' }]);
   assert.deepEqual(appliedSkillsFor('security', 'meeting'), [{ id: 'security-review', version: '1.0.0' }]);
   assert.deepEqual(appliedSkillsFor('product', 'planning'), [{ id: 'product-planning', version: '1.0.0' }]);
   assert.deepEqual(appliedSkillsFor('critic', 'goal_check'), [{ id: 'critic-evidence', version: '1.0.0' }]);

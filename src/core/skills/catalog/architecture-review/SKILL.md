@@ -1,5 +1,6 @@
 ---
 name: architecture-review
+version: 1.0.0
 description: アーキテクトが既存構成と変更案を比較し、互換性、運用、復旧への影響を確認するときに使う。
 ---
 

@@ -1,5 +1,6 @@
 ---
 name: scenario-planning
+version: 1.0.0
 description: 将来像と段階計画を担当する専門家の実行・確認手順。
 ---
 

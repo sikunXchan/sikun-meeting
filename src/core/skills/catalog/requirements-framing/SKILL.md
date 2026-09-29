@@ -1,5 +1,6 @@
 ---
 name: requirements-framing
+version: 1.0.0
 description: ITコンサルタントが発注者の相談から実施範囲、検証可能な完成条件、KGIを整理するときに使う。
 ---
 
