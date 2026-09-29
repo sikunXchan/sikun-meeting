@@ -21,7 +21,7 @@
 
 | 担当 | 工程 | 提供する操作 | 限界 |
 | --- | --- | --- | --- |
-| Researcher・Legal | 作業・レビュー | Claude: WebSearch / WebFetch。Codex: live Web検索とページ閲覧 | シェルのネットワーク権限は追加しない。取得失敗・認証が必要な資料は未確認と記録 |
+| Researcher・Legal | 作業・レビュー | Claude: WebSearch / WebFetch。Codex: live Web検索とページ閲覧 | シェルのネットワーク権限は追加しない。取得失敗・認証が必要な資料は未確認と記録。Claudeでは読み取りツールを名前だけで事前許可せず、作業フォルダと参考資料フォルダ以外の読み取りを `dontAsk` で拒否する（任意のファイルを読んでURLで送る経路を防ぐ） |
 | QA・Frontend・Accessibility・Mobile | 作業・レビュー | ローカルHTMLを分離したChrome/Edgeで開く。入力、クリック、キー操作、画面幅変更、アクセシビリティツリー、状態確認、再読込 | Chrome/Edgeが必要。外部URL・開発サーバー・任意JavaScript実行は提供しない。音声読み上げ・モバイル実機・OSネイティブUIは未検証 |
 | 全員 | 会議・相談・計画・達成判定・納品 | 既存の閲覧またはテキスト処理 | 今回追加したWeb・ブラウザ検証ツールは提供しない |
 

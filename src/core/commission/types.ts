@@ -200,6 +200,8 @@ export interface AgentRequest {
   model: string;
   fallbackModel?: string;
   tools: 'read' | 'full';
+  /** 作業フォルダ以外で読み取りを認めるフォルダ（参考資料の保存先など）。絶対パス。 */
+  readableDirectories?: string[];
   maxTurns: number;
   abortSignal: AbortSignal;
   onTool?: (detail: string) => void | Promise<void>;

@@ -1,7 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {PERSONAS}=require('../dist/core/personas');
 const {skillDetailsFor,appliedSkillsFor,skillPromptFor}=require('../dist/core/skills/catalog');
-const {capabilityFor,approvedTools}=require('../dist/core/capabilities');
+const {capabilityFor,approvedTools,preapprovedTools}=require('../dist/core/capabilities');
 
 test('all 38 SKILL.md definitions parse identically with LF and CRLF, including QA evidence requirements',()=>{
  const fs=require('node:fs'),path=require('node:path');
@@ -52,6 +52,6 @@ test('不足していた14分野の手順をClaude実行に渡し、ツール権
  for(const role of roles)for(const phase of ['work','review']){
   await client.run({provider:'claude',phase,personaId:role,prompt:'検証用',workingDirectory:process.cwd(),model:'test',tools:'full',maxTurns:1,abortSignal:new AbortController().signal});
   const options=seen.at(-1).options;assert.ok(options.systemPrompt.includes(skillDetailsFor(role)[0].instructions),role);
-  assert.deepEqual(options.allowedTools,approvedTools(role,phase));
+  assert.deepEqual(options.tools,approvedTools(role,phase));assert.deepEqual(options.allowedTools,preapprovedTools(approvedTools(role,phase)));
  }
 });
