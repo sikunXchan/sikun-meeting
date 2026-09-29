@@ -2,7 +2,7 @@ import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { getPersonaById } from '../personas';
 import { loadQuery, resolveClaudeBinaryPath } from '../agent/claudeAgent';
 import { AgentClient, AgentRequest, AgentResponse } from './types';
-import { approvedTools, methodFor } from '../capabilities';
+import { approvedTools, methodFor, preapprovedTools } from '../capabilities';
 import { skillPromptFor } from '../skills/catalog';
 
 function toolSummary(name: string, input: unknown): string {
@@ -39,7 +39,8 @@ export class SdkAgentClient implements AgentClient {
           model: request.model,
           fallbackModel: request.fallbackModel,
           tools,
-          allowedTools: tools,
+          allowedTools: preapprovedTools(tools),
+          additionalDirectories: request.readableDirectories?.length ? [...request.readableDirectories] : undefined,
           permissionMode: 'dontAsk',
           settingSources: [],
           skills: [],

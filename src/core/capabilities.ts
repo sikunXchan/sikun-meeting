@@ -58,6 +58,16 @@ export function capabilityFor(personaId: string): PersonaCapability {
   };
 }
 
+/**
+ * 事前許可するツール。Web取得できる工程では読み取りツールを名前だけで許可しない。
+ * 名前だけの許可は作業フォルダ外の全ファイルに及ぶため、秘密鍵などを読んでURLで外部へ送る経路になる。
+ * 作業フォルダと additionalDirectories は許可なしで読め、それ以外は dontAsk で拒否される。
+ */
+export function preapprovedTools(tools: string[]): string[] {
+  const web = tools.includes('WebFetch') || tools.includes('WebSearch');
+  return web ? tools.filter((tool) => !READ.includes(tool)) : tools;
+}
+
 export function approvedTools(personaId: string, phase: 'meeting' | 'read' | 'work' | 'review'): string[] {
   const capability = capabilityFor(personaId);
   if (phase === 'meeting' || phase === 'read') return capability.meetingTools;

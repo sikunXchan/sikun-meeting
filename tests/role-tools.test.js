@@ -39,3 +39,39 @@ test('UI roles receive browser tools for work and review, failures remain unveri
  failStart=false;failAgent=true;await assert.rejects(service.callAgent(job.id,'work','frontend','task','full',signal),/agent failed/);
  assert.ok(sessions.at(-1).closed);
 });
+test('Web-enabled roles do not pre-approve reads outside the workspace and reference folder',async t=>{
+ const {preapprovedTools}=require('../dist/core/capabilities');
+ const claude=require('../dist/core/agent/claudeAgent'),original=claude.loadQuery,seen=[];
+ claude.loadQuery=async()=>async function* (input){seen.push(input);yield {type:'result',subtype:'success',is_error:false,result:'ok',modelUsage:{},total_cost_usd:0,num_turns:1};};
+ t.after(()=>{claude.loadQuery=original;});
+ const {SdkAgentClient}=require('../dist/core/commission/agent'),client=new SdkAgentClient(),refs=path.join(os.tmpdir(),'sikun-refs');
+ for(const role of ['researcher','legal'])for(const phase of ['work','review']){
+  await client.run({provider:'claude',phase,personaId:role,prompt:'x',workingDirectory:process.cwd(),model:'test',tools:'full',readableDirectories:[refs],maxTurns:1,abortSignal:new AbortController().signal});
+  const options=seen.at(-1).options;
+  assert.ok(options.tools.includes('Read')&&options.tools.includes('WebFetch'));
+  for(const tool of ['Read','Grep','Glob'])assert.equal(options.allowedTools.includes(tool),false,role+' '+phase+' '+tool);
+  assert.ok(options.allowedTools.includes('WebFetch'));assert.equal(options.permissionMode,'dontAsk');
+  assert.deepEqual(options.additionalDirectories,[refs]);
+ }
+ for(const p of PERSONAS)for(const phase of ['meeting','work','review']){
+  const tools=approvedTools(p.id,phase),web=tools.includes('WebFetch')||tools.includes('WebSearch');
+  assert.equal(preapprovedTools(tools).includes('Read'),!web,p.id+' '+phase);
+ }
+ await client.run({provider:'claude',phase:'work',personaId:'engineer',prompt:'x',workingDirectory:process.cwd(),model:'test',tools:'full',maxTurns:1,abortSignal:new AbortController().signal});
+ assert.deepEqual(seen.at(-1).options.allowedTools,approvedTools('engineer','work'));assert.equal(seen.at(-1).options.additionalDirectories,undefined);
+});
+test('Reference folder is passed as the only extra readable directory',async t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'sikun-role-refs-'));
+ t.after(()=>{assert.ok(path.resolve(root).startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(root,{recursive:true,force:true});});
+ const {JsonStore}=require('../dist/core/store/jsonStore'),{Repository}=require('../dist/core/store/repository'),{ProjectService}=require('../dist/core/services/projectService');
+ const {CommissionStore}=require('../dist/core/commission/store'),{CommissionService}=require('../dist/core/commission/service');
+ const repo=new Repository(new JsonStore(root)),project=await new ProjectService(repo).createProject('test',''),calls=[];
+ const service=new CommissionService(new CommissionStore(root),repo,{async run(request){calls.push(request);return {text:'test',observedModels:[],numTurns:1,estimatedCostUsd:0};}},root);
+ const job=await service.create({projectId:project.id,goal:'research'},[{name:'brief.txt',content:Buffer.from('reference')}]);
+ await service.callAgent(job.id,'work','researcher','task','full',new AbortController().signal);
+ const [directory]=calls.at(-1).readableDirectories;
+ assert.equal(calls.at(-1).readableDirectories.length,1);
+ assert.ok(fs.existsSync(path.join(directory,'1-brief.txt')));
+ assert.ok(path.relative(job.workingDirectory,directory).startsWith('..'));
+ assert.ok(calls.at(-1).prompt.includes(path.join(directory,'1-brief.txt')));
+});
