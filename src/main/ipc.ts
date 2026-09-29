@@ -1,9 +1,11 @@
-import { ipcMain, dialog, BrowserWindow, shell, IpcMainInvokeEvent } from 'electron';
+import { WorkspaceSettingsStore } from './workspaceSettings';
+import { MeetingAutomationService } from '../core/services/meetingAutomationService';
+import { app, ipcMain, dialog, BrowserWindow, shell, IpcMainInvokeEvent } from 'electron';
 import { assertTrustedSender } from './security';
 import * as QRCode from 'qrcode';
 import { MobileSyncService } from '../core/mobile/service';
 import * as fs from 'fs';
-import * as path from 'path';
+import { skillDetailsFor } from '../core/skills/catalog';
 import { AppContext, PERSONAS, MEETING_TYPES } from '../core';
 import { CreateMeetingInput } from '../core/services/meetingService';
 import { FinalizeDecisionInput } from '../core/services/decisionService';
@@ -11,11 +13,14 @@ import { TurnEvent } from '../core/services/discussionService';
 import { CreateCommissionInput } from '../core/commission/service';
 import { CreateCommunityPostInput, CommunityProgress } from '../core/community/types';
 import { UpsertArtifactCardInput } from '../core/services/projectService';
+import { readArtifactPreview, resolveArtifactPath } from './artifactPreview';
 import { EmailMcpConfig } from '../core/email/types';
 
 /** IPCチャンネル名を1箇所に集約（preload.ts と対で管理する）。 */
 export const IPC_CHANNELS = {
   personasList: 'personas:list',
+  personasSkills: 'personas:skills',
+  homeRequested: 'navigation:home',
   meetingTypesList: 'meetingTypes:list',
   projectsList: 'projects:list',
   projectsCreate: 'projects:create',
@@ -40,6 +45,12 @@ export const IPC_CHANNELS = {
   minutesGet: 'minutes:get',
   minutesDownload: 'minutes:download',
   chooseDirectory: 'system:chooseDirectory',
+  chooseFiles: 'system:chooseFiles',
+  preferencesGet: 'system:preferencesGet',
+  preferencesSave: 'system:preferencesSave',
+  meetingsStartAuto: 'meetings:startAuto',
+  meetingsPauseAuto: 'meetings:pauseAuto',
+  meetingsAutoProgress: 'meetings:autoProgress',
   pendingMeetingReady: 'pending-meeting:ready',
   commissionsList: 'commissions:list',
   commissionsCreate: 'commissions:create',
@@ -53,6 +64,8 @@ export const IPC_CHANNELS = {
   commissionsRevise: 'commissions:revise',
   commissionsProgress: 'commissions:progress',
   commissionsOpenArtifact: 'commissions:openArtifact',
+  commissionsPreviewArtifact: 'commissions:previewArtifact',
+  commissionsAddInstruction: 'commissions:addInstruction',
   communityList: 'community:list',
   communityGet: 'community:get',
   communityCreate: 'community:create',
@@ -79,13 +92,32 @@ export const IPC_CHANNELS = {
 type Handler = (event: IpcMainInvokeEvent, ...args: any[]) => unknown;
 
 export function registerIpcHandlers(ctx: AppContext, getWindow: () => BrowserWindow | null, mobile?: MobileSyncService): void {
+  const meetingEdits = new Set<string>([
+    IPC_CHANNELS.discussionAskAll, IPC_CHANNELS.discussionAskSpecific,
+    IPC_CHANNELS.discussionRebuttal, IPC_CHANNELS.discussionHumanSpeak,
+    IPC_CHANNELS.meetingsInvite, IPC_CHANNELS.meetingsDeactivate,
+    IPC_CHANNELS.meetingsReactivate, IPC_CHANNELS.meetingsSetWorkingDirectory,
+    IPC_CHANNELS.decisionFinalize,
+  ]);
   const handle = (channel: string, handler: Handler): void => {
     ipcMain.handle(channel, (event, ...args) => {
       assertTrustedSender(event);
+      if (meetingEdits.has(channel) && automatic.isBusy(args[0])) {
+        throw new Error('自動進行を一時停止してから操作してください');
+      }
       return handler(event, ...args);
     });
   };
+  const preferences=new WorkspaceSettingsStore(app.getPath('userData'));
+  const automatic=new MeetingAutomationService(ctx.repo,ctx.discussionService,(id)=>getWindow()?.webContents.send(IPC_CHANNELS.meetingsAutoProgress,id),(event)=>getWindow()?.webContents.send(IPC_CHANNELS.discussionProgress,event));
+  handle(IPC_CHANNELS.preferencesGet,()=>preferences.get());
+  handle(IPC_CHANNELS.preferencesSave,(_e,value)=>preferences.set(value));
+  handle(IPC_CHANNELS.chooseFiles,async()=>{const win=getWindow();if(!win)return [];const result=await dialog.showOpenDialog(win,{properties:['openFile','multiSelections'],title:'参考資料を選択'});return result.canceled?[]:result.filePaths.slice(0,10);});
+  handle(IPC_CHANNELS.meetingsStartAuto,(_e,id:string)=>automatic.start(id));
+  handle(IPC_CHANNELS.meetingsPauseAuto,(_e,id:string)=>automatic.pause(id));
   handle(IPC_CHANNELS.personasList, () => PERSONAS);
+  handle(IPC_CHANNELS.personasSkills, () => PERSONAS.map(({ id, name, roleTitle, expertise, avatar }) =>
+    ({ id, name, roleTitle, expertise, avatar, skills: skillDetailsFor(id) })));
   handle(IPC_CHANNELS.meetingTypesList, () => MEETING_TYPES);
 
   handle(IPC_CHANNELS.projectsList, () => ctx.projectService.listProjects());
@@ -105,14 +137,13 @@ export function registerIpcHandlers(ctx: AppContext, getWindow: () => BrowserWin
   handle(IPC_CHANNELS.commissionsStop, (_e, id: string) => ctx.commissionService.stop(id));
   handle(IPC_CHANNELS.commissionsResume, (_e, id: string) => ctx.commissionService.resume(id));
   handle(IPC_CHANNELS.commissionsRevise, (_e, id: string, text: string) => ctx.commissionService.requestRevision(id, text));
-  handle(IPC_CHANNELS.commissionsOpenArtifact, (_e, id: string, artifactId: string) => {
+  handle(IPC_CHANNELS.commissionsPreviewArtifact, (_e, id: string, artifactId: string) => readArtifactPreview(ctx.commissionService.get(id).commission, artifactId));
+  handle(IPC_CHANNELS.commissionsAddInstruction, (_e, id: string, text: string) => ctx.commissionService.addInstruction(id, text));
+  handle(IPC_CHANNELS.commissionsOpenArtifact, async (_e, id: string, artifactId: string) => {
     const commission = ctx.commissionService.get(id).commission;
     const artifact = commission.artifacts.find((entry) => entry.id === artifactId);
     if (!artifact) throw new Error('成果ファイルが見つかりません');
-    const root = path.resolve(commission.workingDirectory);
-    const target = path.resolve(root, artifact.relativePath);
-    if (!target.startsWith(`${root}${path.sep}`)) throw new Error('成果ファイルの場所が不正です');
-    if (!fs.existsSync(target)) throw new Error('成果ファイルが削除されています');
+    const target = await resolveArtifactPath(commission, artifactId);
     shell.showItemInFolder(target);
   });
   ctx.commissionService.subscribe((id) => getWindow()?.webContents.send(IPC_CHANNELS.commissionsProgress, id));
@@ -207,7 +238,7 @@ export function registerIpcHandlers(ctx: AppContext, getWindow: () => BrowserWin
 
   handle(
     IPC_CHANNELS.minutesDownload,
-    async (_e, meetingId: string, markdown: string, suggestedFileName: string) => {
+    async (_e, _meetingId: string, markdown: string, suggestedFileName: string) => {
       const win = getWindow();
       if (!win) return { saved: false };
       const result = await dialog.showSaveDialog(win, {

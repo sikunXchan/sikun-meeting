@@ -1,4 +1,5 @@
 import { Persona } from './types';
+import { SPECIALIST_PROFILES } from './specialties';
 
 /**
  * AI参加者の役割テンプレート集。
@@ -262,6 +263,12 @@ export const PERSONAS: Persona[] = [
       'あなたは「Visionary」— AIチーム会議のビジョン・ブランド戦略専門家です。' +
       '目先の実装ではなく、長期的な構想やブランド上の差別化という観点から日本語で簡潔に発言し、立場を明確にしてください。',
   },
+  ...SPECIALIST_PROFILES.map(profile => ({
+    id: profile.id, name: profile.name, roleTitle: profile.roleTitle,
+    shortName: profile.roleTitle.replace(/の専門家$/, '').split('・')[0],
+    expertise: profile.expertise, avatar: `${profile.id}.png`, emoji: '',
+    systemPrompt: `あなたは「${profile.name}」、${profile.roleTitle}として議論を支援するAIです。専門は${profile.expertise}。日本語で簡潔に根拠・懸念・具体的な次の行動を述べ、適切な場合は賛成・反対・条件付き賛成の立場を示してください。推測と確認済みの事実を区別してください。`,
+  })),
 ];
 
 export function getPersonaById(id: string): Persona | undefined {

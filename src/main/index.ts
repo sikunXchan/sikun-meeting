@@ -111,6 +111,8 @@ function createWindow(show = true): void {
 
 function showWindow(): void {
   if (!mainWindow) createWindow();
+  // Reopening the resident app returns to home without reloading or losing drafts.
+  else if (!mainWindow.webContents.isLoadingMainFrame()) mainWindow.webContents.send(IPC_CHANNELS.homeRequested);
   if (mainWindow?.isMinimized()) mainWindow.restore();
   mainWindow?.show();
   mainWindow?.focus();
@@ -217,9 +219,7 @@ if (singleInstance) app.whenReady().then(async () => {
   }
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
+    showWindow();
   });
 });
 

@@ -10,6 +10,8 @@ import type { EmailMcpConfig } from '../core/email/types';
 // sandbox:true のpreloadは相対パスのrequireができないため、ipc.ts と同じチャンネル名をここにも持つ（一致はテストで確認）。
 const IPC_CHANNELS = {
   personasList: 'personas:list',
+  personasSkills: 'personas:skills',
+  homeRequested: 'navigation:home',
   meetingTypesList: 'meetingTypes:list',
   projectsList: 'projects:list',
   projectsCreate: 'projects:create',
@@ -34,6 +36,12 @@ const IPC_CHANNELS = {
   minutesGet: 'minutes:get',
   minutesDownload: 'minutes:download',
   chooseDirectory: 'system:chooseDirectory',
+  chooseFiles: 'system:chooseFiles',
+  preferencesGet: 'system:preferencesGet',
+  preferencesSave: 'system:preferencesSave',
+  meetingsStartAuto: 'meetings:startAuto',
+  meetingsPauseAuto: 'meetings:pauseAuto',
+  meetingsAutoProgress: 'meetings:autoProgress',
   pendingMeetingReady: 'pending-meeting:ready',
   commissionsList: 'commissions:list',
   commissionsCreate: 'commissions:create',
@@ -47,6 +55,8 @@ const IPC_CHANNELS = {
   commissionsRevise: 'commissions:revise',
   commissionsProgress: 'commissions:progress',
   commissionsOpenArtifact: 'commissions:openArtifact',
+  commissionsPreviewArtifact: 'commissions:previewArtifact',
+  commissionsAddInstruction: 'commissions:addInstruction',
   communityList: 'community:list',
   communityGet: 'community:get',
   communityCreate: 'community:create',
@@ -76,8 +86,14 @@ const IPC_CHANNELS = {
  * ここで定義した関数だけを呼べる。
  */
 const api = {
+  onHomeRequested: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on(IPC_CHANNELS.homeRequested, listener);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.homeRequested, listener);
+  },
   personas: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.personasList),
+    skills: () => ipcRenderer.invoke(IPC_CHANNELS.personasSkills),
   },
   meetingTypes: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.meetingTypesList),
@@ -103,6 +119,8 @@ const api = {
     resume: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.commissionsResume, id),
     revise: (id: string, text: string) => ipcRenderer.invoke(IPC_CHANNELS.commissionsRevise, id, text),
     openArtifact: (id: string, artifactId: string) => ipcRenderer.invoke(IPC_CHANNELS.commissionsOpenArtifact, id, artifactId),
+    previewArtifact: (id: string, artifactId: string) => ipcRenderer.invoke(IPC_CHANNELS.commissionsPreviewArtifact, id, artifactId),
+    addInstruction: (id: string, text: string) => ipcRenderer.invoke(IPC_CHANNELS.commissionsAddInstruction, id, text),
     onProgress: (callback: (id: string) => void) => {
       const listener = (_e: unknown, id: string) => callback(id);
       ipcRenderer.on(IPC_CHANNELS.commissionsProgress, listener);
@@ -144,6 +162,9 @@ const api = {
     rotateKey: () => ipcRenderer.invoke(IPC_CHANNELS.mobileRotateKey),
   },
   meetings: {
+    startAuto: (id:string) => ipcRenderer.invoke(IPC_CHANNELS.meetingsStartAuto,id),
+    pauseAuto: (id:string) => ipcRenderer.invoke(IPC_CHANNELS.meetingsPauseAuto,id),
+    onAutoProgress: (callback:(id:string)=>void) => { const listener=(_e:unknown,id:string)=>callback(id);ipcRenderer.on(IPC_CHANNELS.meetingsAutoProgress,listener);return ()=>ipcRenderer.removeListener(IPC_CHANNELS.meetingsAutoProgress,listener); },
     list: () => ipcRenderer.invoke(IPC_CHANNELS.meetingsList),
     get: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.meetingsGet, id),
     create: (input: CreateMeetingInput) => ipcRenderer.invoke(IPC_CHANNELS.meetingsCreate, input),
@@ -183,6 +204,9 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.minutesDownload, meetingId, markdown, suggestedFileName),
   },
   system: {
+    getPreferences: () => ipcRenderer.invoke(IPC_CHANNELS.preferencesGet),
+    savePreferences: (value:unknown) => ipcRenderer.invoke(IPC_CHANNELS.preferencesSave,value),
+    chooseFiles: () => ipcRenderer.invoke(IPC_CHANNELS.chooseFiles),
     chooseDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.chooseDirectory),
   },
   /**

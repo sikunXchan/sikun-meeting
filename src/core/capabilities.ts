@@ -1,3 +1,5 @@
+import { SPECIALIST_PROFILES, specialistProfileFor, specialistSkillId } from './specialties';
+import { skillIdsFor } from './skills/catalog';
 /** 実行時に参照する部門別能力。プロンプト上の肩書きだけで権限を決めない。 */
 export interface PersonaCapability {
   model: string;
@@ -17,12 +19,10 @@ const FAST = 'claude-haiku-4-5-20251001';
 const CODE_ROLES = new Set(['architect', 'engineer', 'backend', 'devops', 'cloud', 'data_engineer', 'security', 'qa', 'ai_researcher']);
 const STRONG_ROLES = new Set(['critic', 'security', 'finance', 'legal', 'architect', 'auditor']);
 const FAST_ROLES = new Set(['innovator']);
-const SKILLS: Record<string, string[]> = {
-  it_consultant: ['requirements-framing'], architect: ['architecture-review'],
-  engineer: ['implementation'], backend: ['implementation'],
-  security: ['security-review'], qa: ['acceptance-verification'],
-  product: ['product-planning'], critic: ['critic-evidence'],
-};
+for (const profile of SPECIALIST_PROFILES) {
+  if (profile.canRunCode) CODE_ROLES.add(profile.id);
+  if (profile.highReasoning) STRONG_ROLES.add(profile.id);
+}
 
 const METHODS: Record<string, string> = {
   critic: '独立して反証し、反対理由が解消された証拠がない限り撤回しない。',
@@ -35,7 +35,9 @@ const METHODS: Record<string, string> = {
 };
 
 export function methodFor(personaId: string): string {
-  const names = SKILLS[personaId] ?? [];
+  const specialist = specialistProfileFor(personaId);
+  if (specialist) return `適用するアプリ内専門手順: ${specialistSkillId(personaId)}。${specialist.review}`;
+  const names = skillIdsFor(personaId);
   const procedure = METHODS[personaId] ?? '事実、推測、未確認事項を分け、担当領域の根拠を示す。';
   return `${names.length ? `適用するアプリ内専門手順: ${names.join('、')}。` : ''}${procedure}`;
 }
@@ -48,7 +50,7 @@ export function capabilityFor(personaId: string): PersonaCapability {
     meetingTools: [...READ],
     workTools: canRunCode ? [...CODE] : [...EDIT],
     reviewTools: canRunCode ? [...READ, 'Bash'] : [...READ],
-    skills: SKILLS[personaId] ?? [],
+    skills: skillIdsFor(personaId),
   };
 }
 

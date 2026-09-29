@@ -1,5 +1,5 @@
 // アプリ本体と最後に受け取った暗号文をキャッシュし、オフラインでも前回の内容を表示できるようにする。
-const VERSION = 'sikun-mobile-v3';
+const VERSION = 'sikun-mobile-v5-all-specialties';
 const SHELL = [
   '/', '/index.html', '/styles.css', '/refresh.css', '/manifest.webmanifest',
   '/js/app.js', '/js/crypto.js', '/js/sanitize.js', '/vendor/marked.umd.js',

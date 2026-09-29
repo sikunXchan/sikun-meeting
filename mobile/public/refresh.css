@@ -60,9 +60,9 @@ main { padding: 18px 16px 42px; }
 .decision-text { color: #1f4933; font-size: 17px; line-height: 1.55; }
 .participants { padding-top: 5px; }
 .participant { width: 82px; }
-.participant img { width: 55px; height: 55px; border: 1px solid #dbe8db; background: #edf6eb; }
+.participant img { width: 55px; height: 55px; border: 1px solid #dbe8db; background: #edf6eb; border-radius:20%; }
 .message { padding: 16px 0; }
-.message img { width: 42px; height: 42px; border: 1px solid #e3ede4; background: #eff7ed; object-fit: contain; }
+.message img { width: 42px; height: 42px; border: 1px solid #e3ede4; background: #eff7ed; object-fit: contain; border-radius:20%; }
 .message-head strong { color: #24503a; font-size: 14px; }
 .message.human .message-body { background: #fff7df; }
 .markdown { font-size: 14px; line-height: 1.7; }

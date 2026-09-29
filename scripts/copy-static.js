@@ -9,7 +9,7 @@ const destDir = path.join(__dirname, '..', 'dist', 'renderer');
 fs.mkdirSync(destDir, { recursive: true });
 
 for (const entry of fs.readdirSync(srcDir)) {
-  if (entry.endsWith('.html') || entry.endsWith('.css')) {
+  if (entry.endsWith('.html') || entry.endsWith('.css') || entry.endsWith('.mjs')) {
     fs.copyFileSync(path.join(srcDir, entry), path.join(destDir, entry));
   }
 }
@@ -51,3 +51,6 @@ if (fs.existsSync(iconSrc)) {
 }
 
 console.log(`[copy-static] copied renderer assets -> ${destDir}`);
+
+for (const file of ['pdf.mjs','pdf.worker.mjs']) fs.copyFileSync(path.join(__dirname,'../node_modules/pdfjs-dist/build',file),path.join(vendorDestDir,file));
+for (const dir of ['cmaps','standard_fonts']) fs.cpSync(path.join(__dirname,'../node_modules/pdfjs-dist',dir),path.join(vendorDestDir,dir),{recursive:true});

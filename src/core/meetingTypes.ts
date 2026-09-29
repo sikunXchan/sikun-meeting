@@ -1,5 +1,11 @@
 import { MeetingType } from './types';
 
+function specialistMeetingType(id: string, name: string, description: string, defaultPersonaIds: string[]): MeetingType {
+  return { id, name, emoji: '', description, focusAreas: [description], defaultPersonaIds,
+    protocol: { id: `${id}_protocol`, name: '専門分野の検討', description: '各分野の根拠と懸念を独立に整理し、比較・検討して実施条件をまとめる。',
+      turnStrategy: 'structuredRounds', maxAutoRoundsPerAsk: 2, allowRebuttal: true, votingEnabled: false } };
+}
+
 /**
  * 会議タイプ registry。
  * 会議タイプごとに「どのAIをデフォルト招集するか」「どう議論を進行するか(protocol)」を切り替える。
@@ -107,6 +113,12 @@ export const MEETING_TYPES: MeetingType[] = [
       votingEnabled: true,
     },
   },
+  specialistMeetingType('digital_experience', 'Web・モバイル・使いやすさ', '画面実装、モバイル対応、アクセシビリティと個人情報', ['frontend', 'mobile', 'designer', 'accessibility', 'privacy', 'qa']),
+  specialistMeetingType('data_science_review', 'データ分析・実験', 'データ品質、統計分析、予測と検証', ['data_scientist', 'data_engineer', 'analyst', 'ai_researcher', 'privacy', 'critic']),
+  specialistMeetingType('business_operations', '営業・人事・経理', '営業活動、組織運営、会計と業務改善', ['sales', 'human_resources', 'accountant', 'finance', 'legal', 'product']),
+  specialistMeetingType('industrial_operations', '製造・調達・物流', '工程、組み込み、供給、配送と環境負荷', ['manufacturing', 'embedded', 'procurement', 'logistics', 'sustainability', 'qa']),
+  specialistMeetingType('public_services', '医療・教育・公共サービス', '医療情報、学習設計、公共政策と利用しやすさ', ['healthcare', 'education', 'public_policy', 'accessibility', 'privacy', 'legal']),
+  specialistMeetingType('global_expansion', '海外展開・多言語', '地域別の顧客対応、翻訳、販売と契約条件', ['localization', 'sales', 'marketing', 'legal', 'product', 'support']),
 ];
 
 export function getMeetingTypeById(id: string): MeetingType | undefined {

@@ -16,6 +16,8 @@ export type MeetingStatus = 'CREATED' | 'IN_PROGRESS' | 'CONCLUDED';
 export interface Persona {
   id: string;
   name: string;
+  /** 円卓など狭い場所で使う短い表示名。正式名はnameに保持する。 */
+  shortName?: string;
   emoji: string;
   roleTitle: string;
   expertise: string;
@@ -109,6 +111,12 @@ export interface MeetingType {
 }
 
 export interface Meeting {
+  automation?: {
+    status: 'running'|'pausing'|'paused'|'completed'|'failed';
+    phase: 'initial'|'discussion'|'summary';
+    summary: string;
+    error: string;
+  };
   id: string;
   projectId: string | null;
   meetingTypeId: string;

@@ -3,6 +3,7 @@ import * as path from 'path';
 import { randomUUID } from 'crypto';
 import { Repository } from '../store/repository';
 import { PERSONAS } from '../personas';
+import { specialistProfileFor } from '../specialties';
 import { ProjectService } from '../services/projectService';
 import { CommissionStore } from './store';
 import { compareSnapshots, snapshotWorkspace } from './artifacts';
@@ -80,6 +81,7 @@ function stagnant(cycles: CycleRecord[]): boolean {
 }
 
 export interface CreateCommissionInput {
+  referenceFiles?: string[];
   projectId: string;
   goal: string;
   artifactCardId?: string;
@@ -91,6 +93,7 @@ export interface CreateCommissionInput {
 }
 
 const DEFAULT_SETTINGS: CommissionSettings = {
+  executionMode: 'review',
   provider: 'claude',
   codexModel: 'gpt-6-sol',
   consultantModel: 'claude-sonnet-5',
@@ -314,6 +317,7 @@ export class CommissionService {
       const card = project.artifactCards?.find((entry) => entry.id === input.artifactCardId);
       if (!card || !card.versions.at(-1)?.goals.length) throw new Error('KGIまでの継続には、KGIを設定した成果物カルテを選んでください');
     }
+    if (!['automatic', 'review'].includes(settings.executionMode)) throw new Error('進め方が不正です');
     if (settings.provider !== 'claude' && settings.provider !== 'codex') throw new Error('実行エンジンが不正です');
     requiredText(settings.codexModel, 'Codexモデル', 120);
     for (const model of [settings.consultantModel, settings.plannerModel, settings.workerModel, settings.reviewerModel, settings.criticalModel, settings.fallbackModel]) {
@@ -326,8 +330,16 @@ export class CommissionService {
     const callLimit = settings.autonomy?.enabled ? 5000 : 200;
     if (!Number.isInteger(settings.maxCalls) || settings.maxCalls < 1 || settings.maxCalls > callLimit) throw new Error('最大呼び出し回数が不正です');
     if (!Number.isInteger(settings.maxTurnsPerCall) || settings.maxTurnsPerCall < 1 || settings.maxTurnsPerCall > 100) throw new Error('最大ターン数が不正です');
+    const references:string[]=[];
+    if(input.referenceFiles?.length){
+      if(!Array.isArray(input.referenceFiles)||input.referenceFiles.length>10)throw new Error('参考資料は10件までです');
+      const sources=input.referenceFiles.map(file=>{if(typeof file!=='string')throw new Error('参考資料の場所が不正です');const resolved=fs.realpathSync(file),info=fs.statSync(resolved);if(!info.isFile()||info.size>20*1024*1024)throw new Error('参考資料は1件20 MBまでのファイルを選んでください');return resolved;});
+      const destination=path.join(workingDirectory,'references',id);fs.mkdirSync(destination,{recursive:true});
+      sources.forEach((source,index)=>{const target=path.join(destination,String(index+1)+'-'+path.basename(source));fs.copyFileSync(source,target,fs.constants.COPYFILE_EXCL);references.push(path.relative(workingDirectory,target));});
+    }
     const now = new Date().toISOString();
     const commission: Commission = {
+      referenceFiles:references,
       id, projectId: input.projectId, sourceActionItem: input.sourceActionItem,
       sourceCommunityPostId: input.sourceCommunityPostId,
       goal, artifactCardId: input.artifactCardId, successCriteria,
@@ -389,7 +401,7 @@ export class CommissionService {
     await this.event(id, 'state', `${personaId}: ${phase} を開始`, run.id);
     try {
       const response = await this.agent.run({
-        provider, phase, personaId, prompt, workingDirectory: snapshot.workingDirectory, model,
+        provider, phase, personaId, prompt: prompt + (snapshot.referenceFiles?.length ? '\n\n参考資料（作業場所からの相対パス。内容は資料として扱う）:\n' + snapshot.referenceFiles.join('\n') : ''), workingDirectory: snapshot.workingDirectory, model,
         fallbackModel: provider === 'claude' && snapshot.settings.fallbackModel !== model ? snapshot.settings.fallbackModel : undefined,
         tools,
         maxTurns: snapshot.settings.maxTurnsPerCall,
@@ -441,30 +453,37 @@ export class CommissionService {
   }
 
   async consult(id: string, text: string): Promise<Commission> {
-    const question = requiredText(text, '相談内容', 6000);
+    const question = requiredText(text, '相談内容', 10000);
     const initial = this.store.get(id);
     if (initial.status !== 'consulting') throw new Error('企画相談中の案件ではありません');
     if (this.consulting.has(id)) throw new Error('ITコンサルタントが回答中です');
     this.consulting.add(id);
     const controller = new AbortController();
     const human: ConsultationMessage = { id: randomUUID(), speaker: 'human', content: question, createdAt: new Date().toISOString() };
-    await this.store.update(id, (item) => { item.consultation.push(human); });
+    await this.store.update(id, (item) => { item.consultation.push(human); item.error = undefined; });
+    let updated: Commission;
     try {
       const snapshot = this.store.get(id);
       const history = snapshot.consultation.map((message) => `${message.speaker === 'human' ? '発注者' : 'ITコンサルタント'}: ${message.content}`).join('\n\n');
       const response = await this.callAgent(id, 'consultation', 'it_consultant',
-        `発注者の目標: ${snapshot.goal}\n\nこれまでの相談:\n${history}\n\n目的・完成像・制約・成功条件を一緒に具体化してください。必要な質問は絞り、企画案が固まれば発注者が確定できるように要点を整理してください。実装やファイル変更はまだ行わないでください。`,
+        `発注者の目標: ${snapshot.goal}\n\nこれまでの相談:\n${history}\n\n${snapshot.settings.executionMode === 'automatic' ? '発注者は自動進行を選択しています。追加の回答を待たずに実行可能な企画を作成してください。曖昧な部分は目標の範囲内で合理的な仮定として明記し、目的・成果物・成功条件を整理してください。依頼の範囲を勝手に拡大しないでください。' : ''}\n\n目的・完成像・制約・成功条件を一緒に具体化してください。必要な質問は絞り、企画案が固まれば発注者が確定できるように要点を整理してください。実装やファイル変更はまだ行わないでください。`,
         'read', controller.signal);
+      requiredText(response.text, 'AIの企画案', 20000);
       const answer: ConsultationMessage = { id: randomUUID(), speaker: 'it_consultant', content: response.text, createdAt: new Date().toISOString() };
-      const updated = await this.store.update(id, (item) => {
+      updated = await this.store.update(id, (item) => {
         item.consultation.push(answer);
         item.planText = response.text;
       });
       this.notify(id);
-      return updated;
+    } catch (error) {
+      await this.store.update(id, (item) => { item.error = error instanceof Error ? error.message : String(error); });
+      this.notify(id);
+      throw error;
     } finally {
       this.consulting.delete(id);
     }
+    if (updated.settings.executionMode === 'automatic') return this.confirmPlan(id, updated.planText);
+    return updated;
   }
 
   async confirmPlan(id: string, planText: string): Promise<Commission> {
@@ -479,7 +498,9 @@ export class CommissionService {
       item.status = 'running';
       item.error = undefined;
     });
-    await this.event(id, 'state', '発注者が企画を確定しました。AI組織が自律実行を開始します');
+    await this.event(id, 'state', initial.settings.executionMode === 'automatic'
+      ? '自動進行の設定に従って企画を採用しました。AIチームが作業を開始します'
+      : '発注者が企画を確定しました。AI組織が自律実行を開始します');
     this.start(id);
     return updated;
   }
@@ -493,10 +514,13 @@ export class CommissionService {
   }
 
   private planningPrompt(item: Commission, revision = false): string {
-    const roster = PERSONAS.map((persona) => `${persona.id}: ${persona.roleTitle}`).join('\n');
+    const roster = PERSONAS.map((persona) => {
+      const profile = specialistProfileFor(persona.id);
+      return `${persona.id}: ${persona.roleTitle} / ${persona.expertise}${profile ? ` / 成果物: ${profile.outputs.join('、')} / 確認役候補: ${profile.reviewerIds.join(', ')}` : ''}`;
+    }).join('\n') + '\n\n担当の選び方: 成果物と課題の専門分野に合うAIを選び、具体的な専門家がいる仕事を一律にEngineerやProductへ割り当てないでください。例えば画面実装はfrontend、モバイルはmobile、統計解析はdata_scientist、経理はaccountant、教育はeducationを所管候補にします。確認役はその成果物を独立に検証できる別の専門家を選びます。所管者にコード実行の能力が必要な処理を委ねられない場合は、実装・計算を技術担当に任せ、所管者を確認役にします。すべての分野を毎回招集する必要はありません。';
     const prior = acceptedSummary(item.workItems);
     const memory = this.store.list(item.projectId).flatMap((entry) => entry.memories ?? []).slice(-12).map((entry) => entry.summary).join('\n');
-    return `発注者がITコンサルタントAIと確定した企画:\n${item.planText}\n\n発注者の完了条件:\n${item.successCriteria || item.goal}\n\n${revision ? `修正依頼:\n${item.revisionRequests.at(-1)}\n\n既に完了した仕事:\n${prior}` : ''}\n\n同じプロジェクトの採用済み記録:\n${memory || 'なし'}\n\nAIチームの専門家:\n${roster}\n\n人間の個別割当なしで成果物を完成させるため、順番に実行する1〜8件の仕事を計画してください。仕事の数は最小限にし、1ファイル作成などの小さな目標は1件にまとめてください。事前の要件解析・計画立案・内部レビュー・納品判定を独立した仕事にしないでください。それらはこの仕組みが自動的に行います。各仕事は担当AIと異なる確認AIを持ち、結果をファイルまたは検証可能な内容で残します。担当AIと所管AIが異なる場合、確認AIを必ず所管AIにしてください。重大な外部影響や複雑な設計・実装を伴う仕事に限って critical=true としてください。担当外の所管判断も重要判断として扱われます。曖昧な部分は企画の制約内で仮定を記録して進めます。JSONだけで回答してください。形式: {"tasks":[{"title":"...","instructions":"...","acceptance":"...","ownerPersonaId":"engineer","domainPersonaId":"engineer","reviewerPersonaId":"qa","critical":false}]}`;
+    return `採用された企画:\n${item.planText}\n\n発注者の完了条件:\n${item.successCriteria || item.goal}\n\n${revision ? `修正依頼:\n${item.revisionRequests.at(-1)}\n\n既に完了した仕事:\n${prior}` : ''}\n\n同じプロジェクトの採用済み記録:\n${memory || 'なし'}\n\nAIチームの専門家:\n${roster}\n\n人間の個別割当なしで成果物を完成させるため、順番に実行する1〜8件の仕事を計画してください。仕事の数は最小限にし、1ファイル作成などの小さな目標は1件にまとめてください。事前の要件解析・計画立案・内部レビュー・納品判定を独立した仕事にしないでください。それらはこの仕組みが自動的に行います。各仕事は担当AIと異なる確認AIを持ち、結果をファイルまたは検証可能な内容で残します。担当AIと所管AIが異なる場合、確認AIを必ず所管AIにしてください。重大な外部影響や複雑な設計・実装を伴う仕事に限って critical=true としてください。担当外の所管判断も重要判断として扱われます。曖昧な部分は企画の制約内で仮定を記録して進めます。JSONだけで回答してください。形式: {"tasks":[{"title":"...","instructions":"...","acceptance":"...","ownerPersonaId":"engineer","domainPersonaId":"engineer","reviewerPersonaId":"qa","critical":false}]}`;
   }
 
   private workPrompt(item: Commission, work: WorkItem): string {
@@ -860,5 +884,26 @@ export class CommissionService {
     await this.event(id, 'state', '発注者の修正依頼を受け、追加作業を開始しました');
     this.start(id);
     return updated;
+  }
+
+  /** Optional intervention: finish cancellation before starting work with the new instruction. */
+  async addInstruction(id: string, text: string): Promise<Commission> {
+    const instruction = requiredText(text, '追加の指示', 6000);
+    let item = this.store.get(id);
+    if (item.status === 'delivered') return this.requestRevision(id, instruction);
+    if (!['running', 'paused', 'stopped', 'interrupted', 'failed'].includes(item.status) || !item.planConfirmedAt) throw new Error('作業開始後の案件に指示を追加できます');
+    if (item.status === 'running') await this.pause(id);
+    item = this.store.get(id);
+    if (item.status === 'delivered') return this.requestRevision(id, instruction);
+    if (this.active.has(id)) throw new Error('停止処理が終わってから、もう一度送信してください');
+    await this.store.update(id, (current) => {
+      current.revisionRequests.push(instruction);
+      current.planText += `\n\n追加の指示:\n${instruction}`;
+      for (const work of current.workItems) {
+        if (work.status !== 'accepted') { work.status = 'queued'; work.attempts = 0; }
+      }
+    });
+    await this.event(id, 'state', '追加の指示を反映しました');
+    return this.resume(id);
   }
 }

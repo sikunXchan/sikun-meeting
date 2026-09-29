@@ -101,7 +101,7 @@ function personaAvatarSrc(personaId) {
 
 function personaLabel(id) {
   const p = personaById(id);
-  return p ? `${p.emoji} ${p.name}` : id;
+  return p ? p.name : id;
 }
 
 /** ペルソナごとに円陣アバターのリング色をゆるく分散させる（IDのハッシュから固定色を決めるだけ）。 */
@@ -176,8 +176,12 @@ async function init() {
   wireTopbarToggle();
   wireDiscussionExpand();
   watchNavigation();
-  void showHome();
+  if (window.commissionUIReady) document.getElementById('commission-new-btn').click();
+  else window.addEventListener('commission:ready', () => document.getElementById('commission-new-btn').click(), { once: true });
   api.discussion.onProgress(handleDiscussionProgress);
+  api.meetings.onAutoProgress(id => { if (currentMeeting?.id === id) void reloadCurrentMeeting(); });
+  window.addEventListener('meeting:reload', () => { void reloadCurrentMeeting(); });
+  window.addEventListener('meeting:open', event => { void selectMeeting(event.detail); });
   // Sikun Lab IDE等の外部アプリから --pending-meeting 付きで起動された場合、
   // メインプロセス側で自動作成された会議のIDが1回だけ届くのでそれを開く。
   api.onPendingMeetingReady((meetingId) => {
@@ -223,7 +227,7 @@ function wireDiscussionExpand() {
   btn.addEventListener('click', () => {
     const next = !panel.classList.contains('expanded');
     panel.classList.toggle('expanded', next);
-    btn.textContent = next ? '✕ 閉じる' : '⛶ フル画面';
+    btn.textContent = next ? '閉じる' : '広く表示';
     btn.title = next ? 'フル画面を閉じる' : 'フル画面で表示';
   });
 }
@@ -232,7 +236,7 @@ function wireDiscussionExpand() {
 function updateElapsedTimer() {
   const el = document.getElementById('tb-elapsed');
   const m = currentMeeting;
-  if (!m || !m.startedAt || m.status === 'CREATED') {
+  if (!m || !m.startedAt || m.status === 'CREATED' || document.getElementById('meeting-view').classList.contains('hidden')) {
     el.classList.add('hidden');
     return;
   }
@@ -248,6 +252,12 @@ function updateElapsedTimer() {
 function handleDiscussionProgress(event) {
   if (!currentMeeting || event.meetingId !== currentMeeting.id) return;
   if (event.type === 'turn-start') {
+    circleSpeakerId = event.participantId;
+    const speakerIndex = currentMeeting.participants.filter(p => p.status === 'ACTIVE').findIndex(p => p.id === event.participantId);
+    if (speakerIndex >= 0 && Math.floor(speakerIndex / CIRCLE_PAGE_SIZE) !== circlePage) {
+      circlePage = Math.floor(speakerIndex / CIRCLE_PAGE_SIZE);
+      renderCircle(currentMeeting);
+    }
     const stage = document.getElementById('circle-stage');
     stage.classList.add('discussion-active');
 
@@ -270,6 +280,7 @@ function handleDiscussionProgress(event) {
       banner.classList.remove('hidden');
     }
   } else if (event.type === 'turn-end') {
+    circleSpeakerId = null;
     document.getElementById('thinking-banner').classList.add('hidden');
     document.getElementById('circle-stage').classList.remove('discussion-active');
     reloadCurrentMeeting();
@@ -278,14 +289,21 @@ function handleDiscussionProgress(event) {
 
 function renderMeetingList() {
   const ul = document.getElementById('meeting-list');
+  const history = document.getElementById('meeting-history-list');
   ul.innerHTML = '';
+  history.innerHTML = '';
   for (const m of meetings) {
     const li = document.createElement('li');
-    const type = meetingTypeById(m.meetingTypeId);
-    li.textContent = `${type ? type.emoji : ''} ${m.title}`;
+    const avatar = m.participants?.[0]?.personaId;
+    li.appendChild(homeRecentButton(m.title,
+      (m.status === 'CONCLUDED' ? '終了' : m.status === 'CREATED' ? '準備中' : '進行中') + ' · ' + new Date(m.createdAt).toLocaleDateString('ja-JP'),
+      avatar ? personaAvatarSrc(avatar) : 'assets/guide-bear.png', () => selectMeeting(m.id)));
     li.className = currentMeeting && currentMeeting.id === m.id ? 'active' : '';
-    li.addEventListener('click', () => selectMeeting(m.id));
-    ul.appendChild(li);
+    (m.status === 'CONCLUDED' ? history : ul).appendChild(li);
+  }
+  document.getElementById('meeting-history-group').classList.toggle('hidden', history.childElementCount === 0);
+  if (!ul.childElementCount) {
+    const empty = document.createElement('li'); empty.className = 'workspace-meeting-empty'; empty.textContent = '進行中の会議はありません'; ul.appendChild(empty);
   }
 }
 
@@ -297,7 +315,7 @@ function populateMeetingTypeSelect() {
   for (const t of meetingTypes) {
     const opt = document.createElement('option');
     opt.value = t.id;
-    opt.textContent = `${t.emoji} ${labels[t.id] || t.name}`;
+    opt.textContent = labels[t.id] || t.name;
     select.appendChild(opt);
   }
   select.value = meetingTypes.some((type) => type.id === 'product_review') ? 'product_review' : meetingTypes[0]?.id;
@@ -310,16 +328,35 @@ function renderPersonaCheckboxes(meetingTypeId) {
   fieldset.innerHTML = '<legend>招集するAI（会議タイプのデフォルトから編集可能）</legend>';
   const type = meetingTypeById(meetingTypeId);
   const defaultIds = new Set(type ? type.defaultPersonaIds : []);
+  const search = document.createElement('input');
+  search.type = 'search'; search.id = 'nm-persona-search';
+  search.placeholder = '名前・専門分野で絞り込む'; search.setAttribute('aria-label', '会議に招集するAIを検索');
+  const count = document.createElement('p'); count.className = 'persona-search-count'; count.setAttribute('role', 'status');
+  fieldset.append(search, count);
+  const choices = [];
   for (const p of personas) {
     const label = document.createElement('label');
+    label.title = `${p.roleTitle} · ${p.expertise}`;
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.value = p.id;
+    checkbox.setAttribute('aria-label', `${p.name} — ${p.roleTitle}`);
     checkbox.checked = defaultIds.has(p.id);
     label.appendChild(checkbox);
-    label.appendChild(document.createTextNode(`${p.emoji} ${p.name}`));
+    const avatar = document.createElement('img');
+    avatar.src = personaAvatarSrc(p.id);
+    avatar.alt = '';
+    label.appendChild(avatar);
+    label.appendChild(document.createTextNode(p.name));
     fieldset.appendChild(label);
+    choices.push({label,checkbox,text:`${p.name} ${p.roleTitle} ${p.expertise}`.toLocaleLowerCase()});
   }
+  const filter = () => {
+    const words=search.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+    let visible=0;for(const choice of choices){const show=words.every(word=>choice.text.includes(word));choice.label.classList.toggle('hidden',!show);if(show)visible++;}
+    count.textContent=`${visible} / ${personas.length}体を表示 · 選択中 ${choices.filter(c=>c.checkbox.checked).length}体`;
+  };
+  search.addEventListener('input',filter);fieldset.onchange=filter;filter();
 }
 
 function wireStaticEvents() {
@@ -343,6 +380,8 @@ function wireStaticEvents() {
     hideAll();
     if (currentMeeting) {
       document.getElementById('meeting-view').classList.remove('hidden');
+      document.getElementById('sidebar-roster').classList.remove('hidden');
+      renderMeetingView();
     } else {
       void showHome();
     }
@@ -635,7 +674,8 @@ function wireStaticEvents() {
 function setBusy(busy) {
   isBusy = busy;
   document.body.style.cursor = busy ? 'progress' : 'default';
-  for (const btn of document.querySelectorAll('button')) btn.disabled = busy;
+  for (const id of ['ask-all-btn','ask-specific-btn','human-speak-btn','rebuttal-btn','analyze-code-btn','invite-btn','df-submit']) document.getElementById(id).disabled = busy;
+  if (!busy && currentMeeting) renderMeetingView();
 }
 
 async function submitNewMeeting() {
@@ -662,14 +702,22 @@ async function submitNewMeeting() {
   document.getElementById('nm-agenda').value = '';
   document.getElementById('nm-dir').value = '';
   await selectMeeting(meeting.id);
+  if (document.getElementById('pearl-meeting-auto')?.checked) {
+    await api.meetings.startAuto(meeting.id);
+    await reloadCurrentMeeting();
+  }
 }
 
 function hideAll() {
+  window.dispatchEvent(new Event('commission:leave'));
   document.body.classList.remove('commission-active');
   document.body.classList.remove('community-active');
   document.body.classList.remove('project-active');
   document.getElementById('sidebar-roster').classList.add('hidden');
   document.getElementById('sidebar-chief').classList.add('hidden');
+  document.getElementById('workspace-meetings').classList.add('hidden');
+  document.getElementById('workspace-settings').classList.add('hidden');
+  document.getElementById('workspace-library').classList.add('hidden');
   document.getElementById('empty-state').classList.add('hidden');
   document.getElementById('new-meeting-form').classList.add('hidden');
   document.getElementById('meeting-view').classList.add('hidden');
@@ -678,6 +726,8 @@ function hideAll() {
   document.getElementById('commission-view').classList.add('hidden');
   document.getElementById('community-view').classList.add('hidden');
   document.getElementById('mobile-view').classList.add('hidden');
+  document.getElementById('tb-status').classList.add('hidden');
+  document.getElementById('tb-elapsed').classList.add('hidden');
 }
 
 function watchNavigation() {
@@ -990,6 +1040,9 @@ async function selectMeeting(id) {
 async function reloadCurrentMeeting() {
   if (!currentMeeting) return;
   currentMeeting = await api.meetings.get(currentMeeting.id);
+  const index = meetings.findIndex((meeting) => meeting.id === currentMeeting.id);
+  if (index >= 0) meetings[index] = currentMeeting;
+  renderMeetingList();
   renderMeetingView();
 }
 
@@ -997,12 +1050,19 @@ function renderMeetingView() {
   const m = currentMeeting;
   const type = meetingTypeById(m.meetingTypeId);
 
-  document.getElementById('tb-title').textContent = `${type ? type.emoji : ''} ${m.title}`;
+  document.getElementById('tb-title').textContent = m.title;
   document.getElementById('tb-agenda').innerHTML = window.renderMarkdownSafe(m.agenda);
   const statusBadge = document.getElementById('tb-status');
   statusBadge.textContent = { CREATED: '未開始', IN_PROGRESS: '進行中', CONCLUDED: '終了' }[m.status] || m.status;
   statusBadge.className = `status-badge ${m.status}`;
   statusBadge.classList.remove('hidden');
+
+  document.getElementById('meeting-board-agenda').innerHTML = window.renderMarkdownSafe(m.agenda || '議題は未設定です。');
+  const boardProgress = m.status === 'CONCLUDED' ? '会議は終了しました。'
+    : m.initialRound?.status === 'collecting' ? '全員の初回意見を集めています。'
+    : m.transcript.length ? `討議中・発言 ${m.transcript.length} 件` : '開始前・参加者の意見を待っています。';
+  document.getElementById('meeting-board-progress').textContent = boardProgress;
+  document.getElementById('meeting-board-decision').innerHTML = window.renderMarkdownSafe(m.decision?.decisionText || 'まだ決定していません。');
 
   const codebasePath = document.getElementById('mv-codebase-path');
   codebasePath.textContent = m.workingDirectory || '未設定（「変更…」から設定するとコードを読んで解析できます）';
@@ -1012,6 +1072,7 @@ function renderMeetingView() {
   renderCircle(m);
   renderTranscript(m);
   renderDecision(m);
+  window.dispatchEvent(new CustomEvent('meeting:render', { detail: m }));
   updateElapsedTimer();
 
   const rebuttalBtn = document.getElementById('rebuttal-btn');
@@ -1092,7 +1153,7 @@ function renderRoster(m) {
     if (!invitedIds.has(p.id)) {
       const opt = document.createElement('option');
       opt.value = p.id;
-      opt.textContent = `${p.emoji} ${p.name}`;
+      opt.textContent = p.name;
       inviteSelect.appendChild(opt);
     }
   }
@@ -1113,6 +1174,8 @@ const STANCE_POLARITY = {
   '条件付き賛成': 'neutral',
 };
 
+let circleMeetingId = null, circlePage = 0, circleSpeakerId = null;
+const CIRCLE_PAGE_SIZE = 6;
 function renderCircle(m) {
   const stage = document.getElementById('circle-stage');
   // 既存の座席・対立マップ要素だけ削除し、中央の chief カードは残す。
@@ -1123,35 +1186,57 @@ function renderCircle(m) {
   const activeParticipants = m.participants.filter((p) => p.status === 'ACTIVE');
   const stanceMap = latestStanceByParticipant(m);
 
-  const cx = 280;
-  const cy = 240;
-  const rx = 220;
-  const ry = 190;
-  const n = activeParticipants.length;
+  if (circleMeetingId !== m.id) { circleMeetingId = m.id; circlePage = 0; circleSpeakerId = null; }
+  const pages = Math.max(1, Math.ceil(activeParticipants.length / CIRCLE_PAGE_SIZE));
+  circlePage = Math.min(circlePage, pages - 1);
+  const visibleParticipants = activeParticipants.slice(circlePage * CIRCLE_PAGE_SIZE, (circlePage + 1) * CIRCLE_PAGE_SIZE);
+  let pagination = document.getElementById('circle-pagination');
+  if (!pagination) {
+    pagination = document.createElement('div'); pagination.id = 'circle-pagination';
+    pagination.innerHTML = '<button type="button" class="secondary" aria-label="前のメンバー">‹</button><span aria-live="polite"></span><button type="button" class="secondary" aria-label="次のメンバー">›</button>';
+    stage.before(pagination);
+  }
+  pagination.classList.toggle('hidden', pages === 1);
+  const [previous, next] = pagination.querySelectorAll('button');
+  previous.disabled = circlePage === 0; next.disabled = circlePage === pages - 1;
+  pagination.querySelector('span').textContent = `${circlePage * CIRCLE_PAGE_SIZE + 1}–${Math.min((circlePage + 1) * CIRCLE_PAGE_SIZE, activeParticipants.length)} / ${activeParticipants.length}人`;
+  previous.onclick = () => { circlePage--; renderCircle(m); };
+  next.onclick = () => { circlePage++; renderCircle(m); };
+  const n = visibleParticipants.length;
+  const stageHeight = 470;
+  stage.classList.toggle('many-participants', n > 8);
 
   const positions = new Map(); // participantId -> {x, y}
 
-  activeParticipants.forEach((p, i) => {
-    const angle = (-90 + (360 / Math.max(n, 1)) * i) * (Math.PI / 180);
-    const x = cx + rx * Math.cos(angle);
-    const y = cy + ry * Math.sin(angle);
+  visibleParticipants.forEach((p, i) => {
+    const degrees = n === 5 ? [-120, -60, 0, 90, 180][i]
+      : (n === 6 ? -120 : n === 4 ? -135 : n === 2 ? -180 : -90) + (360 / Math.max(n, 1)) * i;
+    const angle = degrees * Math.PI / 180;
+    const x = 280 + 207 * Math.cos(angle);
+    const y = 235 + (n === 6 ? 157 : 132) * Math.sin(angle);
     positions.set(p.id, { x, y });
 
     const persona = personaById(p.personaId);
     const seat = document.createElement('div');
     seat.className = `seat ${ringClassForPersona(p.personaId)}`;
     seat.dataset.participantId = p.id;
-    seat.style.left = `${x}px`;
-    seat.style.top = `${y}px`;
+    seat.tabIndex = 0;
+    seat.setAttribute('role', 'button');
+    seat.setAttribute('aria-label', `${personaLabel(p.personaId)}を指名して質問する`);
+    seat.style.left = `${(x / 560) * 100}%`;
+    seat.style.top = `${(y / stageHeight) * 100}%`;
+    seat.style.setProperty('--seat-x', seat.style.left);
+    seat.style.setProperty('--seat-y', seat.style.top);
     seat.title = `${personaLabel(p.personaId)}を指名して質問する`;
 
     const img = document.createElement('img');
     img.src = personaAvatarSrc(p.personaId);
+    img.alt = '';
     seat.appendChild(img);
 
     const name = document.createElement('div');
     name.className = 'seat-name';
-    name.textContent = persona ? persona.name : p.personaId;
+    name.textContent = persona ? persona.shortName || persona.name : p.personaId;
     seat.appendChild(name);
 
     const role = document.createElement('div');
@@ -1172,23 +1257,31 @@ function renderCircle(m) {
       seat.appendChild(tag);
     }
 
-    seat.addEventListener('click', () => {
+    const choose = () => {
+      document.getElementById('meeting-talk-tab')?.click();
+      document.getElementById('pearl-meeting-tools').open = true;
       document.getElementById('ask-specific-select').value = p.id;
       const q = document.getElementById('ask-specific-question');
       q.focus();
-    });
+    };
+    seat.addEventListener('click', choose);
+    seat.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(); } });
+    if (circleSpeakerId === p.id) {
+      seat.classList.add('speaking');
+      const thinking = document.createElement('div'); thinking.className = 'seat-thinking'; thinking.textContent = '考え中'; seat.append(thinking);
+    }
 
     stage.appendChild(seat);
   });
 
-  renderConflictMap(stage, activeParticipants, stanceMap, positions);
+  renderConflictMap(stage, visibleParticipants, stanceMap, positions, stageHeight);
 }
 
 /**
  * AI対立マップ: 最新の立場が「賛成寄り」のAIと「反対寄り」のAIを、
  * 円陣上で点線で結んで可視化する。SVGを座席の背面(z-index)に重ねて描画する。
  */
-function renderConflictMap(stage, activeParticipants, stanceMap, positions) {
+function renderConflictMap(stage, activeParticipants, stanceMap, positions, stageHeight) {
   const positiveIds = [];
   const negativeIds = [];
   for (const p of activeParticipants) {
@@ -1202,7 +1295,7 @@ function renderConflictMap(stage, activeParticipants, stanceMap, positions) {
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg');
   svg.id = 'conflict-svg';
-  svg.setAttribute('viewBox', '0 0 560 480');
+  svg.setAttribute('viewBox', `0 0 560 ${stageHeight}`);
 
   for (const posId of positiveIds) {
     for (const negId of negativeIds) {
@@ -1343,7 +1436,7 @@ async function renderMermaidBlocks() {
     } else {
       const fallback = document.createElement('div');
       fallback.className = 'mermaid-error';
-      fallback.innerHTML = `⚠️ 図の構文エラーのため表示できませんでした<pre>${escapeHtml(code)}</pre>`;
+      fallback.innerHTML = `図の構文エラーのため表示できませんでした<pre>${escapeHtml(code)}</pre>`;
       node.replaceWith(fallback);
     }
   }
@@ -1397,7 +1490,7 @@ function renderDecision(m) {
     callout.className = 'decision-callout';
     const goTag = document.createElement('span');
     goTag.className = 'decision-go';
-    goTag.textContent = '🟢 GO';
+    goTag.textContent = '決定済み';
     callout.appendChild(goTag);
     const text = document.createElement('div');
     text.className = 'decision-text markdown-body';

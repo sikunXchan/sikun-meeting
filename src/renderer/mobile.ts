@@ -41,11 +41,13 @@
   }
 
   el('mobile-open-btn').addEventListener('click', () => {
-    for (const panel of ['empty-state', 'new-meeting-form', 'meeting-view', 'project-view', 'commission-create', 'commission-view', 'community-view']) {
+    for (const panel of ['workspace-meetings', 'workspace-settings', 'workspace-library', 'empty-state', 'new-meeting-form', 'meeting-view', 'project-view', 'commission-create', 'commission-view', 'community-view']) {
       el(panel).classList.add('hidden');
     }
     document.body.classList.remove('community-active', 'commission-active', 'project-active');
     document.body.classList.add('mobile-active');
+    el('tb-status').classList.add('hidden');
+    el('tb-elapsed').classList.add('hidden');
     el('tb-title').textContent = 'スマホで会議を見る';
     el('tb-agenda').textContent = '';
     el('mobile-view').classList.remove('hidden');

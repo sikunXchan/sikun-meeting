@@ -12,7 +12,7 @@
 
   function personaName(id) {
     const persona = personas.find((entry) => entry.id === id);
-    return persona ? persona.emoji + ' ' + persona.name : id;
+    return persona ? persona.name : id;
   }
 
   function personaImage(id, { human = false } = {}) {
@@ -47,12 +47,14 @@
   }
 
   function show() {
-    for (const id of ['empty-state', 'new-meeting-form', 'meeting-view', 'project-view',
+    for (const id of ['workspace-meetings', 'workspace-settings', 'workspace-library', 'empty-state', 'new-meeting-form', 'meeting-view', 'project-view',
       'commission-create', 'commission-view', 'community-view', 'mobile-view']) {
       el(id).classList.add('hidden');
     }
     document.body.classList.remove('commission-active', 'project-active');
     document.body.classList.add('community-active');
+    el('tb-status').classList.add('hidden');
+    el('tb-elapsed').classList.add('hidden');
     el('community-view').classList.remove('hidden');
   }
 
@@ -248,7 +250,7 @@
       check.type = 'checkbox';
       check.value = persona.id;
       check.checked = ['product', 'architect', 'critic', 'qa'].includes(persona.id);
-      label.append(check, personaImage(persona.id), document.createTextNode(persona.emoji + ' ' + persona.name));
+      label.append(check, personaImage(persona.id), document.createTextNode(persona.name));
       grid.appendChild(label);
     }
   }

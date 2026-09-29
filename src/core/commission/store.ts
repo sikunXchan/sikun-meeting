@@ -35,6 +35,7 @@ export class CommissionStore {
         work.domainPersonaId ??= work.ownerPersonaId;
         work.critical ??= false;
       }
+      commission.settings.executionMode ??= 'review';
       commission.settings.criticalModel ??= 'claude-opus-5-5';
       commission.settings.fallbackModel ??= 'claude-haiku-4-5-20251001';
       if (commission.status === 'running') {

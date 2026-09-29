@@ -24,8 +24,9 @@ export type TurnEventListener = (event: TurnEvent) => void;
 export class DiscussionService {
   private active = new Set<string>();
   constructor(private repo: Repository, private agent: typeof runAgentTurn = runAgentTurn) {}
+  isActive(id:string):boolean { return this.active.has(id); }
 
-  private async runInitialRound(meetingId: string, onEvent?: TurnEventListener): Promise<Message[]> {
+  private async runInitialRound(meetingId: string, onEvent?: TurnEventListener, shouldContinue:()=>boolean=()=>true): Promise<Message[]> {
     let meeting = this.repo.getMeeting(meetingId)!;
     if (!meeting.initialRound) {
       const ids = meeting.participants.filter((p) => p.status === 'ACTIVE').map((p) => p.id);
@@ -40,6 +41,7 @@ export class DiscussionService {
     const round = meeting.initialRound!;
     if (round.status === 'published') return [];
     for (const participantId of round.participantIds) {
+      if(!shouldContinue())return [];
       meeting = this.repo.getMeeting(meetingId)!;
       const current = meeting.initialRound!;
       if (current.responses.some((message) => message.speakerId.endsWith(`#${participantId}`))) continue;
@@ -94,6 +96,7 @@ export class DiscussionService {
     trigger: DiscussionTrigger,
     directQuestion?: string,
     onEvent?: TurnEventListener,
+    shouldContinue:()=>boolean=()=>true,
   ): Promise<Message[]> {
     if (this.active.has(meetingId)) throw new Error('この会議ではAIが発言中です');
     this.active.add(meetingId);
@@ -108,7 +111,7 @@ export class DiscussionService {
       (trigger.kind === 'ASK_ALL_ACTIVE' && !meetingSnapshot.transcript.some((message) => message.speakerType === 'AI') && !meetingSnapshot.initialRound)) {
       if (trigger.kind !== 'ASK_ALL_ACTIVE') throw new Error('全員の初回意見を集めてから討論してください');
       await this.markStarted(meetingId);
-      return this.runInitialRound(meetingId, onEvent);
+      return await this.runInitialRound(meetingId, onEvent, shouldContinue);
     }
     if (!meetingSnapshot.initialRound && !meetingSnapshot.transcript.some((message) => message.speakerType === 'AI') && trigger.kind !== 'ASK_ALL_ACTIVE') {
       throw new Error('全員の初回意見を集めてから討論してください');
@@ -121,6 +124,7 @@ export class DiscussionService {
 
     const produced: Message[] = [];
     for (const turnParticipant of turns) {
+      if(!shouldContinue())break;
       const meeting = this.repo.getMeeting(meetingId)!;
       const participant = meeting.participants.find((p) => p.id === turnParticipant.id);
       if (!participant || participant.status !== 'ACTIVE') continue; // ラウンド中に除籍された場合はスキップ
@@ -169,8 +173,8 @@ export class DiscussionService {
   }
 
   /** 現在ACTIVEな全AIに、招集順で意見を求める。 */
-  async askAllActiveToSpeak(meetingId: string, onEvent?: TurnEventListener): Promise<Message[]> {
-    return this.runTurns(meetingId, { kind: 'ASK_ALL_ACTIVE' }, undefined, onEvent);
+  async askAllActiveToSpeak(meetingId: string, onEvent?: TurnEventListener, shouldContinue:()=>boolean=()=>true): Promise<Message[]> {
+    return this.runTurns(meetingId, { kind: 'ASK_ALL_ACTIVE' }, undefined, onEvent,shouldContinue);
   }
 
   /** 特定のAIを指名して質問する。 */
@@ -214,6 +218,7 @@ export class DiscussionService {
     };
     await this.repo.updateMeeting(meetingId, (m) => {
       m.transcript.push(message);
+      if(m.automation?.status==='completed')m.automation={status:'paused',phase:'discussion',summary:'',error:''};
     });
     return message;
   }

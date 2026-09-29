@@ -1,0 +1,382 @@
+/* Desktop UI. The visible borders, controls and meeting furniture use generated artwork. */
+:root {
+  --bg: #f6f6f4;
+  --panel: #ffffff;
+  --border: #d8dde3;
+  --accent: #35435d;
+  --accent-dark: #293750;
+  --ink: #253044;
+  --muted: #5f6977;
+  --active-green: #b6724e;
+  --active-green-bg: #f7eee8;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --focus: #b6724e;
+}
+
+body { background: var(--bg); color: var(--ink); }
+button, .panel, .home-action-card, .home-overview-card, .seat,
+.settings-card, .settings-advanced, .community-card, .community-message,
+.commission-preview, .commission-team-strip, .commission-live-stage,
+.commission-task, .commission-message, .commission-work, .commission-event,
+.chief-card, .guide-heading { box-shadow: none !important; }
+button:hover:not(:disabled), .home-action-card:hover:not(:disabled) { filter: none; transform: none; }
+button:focus-visible, :is(input, select, textarea, summary):focus-visible,
+.panel :is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+#topbar { min-height: 68px; padding: 9px 20px; border-color: var(--border); box-shadow: none; }
+.topbar-left .logo { width: 43px; height: 43px; }
+.app-tagline { color: #677385; }
+.beta, .build-badge, .elapsed-badge, .status-badge.CREATED {
+  background: #eff1f4;
+  color: #48576b;
+  border-radius: 4px;
+}
+.status-badge.IN_PROGRESS { background: #f7eee8; color: #8d4e33; }
+.status-badge.CONCLUDED { background: #edf0f6; color: #35435d; }
+#tb-title { color: #26334c; }
+#tb-agenda { color: #677385; }
+
+#sidebar {
+  width: 250px;
+  padding: 20px 14px 24px;
+  background: #293750;
+  color: #f5f7fa;
+  border-right: 0;
+}
+#sidebar h2, #sidebar h3 {
+  color: #c1cad7;
+  letter-spacing: .03em;
+  text-transform: none;
+}
+#sidebar h2 { margin: 0 0 8px; font-size: 11px; }
+#sidebar h3 { margin: 9px 0 4px; font-size: 11px; font-weight: 600; }
+.sidebar-workspace { padding: 0 5px 10px; }
+#sidebar select, #project-new-form input {
+  min-height: 40px;
+  color: #26334c;
+  background: #fff;
+  border: 1px solid #aeb9c8;
+  border-radius: 4px;
+}
+#sidebar > section > button.sidebar-quiet-action { color: #e0e6ef; }
+.sidebar-main-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 4px 0;
+  border: 0;
+}
+.sidebar-main-nav .sidebar-nav-btn,
+.sidebar-main-nav .sidebar-create {
+  width: 100%;
+  min-height: 39px;
+  margin: 0;
+  padding: 8px 11px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: #f1f4f8;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+}
+.sidebar-main-nav .sidebar-nav-btn:hover:not(:disabled),
+.sidebar-main-nav .sidebar-create:hover:not(:disabled),
+#meeting-list li:hover, #meeting-history-list li:hover, .commission-sidebar-list li:hover {
+  background: #394b69;
+  color: #fff;
+}
+.sidebar-main-nav .sidebar-nav-btn.is-current,
+#meeting-list li.active, #meeting-history-list li.active, .commission-sidebar-list li.active {
+  border: 5px solid transparent;
+  border-image: url("assets/ui/button-secondary-flat.png") 48 / 5px / 0 stretch;
+  background: #fff;
+  color: #293750;
+}
+.sidebar-nav-group {
+  margin-top: 10px;
+  padding-top: 13px;
+  border-top: 1px solid #526079;
+}
+.sidebar-nav-group h2 { padding-left: 11px; }
+.sidebar-nav-group h3 { padding-left: 11px; }
+.sidebar-main-nav :is(#meeting-list, #commission-list, #meeting-history-list, #commission-history-list) { margin: 0; padding: 0; list-style: none; }
+.sidebar-history-group { margin-top: 9px; padding-top: 7px; border-top: 1px solid #526079; }
+#meeting-list li, #meeting-history-list li, .commission-sidebar-list li {
+  margin: 0 0 2px;
+  padding: 8px 11px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: #e7edf5;
+  font-size: 12px;
+  cursor: pointer;
+}
+.commission-sidebar-list small { color: #c5cfdd; }
+.commission-sidebar-list li.active small { color: #5d697b; }
+#sidebar-roster { border-top-color: #526079; }
+#sidebar-roster > summary {
+  padding: 7px 2px;
+  color: #d8e1ec;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+#sidebar-chief { display: none !important; }
+.roster-list li { color: #ecf1f7; }
+.roster-list li:hover { background: #394b69; }
+.roster-list button { color: #26334c; }
+.chief-card {
+  border: 5px solid transparent;
+  border-image: url("assets/ui/button-secondary-flat.png") 48 / 5px / 0 stretch;
+  background: #fff;
+  color: #293750;
+}
+.chief-card .muted { color: #58677b; }
+
+#main { padding: clamp(18px, 2.6vw, 32px); }
+.eyebrow { color: #8d4e33; letter-spacing: .04em; }
+.home-hero {
+  min-height: 205px;
+  border: 6px solid transparent;
+  border-image: url("assets/ui/panel-flat.png") 45 / 6px / 0 stretch;
+  border-radius: 0;
+  background: #f8f5f1;
+}
+.home-hero h1 { color: #293750; }
+.home-hero p { color: #536174; }
+.home-action-card, .home-overview-card, .panel, .settings-card,
+.settings-advanced, .community-card, .community-message,
+.commission-preview, .commission-team-strip, .commission-live-stage,
+.commission-task, .commission-message, .commission-work, .commission-event {
+  border: 6px solid transparent;
+  border-image: url("assets/ui/panel-flat.png") 45 / 6px / 0 stretch;
+  border-radius: 0;
+  background: #fff;
+}
+.home-action-card:hover:not(:disabled), .home-recent-item:hover:not(:disabled),
+.community-card.active, .commission-message.human, .community-message.human {
+  background: #faf5f1;
+}
+.home-action-art img, .home-recent-item img, .community-card > img,
+.community-message > img, .commission-message img {
+  border-radius: 4px;
+  box-shadow: none;
+}
+.home-action-arrow, .home-recent-arrow, .project-tab.is-current { color: #34435e; }
+.guide-heading, .commission-live-stage, .community-progress {
+  border-color: #d8dde3;
+  background: #f5f6f8;
+}
+.guide-heading h2, .community-intro h2, .commission-stage-copy > strong { color: #293750; }
+.guide-heading p { color: #58677b; }
+.settings-card, .settings-advanced, .community-new { background: #fff; }
+.settings-card > summary, .settings-advanced summary { color: #34435e; }
+.panel label { color: #34435e; }
+.field-help { color: #667184; }
+.panel input, .panel textarea, #new-meeting-form input, #new-meeting-form textarea,
+#composer input, #composer select, #sidebar select {
+  border: 6px solid transparent;
+  border-image: url("assets/ui/field-flat.png") 48 / 6px / 0 stretch;
+  border-radius: 0;
+  background: #fff;
+  color: #253044;
+}
+.panel select, #new-meeting-form select {
+  border: 1px solid #b7bfcb;
+  border-radius: 4px;
+  background: #fff;
+  color: #253044;
+}
+.panel :is(input, textarea)::placeholder, #new-meeting-form :is(input, textarea)::placeholder {
+  color: #7a8594;
+}
+#nm-personas label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 5px 8px 5px 0;
+  padding: 4px 8px;
+  border: 1px solid #d8dde3;
+  border-radius: 4px;
+  background: #fff;
+}
+#nm-personas img { width: 27px; height: 27px; object-fit: contain; }
+#nm-personas input { width: auto; min-height: 0; margin: 0; }
+.project-tabs { background: #eef0f4; border-radius: 4px; }
+.project-tab.is-current { box-shadow: none; border-radius: 3px; }
+.community-card.active { border-image-source: url("assets/ui/field-flat.png"); }
+.markdown-body code { background: #eef0f4; }
+.markdown-body th { background: #f2f3f6; }
+
+/* The live room uses the approved illustrated whiteboard and round table. */
+#meeting-view { max-width: 1160px; }
+#meeting-room {
+  display: grid;
+  grid-template-columns: minmax(330px, 43%) minmax(400px, 1fr);
+  gap: 18px;
+  align-items: center;
+  padding: 10px 0 16px;
+}
+#meeting-whiteboard {
+  width: 100%;
+  aspect-ratio: 1.59;
+  overflow: hidden;
+  background: #f4f0e7 url("assets/ui/whiteboard.png") center / 100% 100% no-repeat;
+}
+.meeting-board-content { height: 100%; padding: 10% 8% 11%; overflow-y: auto; }
+.meeting-board-content h2 {
+  margin: 0 0 4px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #cbd0d5;
+  color: #293750;
+  font-size: 16px;
+}
+.meeting-board-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 5px;
+  padding: 6px 0;
+  border-bottom: 1px solid #d9dcdf;
+  font-size: 12px;
+}
+.meeting-board-row > span { color: #8d4e33; font-weight: 700; }
+.meeting-board-row > div {
+  margin: 0;
+  color: #293750;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  max-height: 4.4em;
+  overflow-y: auto;
+}
+.meeting-board-row .markdown-body :is(p, ul, ol) { margin: 0; }
+#circle-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 0;
+}
+#circle-stage {
+  width: min(100%, 560px);
+  height: auto;
+  aspect-ratio: 56 / 47;
+}
+#meeting-table {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 47%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  background: url("assets/ui/table-round.png") center / contain no-repeat;
+  z-index: 0;
+}
+#circle-chief {
+  position: static;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  width: auto;
+  min-height: 50px;
+  padding: 4px 10px;
+  transform: none;
+  border: 6px solid transparent;
+  border-image: url("assets/ui/panel-flat.png") 45 / 6px / 0 stretch;
+  border-radius: 0;
+  background: #fff;
+  margin-top: 14px;
+}
+#circle-chief img { width: 38px; height: 38px; border: 0; border-radius: 4px; }
+#circle-chief .seat-name, #circle-chief .seat-role { text-align: left; }
+.seat {
+  width: 91px;
+  min-height: 88px;
+  padding: 5px 4px;
+  border: 6px solid transparent !important;
+  border-image: url("assets/ui/panel-flat.png") 45 / 6px / 0 stretch !important;
+  border-radius: 0;
+  background: #fff;
+  z-index: 1;
+}
+.seat img {
+  width: 44px;
+  height: 44px;
+  border: 0 !important;
+  border-radius: 4px;
+  box-shadow: none !important;
+}
+.seat-name { margin-top: 3px; font-size: 11px; }
+.seat-role { font-size: 9px; color: #687489; }
+.seat-active-badge { color: #98583b; background: #f7eee8; border-radius: 2px; }
+.seat-thinking { color: #98583b; background: #f7eee8; border-radius: 2px; }
+.seat.speaking {
+  background: #faf1eb;
+  outline: 2px solid #b6724e;
+  outline-offset: -2px;
+  transform: translate(-50%, -50%);
+}
+.seat.speaking img { animation: none; }
+#circle-stage.discussion-active .seat:not(.speaking) { opacity: .75; filter: none; }
+.seat-stance.agree { background: #edf0f6; color: #34435e; }
+.seat-stance.disagree { background: #fbe8e6; color: #a83d36; }
+#conflict-svg { z-index: 0; }
+#mv-decision h3, #discussion-panel h2 { color: #293750; }
+.decision-callout, .thinking-banner, .community-progress {
+  border-color: #e4c8b8;
+  background: #faf2ed;
+  color: #824a32;
+}
+.decision-go { color: #824a32; }
+#discussion-panel { width: min(340px, 29vw); background: #fff; border-color: var(--border); }
+.msg:hover { background: #f5f6f8; }
+.msg .speaker { color: #293750; }
+.msg.human { background: #faf2ed; }
+.thinking-dots span { background: #b6724e; }
+.thinking-avatar-wrap img { animation: none; }
+
+/* Generated button artwork is used on all primary work actions. */
+.panel button:not(.project-tab), #new-meeting-form button, #composer button,
+#mv-controls button, #mv-decision button {
+  border: 6px solid transparent;
+  border-image: url("assets/ui/button-secondary-flat.png") 48 / 6px / 0 stretch;
+  border-radius: 0;
+  background: #fff;
+  color: #293750;
+}
+#nm-submit, #df-submit, #human-speak-btn, #commission-submit,
+#email-draft-create, #ask-all-btn, #pv-card-save {
+  border-image-source: url("assets/ui/button-primary-flat.png") !important;
+  background: #34435e !important;
+  color: #fff !important;
+}
+button:disabled { opacity: .48; }
+
+/* Keep the first meeting action reachable without a long setup form. */
+#new-meeting-form .guide-heading { margin-bottom: 14px; padding: 10px 16px; }
+#new-meeting-form .guide-bear { width: 72px; height: 90px; }
+#new-meeting-form .meeting-setup-fields { gap: 8px; }
+#new-meeting-form label { margin: 9px 0; }
+#new-meeting-form #nm-agenda { height: 132px; min-height: 132px; }
+#new-meeting-form .settings-card { margin: 12px 0; padding: 13px 16px; }
+
+@media (max-width: 1280px) {
+  #meeting-room { grid-template-columns: 1fr; }
+  #meeting-whiteboard { max-width: 640px; margin: 0 auto; }
+  #circle-stage { max-width: 560px; }
+}
+@media (max-width: 900px) {
+  #sidebar { width: 205px; }
+  #discussion-panel { width: 255px; }
+}
+@media (max-width: 700px) {
+  #sidebar { width: 100%; max-height: 230px; }
+  .sidebar-main-nav { display: block; }
+  .sidebar-nav-group { margin-top: 5px; padding-top: 7px; }
+  #discussion-panel { width: 100%; }
+  #meeting-room { grid-template-columns: 1fr; }
+}

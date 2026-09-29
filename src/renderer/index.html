@@ -2,19 +2,20 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' blob: data:; worker-src 'self';" />
   <title>Sikun Meeting</title>
   <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="refresh.css" />
+  <link rel="stylesheet" href="workspace.css" />
+  <link rel="stylesheet" href="pearl.css" />
 </head>
-<body>
+<body class="pearl-ui">
   <div id="app">
     <header id="topbar">
       <div class="topbar-left">
-        <img class="logo" src="assets/logo.png" alt="Sikun Meeting" />
+        <img class="logo" src="../icon.png" alt="Sikun Meeting" />
         <div>
           <div class="app-title">Sikun Meeting <span class="beta">Beta</span></div>
-          <div class="app-tagline">AIチームを率いる。未来を決める。</div>
+          <div class="app-tagline">会議・仕事・成果物</div>
         </div>
       </div>
       <div class="topbar-center">
@@ -23,49 +24,24 @@
       </div>
       <div class="topbar-right">
         <span id="tb-build" class="build-badge" title=""></span>
-        <span id="tb-elapsed" class="elapsed-badge hidden">⏱ <span id="tb-elapsed-value">00:00:00</span></span>
+        <span id="tb-elapsed" class="elapsed-badge hidden"><span id="tb-elapsed-value">00:00:00</span></span>
         <span id="tb-status" class="status-badge hidden"></span>
         <button id="topbar-toggle" class="topbar-toggle" type="button" title="ヘッダーを折りたたむ">︿</button>
       </div>
     </header>
 
     <div id="body-layout">
-      <aside id="sidebar" aria-label="ワークスペースと会議">
-        <section class="sidebar-workspace">
-          <h2>ワークスペース</h2>
-          <select id="project-select"></select>
-          <button id="project-new-btn" class="sidebar-quiet-action" type="button">＋ プロジェクトを作る</button>
-          <div id="project-new-form" class="hidden">
-            <input id="pj-name" type="text" placeholder="プロジェクト名" />
-            <input id="pj-desc" type="text" placeholder="説明（任意）" />
-            <div class="row">
-              <button id="pj-submit" type="button">作成</button>
-              <button id="pj-cancel" type="button" class="secondary">キャンセル</button>
-            </div>
-          </div>
-        </section>
+      <aside id="sidebar" aria-label="メインメニュー">
+  <div class="workspace-brand"><img src="../icon.png" alt="" /><strong>Sikun Meeting</strong></div>
+  <nav class="sidebar-main-nav">
+    <button id="commission-new-btn" class="nav-main" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L20 8l-4-4L4 16v4M14 6l4 4"/></svg><span>依頼</span></button>
+    <button id="workspace-meetings-btn" class="nav-main" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4V5"/></svg><span>会議</span></button>
+    <button id="workspace-files-btn" class="nav-main" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6V3M14 3v5h5M9 12h6M9 16h6"/></svg><span>成果物</span></button>
+    <button id="workspace-settings-btn" class="nav-main sidebar-settings-link" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg><span>設定</span></button>
 
-        <nav class="sidebar-main-nav" aria-label="メインメニュー">
-          <button id="home-open-btn" class="sidebar-nav-btn is-current" type="button"><span class="nav-icon">⌂</span><span>ホーム</span></button>
-          <button id="project-dashboard-btn" class="sidebar-nav-btn hidden" type="button"><span class="nav-icon">▦</span><span>プロジェクト</span></button>
-          <button id="community-open-btn" class="sidebar-nav-btn hidden" type="button"><span class="nav-icon">✳</span><span>AIコミュニティ</span></button>
-          <button id="mobile-open-btn" class="sidebar-nav-btn" type="button"><span class="nav-icon">▣</span><span>スマホ連携</span></button>
-        </nav>
-
-        <section class="sidebar-collection">
-          <h2>会議</h2>
-          <ul id="meeting-list"></ul>
-          <button id="new-meeting-btn" class="sidebar-create" type="button">＋ 新しい会議</button>
-        </section>
-
-        <section class="sidebar-collection">
-          <h2>AIチームの仕事</h2>
-          <ul id="commission-list" class="commission-sidebar-list"></ul>
-          <button id="commission-new-btn" class="sidebar-create" type="button">＋ 仕事を依頼</button>
-        </section>
-
-        <section id="sidebar-roster" class="hidden">
-          <h2>AI ROSTER</h2>
+  </nav>
+<details id="sidebar-roster" class="hidden">
+          <summary>参加者の管理</summary>
           <h3>ACTIVE <span id="active-count" class="count"></span></h3>
           <ul id="roster-active-list" class="roster-list"></ul>
           <h3>INACTIVE <span id="inactive-count" class="count"></span></h3>
@@ -74,7 +50,7 @@
             <select id="invite-persona-select"></select>
             <button id="invite-btn">招集</button>
           </div>
-        </section>
+        </details>
 
         <section id="sidebar-chief" class="hidden">
           <div class="chief-card">
@@ -88,9 +64,38 @@
       </aside>
 
       <main id="main">
+        <section id="workspace-meetings" class="panel hidden workspace-page" aria-labelledby="workspace-meetings-title">
+          <div class="workspace-page-heading"><h1 id="workspace-meetings-title">会議</h1><button id="new-meeting-btn" type="button">新しい会議</button></div>
+          <div class="workspace-meeting-columns"><section><h2>進行中・準備中</h2><ul id="meeting-list" class="workspace-meeting-list"></ul></section>
+          <section id="meeting-history-group" class="hidden"><h2>終了した会議</h2><ul id="meeting-history-list" class="workspace-meeting-list"></ul></section></div>
+        </section>
+        <section id="workspace-settings" class="panel hidden workspace-page" aria-labelledby="workspace-settings-title">
+          <div class="workspace-page-heading"><h1 id="workspace-settings-title">設定</h1></div>
+          <div class="workspace-settings-grid"><div class="workspace-settings-card">      <button id="home-open-btn" class="hidden" type="button">ホーム</button><section class="workspace-settings-project">
+          <h2>ワークスペース</h2><label for="project-select">使用するプロジェクト</label>
+          <select id="project-select"></select>
+          <button id="project-new-btn" class="sidebar-quiet-action" type="button">＋ プロジェクトを作る</button>
+          <div id="project-new-form" class="hidden">
+            <input id="pj-name" type="text" placeholder="プロジェクト名" />
+            <input id="pj-desc" type="text" placeholder="説明（任意）" />
+            <div class="row">
+              <button id="pj-submit" type="button">作成</button>
+              <button id="pj-cancel" type="button" class="secondary">キャンセル</button>
+            </div>
+          </div>
+        </section>
+
+<button id="project-dashboard-btn" class="sidebar-nav-btn hidden" type="button">プロジェクト</button>
+            <button id="community-open-btn" class="sidebar-nav-btn hidden" type="button">AIコミュニティ</button>
+
+
+</div>
+          <section class="workspace-settings-card"><h2>連携</h2><button id="mobile-open-btn" class="settings-destination secondary" type="button"><span>スマホ連携</span><span aria-hidden="true">→</span></button><p class="field-help">公開先と同期状況を確認します。</p></section></div>
+        </section>
+
         <div id="empty-state" class="home-dashboard">
           <div class="home-hero">
-            <div class="home-hero-copy"><span class="eyebrow">SIKUN MEETING · YOUR AI TEAM</span><h1>今日は何を進めますか？</h1><p>考えを整理し、決めたことを実際の仕事につなげます。やりたいことを一つ選んでください。</p></div>
+            <div class="home-hero-copy"><h1>今日は何を進めますか？</h1><p>会議で考えを整理するか、AIチームに仕事を依頼できます。</p></div>
             <img class="guide-bear home-hero-bear" src="assets/guide-bear.png" alt="案内役のくま" />
           </div>
           <div class="home-action-grid">
@@ -101,7 +106,7 @@
         </div>
 
         <div id="project-view" class="panel hidden">
-          <div class="section-intro"><img src="assets/guide-bear.png" alt="" /><div><span class="eyebrow">PROJECT SPACE</span><h2 id="pv-name"></h2><div id="pv-description" class="muted markdown-body"></div></div></div>
+          <div class="section-intro"><img src="assets/guide-bear.png" alt="" /><div><h2 id="pv-name"></h2><div id="pv-description" class="muted markdown-body"></div></div></div>
           <div class="project-tabs" role="tablist" aria-label="プロジェクトの内容">
             <button type="button" class="project-tab is-current" data-project-tab="tasks" role="tab" aria-selected="true" aria-controls="project-tab-tasks">やること</button>
             <button type="button" class="project-tab" data-project-tab="cards" role="tab" aria-selected="false" aria-controls="project-tab-cards">成果物カルテ</button>
@@ -250,26 +255,21 @@
           </div>
         </div>
 
-        <div id="commission-create" class="panel hidden commission-panel">
-          <div class="guide-heading"><img class="guide-bear" src="assets/guide-bear.png" alt="" /><div><span class="eyebrow">STEP 1 · 依頼</span><h2>作りたいものを教えてください</h2><p>短い説明から始められます。AIと企画を相談したあと、あなたが内容を確認してから作業が始まります。</p></div></div>
-          <p id="commission-create-error" class="commission-error hidden"></p>
-          <div class="settings-fields">
-          <label>作りたいもの <textarea id="commission-goal" rows="5" placeholder="例：Sikun Meetingをスマホでも使いやすくしたい。会議の確認と新しい依頼ができるようにしたい"></textarea><span class="field-help">誰が何をできるようになれば嬉しいか、普段の言葉で書いてください。</span></label>
-          <label>できあがったら確認したいこと <textarea id="commission-criteria" rows="3" placeholder="例：スマホで会議を開き、依頼を入力して送れる"></textarea><span class="field-help">短い一文で大丈夫です。ここに書いた内容を、納品前にAIが確認します。</span></label>
-          </div>
-          <details id="commission-advanced" class="settings-card"><summary>詳細設定</summary>
-            <p class="settings-intro">通常は推奨値のままで始められます。Claudeを使い、案件専用フォルダを作り、AI呼び出しは最大24回です。</p>
-            <div class="settings-fields">
-              <label>関連する成果物カルテ <select id="commission-card"><option value="">指定しない</option></select><span class="field-help">既存のアプリを改善する場合に選びます。</span></label>
-              <label>作業するフォルダ
+        <div id="workspace-library" class="panel hidden"><h1>成果物</h1></div>
+        <div id="commission-create" class="panel hidden request-start">
+          <div class="request-layout"><section class="request-main"><h1>新しい依頼</h1>
+            <p id="commission-create-error" role="alert" class="commission-error hidden"></p>
+            <div class="request-composer"><label for="commission-goal">依頼内容</label><textarea id="commission-goal" rows="4" maxlength="10000" placeholder="例：競合を調べて、比較資料を作ってほしい"></textarea>
+              <details id="commission-advanced" class="settings-card"><summary>詳細設定</summary>
+                <div class="request-settings-tabs" role="tablist" aria-label="依頼の詳細設定">
+                  <button id="request-tab-outcome" type="button" role="tab" aria-selected="true" aria-controls="request-settings-outcome" data-request-tab="outcome">完成条件</button>
+                  <button id="request-tab-engine" type="button" role="tab" aria-selected="false" aria-controls="request-settings-engine" data-request-tab="engine" tabindex="-1">AI・作業場所</button>
+                  <button id="request-tab-autonomy" type="button" role="tab" aria-selected="false" aria-controls="request-settings-autonomy" data-request-tab="autonomy" tabindex="-1">自動継続</button>
+                </div>
+                <section id="request-settings-outcome" class="request-settings-pane" role="tabpanel" aria-labelledby="request-tab-outcome"><div class="request-fields-grid">          <label>できあがったら確認したいこと（任意） <textarea id="commission-criteria" rows="3" placeholder="例：スマホで会議を開き、依頼を入力して送れる"></textarea><span class="field-help">未入力なら、依頼内容をもとにAIが完成を確認します。</span></label>              <label>関連する成果物カルテ <select id="commission-card"><option value="">指定しない</option></select><span class="field-help">既存のアプリを改善する場合に選びます。</span></label></div></section>
+                <section id="request-settings-engine" class="request-settings-pane hidden" role="tabpanel" aria-labelledby="request-tab-engine"><div class="request-fields-grid">              <label>AIの実行エンジン <select id="commission-provider"><option value="claude">Claude（推奨）</option><option value="codex">Codex</option></select></label>              <label>AIの最大呼び出し回数 <input id="commission-max-calls" type="number" min="1" max="200" value="24" /><span class="field-help">この回数に達すると案件を停止します。</span></label><div class="request-field-wide">              <label>作業するフォルダ
                 <div class="row"><input id="commission-dir" type="text" readonly placeholder="推奨：案件専用フォルダを自動作成" /><button id="commission-choose-dir" class="secondary" type="button">選択…</button></div>
-              </label>
-              <label>AIの実行エンジン <select id="commission-provider"><option value="claude">Claude（推奨）</option><option value="codex">Codex</option></select></label>
-            </div>
-            <section class="settings-subsection"><h3>利用上限</h3>
-              <label>AIの最大呼び出し回数 <input id="commission-max-calls" type="number" min="1" max="200" value="24" /><span class="field-help">この回数に達すると案件を停止します。</span></label>
-            </section>
-            <details class="settings-advanced"><summary>モデルを個別に指定する</summary>
+              </label></div></div>            <details class="settings-advanced"><summary>モデルを個別に指定する</summary>
             <div class="commission-settings-grid">
               <label class="claude-only">相談 <input id="commission-model-consultant" value="claude-sonnet-5" /></label>
               <label class="claude-only">計画・担当決定（重要） <input id="commission-model-planner" value="claude-opus-5-5" /></label>
@@ -281,9 +281,9 @@
               <label class="claude-only">1回の最大ターン数 <input id="commission-max-turns" type="number" min="1" max="100" value="12" /></label>
             </div>
             <label class="claude-only">役割別モデル（1行につき personaId=model）<textarea id="commission-model-by-persona" rows="3" placeholder="engineer=claude-sonnet-5&#10;qa=claude-haiku-4-5-20251001"></textarea></label>
-            </details>
-            <section id="commission-autonomy-settings" class="settings-subsection"><h3>自動で作業を続ける</h3>
-            <p class="field-help">企画をあなたが確定した後、失敗時の再試行やアプリ再起動後の再開を行います。</p>
+            </details></section>
+                <section id="request-settings-autonomy" class="request-settings-pane hidden" role="tabpanel" aria-labelledby="request-tab-autonomy">            <section id="commission-autonomy-settings" class="settings-subsection"><h3>自動で作業を続ける</h3>
+            <p class="field-help">企画が決まった後、失敗時の再試行やアプリ再起動後の再開を行います。</p>
             <label class="commission-check"><input id="commission-autonomy" type="checkbox" /> 作業の再試行と再開を有効にする</label>
             <label class="commission-check"><input id="commission-continuous" type="checkbox" /> カルテの数値目標を達成するまで改善を続ける</label>
             <p class="field-help">数値目標を設定した成果物カルテを選ぶ必要があります。</p>
@@ -295,43 +295,75 @@
               <label>失敗時に再試行する回数 <input id="commission-retry-limit" type="number" min="0" max="10" value="3" /></label>
             </div>
             </details>
-            </section>
-          </details>
-          <div class="row"><button id="commission-create-btn" type="button">ITコンサルタントと相談を始める</button><button id="commission-create-cancel" class="secondary" type="button">キャンセル</button></div>
+            </section></section>
+              </details>
+              <div class="composer-footer"><fieldset class="execution-mode"><legend>進め方</legend><label><input type="radio" name="execution-mode" value="automatic" checked />自動で進める</label><label><input type="radio" name="execution-mode" value="review" />途中で確認する</label></fieldset><button id="commission-create-btn" type="button">依頼を始める <span aria-hidden="true">→</span></button></div>
+              <p id="execution-mode-note" class="field-help hidden"></p>
+            </div>
+            <button id="commission-create-cancel" class="hidden" type="button">戻る</button>
+          </section><aside class="request-recent"><h2>進行中・確認待ち</h2><div id="workspace-active-jobs"></div><h2>最近の成果物</h2><div id="workspace-recent-files"></div></aside></div>
         </div>
 
         <div id="commission-view" class="panel hidden commission-panel">
-          <div class="commission-header"><div><span class="eyebrow">依頼内容</span><div id="commission-title" class="commission-goal markdown-body"></div><p id="commission-subtitle" class="muted"></p></div><span id="commission-status" class="status-badge"></span></div>
-          <p id="commission-error" class="commission-error hidden"></p>
+          <div class="commission-header"><div><button id="workspace-back" class="text-button" type="button">← 依頼一覧</button><div id="commission-title" class="commission-goal markdown-body"></div><p id="commission-subtitle" class="muted"></p></div><div class="workroom-controls"><span id="commission-status" class="status-badge"></span><div class="row"><button id="commission-pause-btn" class="secondary" type="button">一時停止</button><button id="commission-stop-btn" class="secondary" type="button">停止</button><button id="commission-resume-btn" class="secondary" type="button">再開</button></div></div></div>
+          <p id="commission-error" role="alert" class="commission-error hidden"></p>
+          <p id="commission-next" class="request-next" role="status" aria-live="polite"></p>
           <section id="commission-consult-section">
-            <div class="guide-heading guide-heading-small"><img class="guide-bear" src="assets/guide-bear.png" alt="" /><div><span class="eyebrow">STEP 2 · 相談</span><h3>企画を一緒に整えましょう</h3><p>回答を読んで気になる点を相談できます。内容に納得したら企画を確定してください。</p></div></div>
-            <div id="commission-chat" class="commission-chat"></div>
+            <h3 id="consult-heading">企画をつくっています</h3>
+            <button id="commission-retry-btn" class="secondary hidden" type="button">企画の作成を再試行</button>
+            <details class="consult-history"><summary>これまでの相談</summary><div id="commission-chat" class="commission-chat"></div></details>
             <div id="commission-consult-activity" class="commission-consult-activity hidden"><img src="assets/personas/default.png" alt="" /><div><strong>ITコンサルタントが企画を整理中</strong><span class="thinking-dots" aria-hidden="true"><span></span><span></span><span></span></span></div></div>
             <p id="commission-consult-status" class="consult-status" role="status" aria-live="polite"></p>
-            <label>追加で相談したいこと <textarea id="commission-message" rows="4" placeholder="例：スマホではどこまで操作できますか？"></textarea><span class="field-help">相談を送ると、回答がここに表示されます。</span></label>
-            <button id="commission-send-btn" type="button">相談する</button>
+            <div id="consult-review-controls"><details class="consult-history"><summary>企画について追加で相談する</summary><label>追加で相談したいこと <textarea id="commission-message" rows="4" placeholder="例：スマホではどこまで操作できますか？"></textarea><span class="field-help">相談を送ると、回答がここに表示されます。</span></label>
+            <button id="commission-send-btn" type="button">相談する</button></details>
             <label>この内容で進める企画 <textarea id="commission-plan" rows="8" placeholder="AIからの企画案がここに表示されます。必要なら書き直せます"></textarea><span class="field-help">ここで確定すると、AIチームの作業が始まります。</span></label>
-            <div id="commission-plan-preview" class="commission-preview hidden"><h4>企画の表示プレビュー</h4><div id="commission-plan-preview-body" class="markdown-body"></div></div>
-            <button id="commission-confirm-btn" type="button">この企画でAIチームに任せる</button>
+            <button id="commission-confirm-btn" type="button">この企画で作業を始める</button></div>
           </section>
           <section id="commission-progress-section" class="hidden">
-            <h3>AIチームの進行</h3>
-            <div class="row"><button id="commission-pause-btn" class="secondary" type="button">一時停止</button><button id="commission-stop-btn" class="secondary" type="button">停止</button><button id="commission-resume-btn" class="secondary" type="button">再開</button></div>
-            <div id="commission-live-stage" class="commission-live-stage"></div>
-            <div id="commission-team-strip" class="commission-team-strip"></div>
-            <div id="commission-work-list" class="commission-work-list"></div>
-            <h3>成果ファイルと内部判断</h3><div id="commission-artifacts" class="commission-work-list"></div>
-            <h3>目標の達成確認</h3><div id="commission-goal-checks" class="commission-work-list"></div>
-            <div id="commission-autonomy-section" class="hidden"><h3>無人運用と継続サイクル</h3><div id="commission-autonomy-info" class="commission-work-list"></div></div>
-            <h3>AI実行履歴・モデル</h3><div id="commission-runs" class="commission-events"></div>
-            <h3>活動記録</h3><div id="commission-events" class="commission-events"></div>
-            <h3>納品</h3><div id="commission-delivery" class="commission-delivery markdown-body"></div>
-            <div id="commission-revision-section" class="hidden"><label>修正・調整 <textarea id="commission-revision" rows="3" placeholder="直したい点を伝えてください"></textarea></label><button id="commission-revise-btn" type="button">修正を依頼する</button></div>
+            <ol id="workspace-stage-track" class="workspace-stage-track" aria-label="作業の進行"></ol>
+
+            <div class="workroom-layout">
+              <section class="artifact-surface workroom-content">
+                <div id="workroom-tabs" class="detail-tabs" role="tablist" aria-label="依頼の詳細">
+                  <button id="workroom-tab-files" type="button" role="tab" aria-controls="workroom-pane-files" aria-selected="true">成果物</button>
+                  <button id="workroom-tab-tasks" type="button" role="tab" aria-controls="workroom-pane-tasks" aria-selected="false" tabindex="-1">担当と作業</button>
+                  <button id="workroom-tab-activity" type="button" role="tab" aria-controls="workroom-pane-activity" aria-selected="false" tabindex="-1">活動記録</button>
+                  <button id="workroom-tab-checks" type="button" role="tab" aria-controls="workroom-pane-checks" aria-selected="false" tabindex="-1">確認結果</button>
+                  <button id="workroom-tab-ai" type="button" role="tab" aria-controls="workroom-pane-ai" aria-selected="false" tabindex="-1">AI詳細</button>
+                </div>
+                <div id="workroom-pane-files" class="workroom-pane" role="tabpanel" aria-labelledby="workroom-tab-files" tabindex="0">
+                <div class="artifact-heading"><h2 class="sr-only">成果物</h2><button id="workspace-reveal" class="secondary hidden" type="button">ファイルの場所を開く</button></div>
+                <div id="workspace-artifact-tabs" class="artifact-tabs" role="tablist" aria-label="成果ファイル"></div>
+                <div id="workspace-artifact-preview" class="artifact-preview" aria-live="polite"></div>
+                <details class="delivery-first hidden"><summary>完了報告</summary><div id="commission-delivery" class="commission-delivery markdown-body"></div></details>
+                <div id="commission-revision-section" class="hidden"><label>修正・調整 <textarea id="commission-revision" rows="3" placeholder="直したい点を伝えてください"></textarea></label><button id="commission-revise-btn" type="button">修正を依頼する</button></div>
+                </div>
+                <div id="workroom-pane-tasks" class="workroom-pane hidden" role="tabpanel" aria-labelledby="workroom-tab-tasks" tabindex="0">
+                  <div class="task-table-heading" aria-hidden="true"><span>作業</span><span>担当</span><span>状態</span><span></span></div>
+                  <div id="commission-work-list" class="commission-work-list"></div><p id="workroom-task-count" class="field-help"></p>
+                </div>
+                <div id="workroom-pane-activity" class="workroom-pane hidden" role="tabpanel" aria-labelledby="workroom-tab-activity" tabindex="0"><div id="commission-events" class="commission-events"></div></div>
+                <div id="workroom-pane-checks" class="workroom-pane hidden" role="tabpanel" aria-labelledby="workroom-tab-checks" tabindex="0">
+                  <h3>目標の達成確認</h3><div id="commission-goal-checks" class="commission-work-list"></div>
+                  <h3>成果ファイルと内部判断</h3><div id="commission-artifacts" class="commission-work-list"></div>
+                </div>
+                <div id="workroom-pane-ai" class="workroom-pane hidden" role="tabpanel" aria-labelledby="workroom-tab-ai" tabindex="0">
+                  <p id="commission-environment" class="muted"></p><h3>AI実行履歴・モデル</h3><div id="commission-runs" class="commission-events"></div>
+                  <div id="commission-autonomy-section" class="hidden"><h3>無人運用と継続サイクル</h3><div id="commission-autonomy-info" class="commission-work-list"></div></div>
+                </div>
+              </section>
+              <div class="workroom-side"><aside class="workroom-team"><h2>実行状況</h2><div id="commission-team-strip"></div><div id="commission-live-stage" class="commission-live-stage"></div></aside>
+              <section class="workroom-intervene"><div class="section-line"><h2>途中から参加</h2><button id="workroom-meetings" type="button" class="text-button">会議を見る</button></div>
+                <div class="intervention-actions"><button id="workspace-add-instruction" class="secondary" type="button">指示を追加</button><button id="workspace-check" class="secondary" type="button">確認を挟む</button></div>
+                <div id="workspace-instruction-form" class="hidden"><label for="workspace-instruction">追加の指示</label><textarea id="workspace-instruction" rows="4" maxlength="6000" placeholder="変更したい点を入力"></textarea><p class="field-help">送信時に作業を止め、指示を反映して再開します。</p><button id="workspace-send-instruction" type="button">反映して再開</button><button id="workspace-cancel-instruction" class="text-button" type="button">閉じる</button><p id="workspace-instruction-error" role="alert"></p></div>
+              </section></div>
+            </div>
+            <div class="recent-activity"><strong>最近の動き</strong><div id="workspace-recent-activity" aria-live="polite"></div><button id="workspace-show-history" type="button" class="text-button">活動記録を見る ›</button></div>
           </section>
         </div>
 
         <div id="new-meeting-form" class="panel hidden">
-          <div class="guide-heading"><img class="guide-bear" src="assets/guide-bear.png" alt="" /><div><span class="eyebrow">NEW MEETING</span><h2>専門家と話し合いましょう</h2><p>決めたいことを普段の言葉で書いてください。目的に合うAIを招集します。</p></div></div>
+          <div class="guide-heading"><img class="guide-bear" src="assets/guide-bear.png" alt="" /><div><h2>新しい会議</h2><p>決めたいことを普段の言葉で書いてください。目的に合うAIを招集します。</p></div></div>
           <div class="meeting-setup-fields">
             <label>会議の名前 <input id="nm-title" type="text" placeholder="例：次に作る機能を決める" /><span class="field-help">後から見つけやすい短い名前にします。</span></label>
             <label>話し合いたいこと
@@ -359,25 +391,35 @@
 
         <div id="meeting-view" class="hidden">
           <div id="mv-codebase" class="row">
-            <span class="small muted">🔍 コード解析対象:</span>
+            <span class="small muted">コード解析対象:</span>
             <span id="mv-codebase-path" class="small"></span>
             <button id="mv-codebase-change" class="secondary small-btn" type="button">変更…</button>
           </div>
 
-          <div id="circle-wrap">
-            <div id="circle-stage">
+          <div id="meeting-room">
+            <section id="meeting-whiteboard" aria-labelledby="meeting-whiteboard-title">
+              <div class="meeting-board-content">
+                <h2 id="meeting-whiteboard-title">ホワイトボード</h2>
+                <div class="meeting-board-row"><span>議題</span><div id="meeting-board-agenda" class="markdown-body"></div></div>
+                <div class="meeting-board-row"><span>進行</span><div id="meeting-board-progress"></div></div>
+                <div class="meeting-board-row"><span>決定</span><div id="meeting-board-decision" class="markdown-body"></div></div>
+              </div>
+            </section>
+            <div id="circle-wrap" aria-label="会議の参加者と机">
+              <div id="circle-stage">
+                <div id="meeting-table" aria-hidden="true"></div>
+              </div>
               <div id="circle-chief" title="最高開発者（あなた）">
                 <img src="assets/personas/chief.png" alt="" />
-                <div class="seat-name">あなた</div>
-                <div class="seat-role">最終意思決定者</div>
+                <div><div class="seat-name">あなた</div><div class="seat-role">最終意思決定者</div></div>
               </div>
             </div>
           </div>
 
           <div id="mv-controls">
             <div class="control-row">
-              <button id="rebuttal-btn" class="secondary">🔁 反論ラウンド</button>
-              <button id="analyze-code-btn" class="secondary" title="コード解析対象ディレクトリを実際に読み、専門家に解析・説明してもらいます">🔎 コードを解析して説明してもらう</button>
+              <button id="rebuttal-btn" class="secondary">反論ラウンド</button>
+              <button id="analyze-code-btn" class="secondary" title="コード解析対象ディレクトリを実際に読み、専門家に解析・説明してもらいます">コードを解析して説明してもらう</button>
             </div>
           </div>
 
@@ -400,7 +442,7 @@
               <div id="minutes-toolbar">
                 <span class="small muted">議事録は発言ログ・決定内容から自動生成される記録です（編集不可）</span>
                 <span class="spacer"></span>
-                <button id="minutes-download-btn" class="secondary small-btn">⬇️ ダウンロード</button>
+                <button id="minutes-download-btn" class="secondary small-btn">ダウンロード</button>
               </div>
               <div id="minutes-view" class="markdown-body"></div>
             </div>
@@ -411,7 +453,7 @@
       <aside id="discussion-panel">
         <div id="discussion-panel-header">
           <h2>みんなの発言</h2>
-          <button id="discussion-expand-btn" type="button" title="フル画面で表示">⛶ フル画面</button>
+          <button id="discussion-expand-btn" type="button" title="フル画面で表示">広く表示</button>
         </div>
         <div id="transcript-list"></div>
         <p id="transcript-empty" class="muted small">まだ発言はありません。</p>
@@ -423,7 +465,7 @@
         </div>
 
         <div id="composer">
-          <button id="ask-all-btn" class="composer-broadcast">🔔 全員に発言を求める</button>
+          <button id="ask-all-btn" class="composer-broadcast">全員に発言を求める</button>
           <div class="composer-row">
             <select id="ask-specific-select"></select>
             <input id="ask-specific-question" type="text" placeholder="このAIに直接質問する内容" />
@@ -431,7 +473,7 @@
           </div>
           <div class="composer-row">
             <input id="human-speak-input" type="text" placeholder="最高開発者として発言する" />
-            <button id="human-speak-btn">🎤 発言する</button>
+            <button id="human-speak-btn">発言する</button>
           </div>
         </div>
       </aside>
@@ -444,7 +486,11 @@
   <script src="sanitize.js"></script>
   <script src="renderer.js"></script>
   <script src="commission.js"></script>
+  <script type="module" src="pdf-loader.mjs"></script>
+  <script src="artifact-viewer.js"></script>
+  <script src="workspace.js"></script>
   <script src="community.js"></script>
   <script src="mobile.js"></script>
+  <script src="pearl.js"></script>
 </body>
 </html>

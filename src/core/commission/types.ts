@@ -20,6 +20,7 @@ export interface AutonomySettings {
 }
 
 export interface CommissionSettings {
+  executionMode: 'automatic' | 'review';
   provider: CommissionProvider;
   codexModel: string;
   consultantModel: string;
@@ -125,6 +126,7 @@ export interface ActivityEvent {
 }
 
 export interface Commission {
+  referenceFiles?: string[];
   id: string;
   projectId: string;
   artifactCardId?: string;

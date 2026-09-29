@@ -24,21 +24,24 @@
   };
 
   function show(id) {
-    for (const panel of ['empty-state', 'new-meeting-form', 'meeting-view', 'project-view', 'commission-create', 'commission-view', 'community-view', 'mobile-view']) {
+    for (const panel of ['workspace-meetings', 'workspace-settings', 'workspace-library', 'empty-state', 'new-meeting-form', 'meeting-view', 'project-view', 'commission-create', 'commission-view', 'community-view', 'mobile-view']) {
       el(panel).classList.add('hidden');
     }
     document.body.classList.remove('community-active', 'project-active');
+    el('tb-status').classList.add('hidden');
+    el('tb-elapsed').classList.add('hidden');
     document.body.classList.toggle('commission-active', id.startsWith('commission-'));
     if (id.startsWith('commission-')) {
-      el('tb-title').textContent = 'AIチームへの委託';
+      el('tb-title').textContent = id === 'commission-create' ? 'ワークスペース' : '依頼した仕事';
       el('tb-agenda').textContent = '';
     }
     el(id).classList.remove('hidden');
+    el('main').scrollTop = 0;
   }
 
   function setBusy(value) {
     busy = value;
-    for (const id of ['commission-create-btn', 'commission-send-btn', 'commission-confirm-btn', 'commission-pause-btn', 'commission-stop-btn', 'commission-resume-btn', 'commission-revise-btn']) {
+    for (const id of ['commission-create-btn', 'commission-send-btn', 'commission-confirm-btn', 'commission-pause-btn', 'commission-stop-btn', 'commission-resume-btn', 'commission-revise-btn', 'commission-retry-btn']) {
       el(id).disabled = value;
     }
   }
@@ -83,20 +86,8 @@
   }
 
   async function refreshList() {
-    const list = el('commission-list');
     const commissions = await api.commissions.list();
-    list.replaceChildren();
-    for (const item of commissions) {
-      const li = document.createElement('li');
-      li.className = item.id === selectedId ? 'active' : '';
-      const title = document.createElement('span');
-      title.textContent = item.goal.length > 36 ? `${item.goal.slice(0, 36)}…` : item.goal;
-      const status = document.createElement('small');
-      status.textContent = statusLabels[item.status] || item.status;
-      li.append(title, status);
-      li.addEventListener('click', () => { void openCommission(item.id); });
-      list.appendChild(li);
-    }
+    window.dispatchEvent(new CustomEvent('workspace:list', { detail: commissions }));
   }
 
   function addTextRow(parent, className, title, body) {
@@ -226,22 +217,24 @@
   }
 
   function renderWorkCard(parent, work, runs) {
-    const card = document.createElement('article');
+    const card = document.createElement('details');
     card.className = `commission-work commission-task status-${work.status}`;
-    const header = document.createElement('div');
+    card.dataset.workId = work.id;
+    const header = document.createElement('summary');
     header.className = 'commission-task-header';
-    header.appendChild(avatarFor(work.ownerPersonaId, 'commission-task-avatar'));
     const title = document.createElement('div');
     title.className = 'commission-task-title';
     const name = document.createElement('strong');
     name.textContent = work.title;
     const owner = document.createElement('span');
-    owner.textContent = `${personaName(work.ownerPersonaId)}が担当`;
-    title.append(name, owner);
+    owner.className = 'task-owner';
+    owner.append(avatarFor(work.ownerPersonaId, 'commission-task-avatar'),document.createTextNode(personaName(work.ownerPersonaId)));
+    title.append(name);
     const status = document.createElement('span');
     status.className = 'commission-task-status';
     status.textContent = workLabels[work.status] || work.status;
-    header.append(title, status);
+    const chevron=document.createElement('span');chevron.className='task-chevron';chevron.textContent='›';chevron.setAttribute('aria-hidden','true');
+    header.append(title, owner, status, chevron);
     const meta = document.createElement('div');
     meta.className = 'commission-task-meta';
     const reviewerActive = runs.some((run) => run.workItemId === work.id && run.phase === 'review' && run.status === 'running');
@@ -257,23 +250,28 @@
     parent.appendChild(card);
   }
 
-  function renderPlanPreview() {
-    const value = el('commission-plan').value.trim();
-    el('commission-plan-preview').classList.toggle('hidden', !value);
-    el('commission-plan-preview-body').innerHTML = value ? window.renderMarkdownSafe(value) : '';
-  }
 
   function render(snapshot) {
     const { commission: item, events } = snapshot;
     if (item.id !== selectedId) return;
     el('commission-title').innerHTML = window.renderMarkdownSafe(item.goal);
     const autonomy = item.settings?.autonomy;
-    el('commission-subtitle').textContent = `${item.settings?.provider === 'codex' ? 'Codex' : 'Claude'}${autonomy?.enabled ? ` · 無人運用${autonomy.continuous ? '（KGIまで継続）' : ''}` : ''} · 作業場所: ${item.workingDirectory}`;
+    el('commission-environment').textContent = `${item.settings?.provider === 'codex' ? 'Codex' : 'Claude'}${autonomy?.enabled ? ` · 無人運用${autonomy.continuous ? '（KGIまで継続）' : ''}` : ''} · 作業場所: ${item.workingDirectory}`;
+    el('commission-subtitle').textContent = `${item.settings?.executionMode === 'automatic' ? 'おまかせで進行' : '企画を確認して進行'} · ${item.workItems.length ? `${item.workItems.filter((work) => work.status === 'accepted').length} / ${item.workItems.length} 件完了` : '企画を準備'}`;
     const retryPending = item.status === 'failed' && Boolean(item.autoRetry?.nextAt);
     el('commission-status').textContent = retryPending ? '自動再試行待ち' : (statusLabels[item.status] || item.status);
     el('commission-status').className = `status-badge commission-status-${item.status}`;
-    if (item.error) showError(item.error);
+    showError(item.error || '');
     const consulting = item.status === 'consulting';
+    const automatic = item.settings?.executionMode === 'automatic';
+    const activeRun = item.runs.find((run) => run.status === 'running');
+    const failedConsult = consulting && !activeRun && (Boolean(item.error) || item.runs.at(-1)?.status === 'interrupted');
+    el('consult-review-controls').classList.toggle('hidden', automatic);
+    el('commission-retry-btn').classList.toggle('hidden', !failedConsult);
+    el('consult-heading').textContent = automatic ? 'AIが企画をまとめます' : '企画を確認する';
+    el('commission-next').textContent = failedConsult ? '企画の作成が止まっています。再試行できます。' : consulting ? (activeRun ? 'AIが企画をつくっています。' : automatic ? '企画ができたら、そのまま作業を始めます。' : '企画を確認して「この企画で作業を始める」を押してください。') : item.status === 'delivered' ? '完成しました。成果を確認し、必要なら修正を依頼できます。' : item.status === 'running' ? 'AIチームが作業と確認を進めています。必要なときに一時停止できます。' : '作業は止まっています。内容を確認して再開できます。';
+    if (consulting && automatic) el('commission-status').textContent = failedConsult ? '再試行できます' : '企画を作成中';
+    document.querySelector('.delivery-first').classList.toggle('hidden', !item.delivery);
     el('commission-consult-section').classList.toggle('hidden', !consulting);
     el('commission-progress-section').classList.toggle('hidden', consulting);
     el('commission-pause-btn').classList.toggle('hidden', item.status !== 'running');
@@ -290,12 +288,12 @@
     el('commission-plan').disabled = consultationRunning || !hasConsultantAnswer;
     el('commission-confirm-btn').disabled = busy || consultationRunning || !hasConsultantAnswer;
     el('commission-consult-status').textContent = consultationRunning
-      ? `ITコンサルタントが回答を作成中です（経過 ${elapsedLabel}）。この画面を開いたままお待ちください。完了すると下の企画を確認できます。`
+      ? `ITコンサルタントが回答を作成中です（経過 ${elapsedLabel}）。他の画面に移動しても、処理は続きます。`
       : busy && !hasConsultantAnswer ? '相談を開始しています…'
         : !hasConsultantAnswer ? 'まだ回答がありません。「相談する」から再度依頼できます。' : '';
     el('commission-consult-activity').classList.toggle('hidden', !consultationRunning);
     if (!planEdited) el('commission-plan').value = item.planText || '';
-    renderPlanPreview();
+
 
     const chat = el('commission-chat');
     chat.replaceChildren();
@@ -319,10 +317,12 @@
     }
     renderLiveStage(item, events);
     const workList = el('commission-work-list');
+    const expandedWork=new Set([...workList.querySelectorAll('details[open]')].map(card=>card.dataset.workId));
     workList.replaceChildren();
     for (const work of item.workItems) {
       renderWorkCard(workList, work, item.runs);
     }
+    for(const card of workList.querySelectorAll('details'))card.open=expandedWork.has(card.dataset.workId);
     const artifacts = el('commission-artifacts');
     artifacts.replaceChildren();
     for (const artifact of item.artifacts || []) {
@@ -339,7 +339,7 @@
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'secondary small-btn';
-        button.textContent = `📂 ${artifact.relativePath}`;
+        button.textContent = artifact.relativePath;
         button.addEventListener('click', () => action(() => api.commissions.openArtifact(item.id, artifact.id)));
         row.appendChild(button);
       }
@@ -371,7 +371,7 @@
       if (Number.isFinite(run.toolCalls)) usage.push(`ツール操作 ${count(run.toolCalls)} 回`);
       addPersonaRow(runs, 'commission-event', run.personaId,
         `${personaName(run.personaId)} · ${phaseLabels[run.phase] || run.phase} · ${run.status}`,
-        `要求モデル ${run.requestedModel} / 応答モデル ${run.effectiveModel || '未確認'} / 使用モデル ${run.observedModels.join(', ') || '未確認'}\n${steps} / ${usage.join(' / ')}`);
+        `要求モデル ${run.requestedModel} / 応答モデル ${run.effectiveModel || '未確認'} / 使用モデル ${run.observedModels.join(', ') || '未確認'}\n${steps} / ${usage.join(' / ')}\n適用スキル: ${run.appliedSkills?.length ? run.appliedSkills.map(skill => skill.id + ' v' + skill.version).join('、') : '記録なし（旧実行または適用対象外）'}`);
     }
     const eventList = el('commission-events');
     eventList.replaceChildren();
@@ -396,7 +396,8 @@
       row.append(image, body);
       eventList.appendChild(row);
     }
-    el('commission-delivery').innerHTML = window.renderMarkdownSafe(item.delivery || (item.status === 'delivered' ? '納品レポートがありません' : '作業完了後に表示されます。'));
+    el('commission-delivery').innerHTML = window.renderMarkdownSafe(item.delivery || '');
+    window.dispatchEvent(new CustomEvent('workspace:render', { detail: snapshot }));
   }
 
   function renderAutonomy(item) {
@@ -445,8 +446,9 @@
     if (!selectedId || refreshPending) return;
     refreshPending = true;
     try {
-      const [snapshot] = await Promise.all([api.commissions.get(selectedId), refreshList()]);
-      render(snapshot);
+      const id = selectedId;
+      const [snapshot] = await Promise.all([api.commissions.get(id), refreshList()]);
+      if (selectedId === id) render(snapshot);
     } catch (error) {
       showError(error.message || String(error));
     } finally {
@@ -466,14 +468,16 @@
     if (busy) return;
     setBusy(true);
     showError('');
+    let failure = '';
     try { await fn(); }
-    catch (error) { showError(error.message || String(error)); }
-    finally { setBusy(false); await refresh(); }
+    catch (error) { failure = error.message || String(error); }
+    finally { setBusy(false); await refresh(); if (failure) showError(failure); }
   }
 
-  el('commission-new-btn').addEventListener('click', async () => {
-    selectedId = null;
-    el('commission-goal').value = '';
+  function resetRequestFields() {
+    document.querySelector('input[name="execution-mode"][value="automatic"]').checked = true;
+    el('commission-create-btn').textContent = '依頼する';
+    el('execution-mode-note').classList.add('hidden');
     el('commission-criteria').value = '';
     el('commission-dir').value = '';
     el('commission-provider').value = 'claude';
@@ -488,16 +492,24 @@
     el('commission-continuous').checked = false;
     el('commission-advanced').open = false;
     for (const details of el('commission-advanced').querySelectorAll('details')) details.open = false;
+    window.dispatchEvent(new Event('request:reset'));
     updateProviderFields();
     updateAutonomyFields();
+  }
+
+  el('commission-new-btn').addEventListener('click', async () => {
+    selectedId = null;
+    showError('');
+    show('commission-create');
     const select = el('commission-card');
+    const selectedCard = select.value;
     select.replaceChildren(new Option('指定しない', ''));
     const projectId = el('project-select').value;
     if (projectId) {
       const project = await api.projects.get(projectId);
       for (const card of project.artifactCards || []) select.add(new Option(card.name, card.id));
     }
-    show('commission-create');
+    if ([...select.options].some(option => option.value === selectedCard)) select.value = selectedCard;
     void refreshList();
   });
   el('commission-create-cancel').addEventListener('click', () => {
@@ -518,11 +530,12 @@
   updateAutonomyFields();
   el('commission-create-btn').addEventListener('click', () => action(async () => {
     const goal = el('commission-goal').value.trim();
-    if (!goal) throw new Error('目標を入力してください');
+    if (!goal) { el('commission-goal').focus(); throw new Error('依頼内容を入力してください'); }
     const successCriteria = el('commission-criteria').value.trim();
-    if (!successCriteria) throw new Error('できあがったら確認したいことを入力してください');
+
     const projectId = await ensureProject();
     const settings = {
+      executionMode: document.querySelector('input[name="execution-mode"]:checked').value,
       provider: el('commission-provider').value,
       codexModel: el('commission-model-codex').value.trim(),
       consultantModel: el('commission-model-consultant').value.trim(),
@@ -537,13 +550,25 @@
       autonomy: autonomySettings(),
     };
     const item = await api.commissions.create({ projectId, goal,
-      successCriteria,
+      successCriteria: successCriteria || goal,
       artifactCardId: el('commission-card').value || undefined,
-      workingDirectory: el('commission-dir').value || undefined, settings });
+      workingDirectory: el('commission-dir').value || undefined, referenceFiles: window.requestReferenceFiles || [], settings });
+    window.dispatchEvent(new Event('request:submitted'));
+    el('commission-goal').value = '';
+    resetRequestFields();
     await openCommission(item.id);
     await api.commissions.consult(item.id, goal);
   }));
-  el('commission-plan').addEventListener('input', () => { planEdited = true; renderPlanPreview(); });
+  el('commission-retry-btn').addEventListener('click', () => action(async () => { const {commission} = await api.commissions.get(selectedId); await api.commissions.consult(selectedId, commission.consultation.filter((entry) => entry.speaker === 'human').at(-1)?.content || commission.goal); }));
+  document.querySelectorAll('[data-example]').forEach((button) => button.addEventListener('click', () => { el('commission-goal').value = button.dataset.example; el('commission-goal').focus(); }));
+  document.querySelectorAll('input[name="execution-mode"]').forEach((input) => input.addEventListener('change', () => {
+    const automatic = document.querySelector('input[name="execution-mode"]:checked').value === 'automatic';
+    el('commission-create-btn').textContent = '依頼する';
+    el('execution-mode-note').classList.toggle('hidden', automatic);
+    el('execution-mode-note').textContent = automatic ? '途中で一時停止できます。完成後の修正も、ひとこと伝えるだけ。' : 'あなたが企画を確認するまで、作業は始まりません。';
+  }));
+  window.addEventListener('commission:leave', () => { selectedId = null; });
+  el('commission-plan').addEventListener('input', () => { planEdited = true; });
   el('commission-send-btn').addEventListener('click', () => action(async () => {
     const message = el('commission-message').value.trim();
     if (!message) throw new Error('相談内容を入力してください');
@@ -580,4 +605,6 @@
     if (selectedId) void refresh();
   }).catch(() => undefined);
   void refreshList();
+  window.commissionUIReady = true;
+  window.dispatchEvent(new Event('commission:ready'));
 })();
