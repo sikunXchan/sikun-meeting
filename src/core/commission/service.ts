@@ -446,6 +446,7 @@ export class CommissionService {
         tools,
         readableDirectories: [...new Set(referencePaths.map(file => path.dirname(file)))],
         reviewFile,
+        sourcesFile: path.join(this.dataDir, 'commission-sources', `${id}.json`),
         maxTurns: snapshot.settings.maxTurnsPerCall,
         abortSignal: signal,
         onTool: (detail) => this.event(id, 'tool', detail, run.id),

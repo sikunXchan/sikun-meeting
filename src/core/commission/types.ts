@@ -213,6 +213,8 @@ export interface AgentRequest {
   readableDirectories?: string[];
   /** 確認段階で受け入れ条件の判定を記録するファイル（アプリのデータ領域）。 */
   reviewFile?: string;
+  /** 出典の記録先（案件ごと、アプリのデータ領域）。 */
+  sourcesFile?: string;
   maxTurns: number;
   abortSignal: AbortSignal;
   onTool?: (detail: string) => void | Promise<void>;

@@ -10,7 +10,7 @@ const MAX_ACTIONS = 80;
 const EXTENSIONS = new Set(['.html', '.htm', '.css', '.js', '.mjs', '.json', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.woff', '.woff2']);
 const MIME: Record<string, string> = { '.html': 'text/html', '.htm': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2' };
 
-function browserExecutable(): string | undefined {
+export function browserExecutable(): string | undefined {
   const choices = process.platform === 'win32'
     ? [process.env.PROGRAMFILES && path.join(process.env.PROGRAMFILES, 'Google/Chrome/Application/chrome.exe'), process.env['PROGRAMFILES(X86)'] && path.join(process.env['PROGRAMFILES(X86)'], 'Microsoft/Edge/Application/msedge.exe'), process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Google/Chrome/Application/chrome.exe')]
     : process.platform === 'darwin'
@@ -263,6 +263,37 @@ export class BrowserReviewSession {
       sendJson(response, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
     }
   }
+
+  // ---- 同梱MCPの検証ツール用。AIが書いたスクリプトは受け取らず、アプリが用意した処理だけを実行する。 ----
+
+  async setViewport(width: number, height: number): Promise<void> {
+    if (!Number.isInteger(width) || !Number.isInteger(height) || width < 320 || width > 2560 || height < 240 || height > 4000) throw new Error('画面サイズは幅320〜2560、高さ240〜4000にしてください');
+    // mobile: true だとChromeが内容幅に合わせて表示領域を広げ、はみ出しが隠れるため使わない。
+    await this.devtools!.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
+    this.trace.push(`viewport ${width}x${height}`);
+  }
+
+  async openPage(relative: string): Promise<unknown> { return this.navigate(relative); }
+
+  /** 表示中のページを画像にする。全体表示は高さ8000pxまで。 */
+  async screenshot(fullPage: boolean): Promise<{ data: string; mimeType: string; width: number; height: number; clipped: boolean }> {
+    const metrics = await this.devtools!.send('Page.getLayoutMetrics');
+    const viewport = metrics.cssLayoutViewport ?? { clientWidth: 1280, clientHeight: 800 };
+    const content = metrics.cssContentSize ?? { width: viewport.clientWidth, height: viewport.clientHeight };
+    const width = Math.ceil(viewport.clientWidth);
+    const fullHeight = Math.ceil(content.height);
+    const height = fullPage ? Math.min(fullHeight, 8000) : Math.ceil(viewport.clientHeight);
+    const format = fullPage && height > 2000 ? 'jpeg' : 'png';
+    const shot = await this.devtools!.send('Page.captureScreenshot', {
+      format, ...(format === 'jpeg' ? { quality: 70 } : {}), captureBeyondViewport: fullPage,
+      clip: { x: 0, y: 0, width, height, scale: 1 },
+    });
+    this.trace.push(`screenshot ${width}x${height}`);
+    return { data: shot.data, mimeType: `image/${format}`, width, height, clipped: fullPage && fullHeight > height };
+  }
+
+  /** アプリ同梱の検査スクリプト（axe-core・レイアウト検査）だけを実行する。 */
+  async runTrustedScript(expression: string): Promise<any> { return this.evaluate(expression); }
 
   async close(): Promise<void> {
     this.devtools?.close();

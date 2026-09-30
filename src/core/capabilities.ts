@@ -24,8 +24,8 @@ export function canResearchWeb(personaId: string, phase: string): boolean {
  * 同梱MCPの検証ツール（計算・表・確認記録）の事前許可名。全部門に同じものを渡す。
  * ファイル書き込み（確認記録を除く）・コマンド・外部通信を持たないため、部門の権限境界は広がらない。
  */
-export function verificationToolsFor(phase: string): string[] {
-  return toolNamesFor(phase);
+export function verificationToolsFor(phase: string, personaId = ''): string[] {
+  return toolNamesFor(phase, personaId);
 }
 const STRONG = 'claude-opus-5-5';
 const STANDARD = 'claude-sonnet-5';

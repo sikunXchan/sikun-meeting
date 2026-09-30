@@ -59,7 +59,7 @@ test('Web-enabled roles do not pre-approve reads outside the workspace and refer
   assert.equal(preapprovedTools(tools).includes('Read'),!web,p.id+' '+phase);
  }
  await client.run({provider:'claude',phase:'work',personaId:'engineer',prompt:'x',workingDirectory:process.cwd(),model:'test',tools:'full',maxTurns:1,abortSignal:new AbortController().signal});
- assert.deepEqual(seen.at(-1).options.allowedTools,[...approvedTools('engineer','work'),...verificationToolsFor('work')]);assert.equal(seen.at(-1).options.additionalDirectories,undefined);
+ assert.deepEqual(seen.at(-1).options.allowedTools,[...approvedTools('engineer','work'),...verificationToolsFor('work','engineer')]);assert.equal(seen.at(-1).options.additionalDirectories,undefined);
 });
 test('Reference folder is passed as the only extra readable directory',async t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'sikun-role-refs-'));

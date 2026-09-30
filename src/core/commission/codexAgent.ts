@@ -30,7 +30,7 @@ export function codexThreadOptions(request: Pick<AgentRequest, 'personaId' | 'to
 }
 const importCodex = new Function('return import("@openai/codex-sdk")') as () => Promise<CodexModule>;
 
-export function codexOptionsForPhase(phase: AgentRequest['phase'], codexPathOverride?: string, tools?: Pick<AgentRequest, 'workingDirectory' | 'readableDirectories' | 'reviewFile'>): CodexOptions {
+export function codexOptionsForPhase(phase: AgentRequest['phase'], codexPathOverride?: string, tools?: Pick<AgentRequest, 'workingDirectory' | 'readableDirectories' | 'reviewFile' | 'sourcesFile'> & { personaId?: string }): CodexOptions {
   const textOnly = phase === 'consultation' || phase === 'planning' || phase === 'delivery';
   // 同梱の検証ツールはClaudeと同じstdio MCPサーバーを config.toml の mcp_servers として渡す。
   const mcpServers = tools ? codexToolServers({ phase, ...tools }) : undefined;
@@ -87,7 +87,7 @@ export class CodexAgentClient implements AgentClient {
           : request.phase === 'consultation'
             ? 'この段階は企画相談です。発注者の意図から短い企画案を返してください。ファイル調査やツール実行は行わず、既存機能で未確認の点は未確認と明記してください。質問は最大2件に絞り、コードの事実確認・実装・テストは企画確定後に行います。'
             : '必要なファイルだけを読み、.venv、node_modulesなどの依存ディレクトリは探索しないでください。';
-      const prompt = `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}${skillPromptFor(persona.id, request.phase)}\n選択した進め方に従って採用された企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。${verificationGuide(request.phase)}\n${request.tools === 'read' ? 'この段階ではファイルを変更しないでください。' : '実際に必要な作業を行ってください。'}\n${restricted}${phaseInstruction}\n\n${request.prompt}`;
+      const prompt = `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}${skillPromptFor(persona.id, request.phase)}\n選択した進め方に従って採用された企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。${verificationGuide(request.phase, request.personaId)}\n${request.tools === 'read' ? 'この段階ではファイルを変更しないでください。' : '実際に必要な作業を行ってください。'}\n${restricted}${phaseInstruction}\n\n${request.prompt}`;
       const execute = async (): Promise<void> => {
         const turn = await thread.runStreamed(prompt, { signal: controller.signal });
         for await (const event of turn.events as AsyncGenerator<ThreadEvent>) {

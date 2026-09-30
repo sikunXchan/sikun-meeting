@@ -123,7 +123,7 @@ test('stdio server speaks MCP JSON-RPC and exposes only the requested groups',as
  const outside=await client.callTool({name:'read_table',arguments:{file:'/etc/passwd'}});
  assert.equal(outside.isError,true);
  const workLaunch=toolServerLaunch({phase:'work',workingDirectory:work});
- assert.deepEqual(workLaunch.args.slice(1),['--groups','calc,data']);assert.equal(workLaunch.env.SIKUN_REVIEW_FILE,undefined);
+ assert.deepEqual(workLaunch.args.slice(1),['--groups','calc,data,docs']);assert.equal(workLaunch.env.SIKUN_REVIEW_FILE,undefined);
  assert.equal(toolServerLaunch({phase:'planning',workingDirectory:work}),undefined);
 });
 
@@ -147,7 +147,7 @@ test('the server survives malformed input and answers in order over real stdio',
 test('Codex receives the same stdio server through config.mcp_servers',()=>{
  const options=codexOptionsForPhase('review',undefined,{workingDirectory:'/w',readableDirectories:['/r'],reviewFile:'/d/c.json'});
  const server=options.config.mcp_servers.sikun;
- assert.equal(server.command,process.execPath);assert.deepEqual(server.args.slice(1),['--groups','calc,data,review']);
+ assert.equal(server.command,process.execPath);assert.deepEqual(server.args.slice(1),['--groups','calc,data,docs,browser,review']);
  assert.equal(server.env.SIKUN_WORKDIR,'/w');assert.equal(server.env.SIKUN_REVIEW_FILE,'/d/c.json');
  assert.equal(codexOptionsForPhase('work',undefined,{workingDirectory:'/w'}).config.mcp_servers.sikun.env.SIKUN_REVIEW_FILE,undefined);
  assert.equal(codexOptionsForPhase('planning',undefined,{workingDirectory:'/w'}).config.mcp_servers,undefined,'文章だけの段階はツールなし');

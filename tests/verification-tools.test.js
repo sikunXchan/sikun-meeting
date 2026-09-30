@@ -68,20 +68,27 @@ test('read_table reads csv/tsv/xlsx inside allowed folders only and totals numer
  const limited=await readTable('cost.csv',work,[],{maxRows:2});assert.equal(limited.truncated,true);assert.equal(limited.rows.length,2);
 });
 
-test('every role gets the same verification tools only in work, review and goal checks',async t=>{
- const names=group=>TOOL_GROUPS[group].map(tool=>'mcp__sikun__'+tool.name);
- assert.equal(names('calc').length+names('data').length+names('review').length,16);
- assert.deepEqual(verificationToolsFor('work'),[...names('calc'),...names('data')],'作業では確認記録を渡さない');
- for(const phase of ['review','goal_check','kgi_check'])assert.deepEqual(verificationToolsFor(phase),[...names('calc'),...names('data'),...names('review')]);
- for(const phase of ['meeting','consultation','planning','delivery'])assert.deepEqual(verificationToolsFor(phase),[]);
- assert.deepEqual(verificationToolsFor('work'),toolNamesFor('work'));
+test('verification tools depend on phase and role, and only work and review phases get them',async t=>{
+ const names=(...groups)=>groups.flatMap(group=>TOOL_GROUPS[group].map(tool=>'mcp__sikun__'+tool.name));
+ assert.equal(Object.values(TOOL_GROUPS).flat().length,40);
+ assert.deepEqual(verificationToolsFor('work','finance'),names('calc','data','docs'),'作業では確認記録を渡さない');
+ assert.deepEqual(verificationToolsFor('review','finance'),names('calc','data','docs','browser','review'),'確認役は画面の検査と確認記録を使える');
+ assert.deepEqual(verificationToolsFor('work','designer'),names('calc','data','docs','design','browser'));
+ assert.deepEqual(verificationToolsFor('work','qa'),names('calc','data','docs','browser','code'));
+ assert.deepEqual(verificationToolsFor('work','engineer'),names('calc','data','docs','code'));
+ assert.deepEqual(verificationToolsFor('work','researcher'),names('calc','data','docs','sources'));
+ assert.deepEqual(verificationToolsFor('goal_check','critic'),names('calc','data','docs','browser','review'));
+ for(const phase of ['meeting','consultation','planning','delivery'])assert.deepEqual(verificationToolsFor(phase,'designer'),[]);
+ const {PERSONAS}=require('../dist/core/personas');
+ for(const p of PERSONAS)for(const phase of ['work','review'])assert.ok(verificationToolsFor(phase,p.id).length<=38,p.id+' '+phase);
+ assert.deepEqual(verificationToolsFor('work','finance'),toolNamesFor('work','finance'));
  const claude=require('../dist/core/agent/claudeAgent'),original=claude.loadQuery,seen=[];
  claude.loadQuery=async()=>async function* (input){seen.push(input);yield {type:'result',subtype:'success',is_error:false,result:'ok',modelUsage:{},total_cost_usd:0,num_turns:1};};
  t.after(()=>{claude.loadQuery=original;});
  const {SdkAgentClient}=require('../dist/core/commission/agent'),client=new SdkAgentClient();
  for(const personaId of ['finance','critic','engineer','designer','researcher'])for(const [phase,tools] of [['work','full'],['review','full'],['goal_check','read'],['planning','read']]){
   await client.run({provider:'claude',phase,personaId,prompt:'x',workingDirectory:process.cwd(),model:'test',tools,readableDirectories:['/refs'],reviewFile:'/data/checks/run.json',maxTurns:1,abortSignal:new AbortController().signal});
-  const options=seen.at(-1).options,granted=verificationToolsFor(phase);
+  const options=seen.at(-1).options,granted=verificationToolsFor(phase,personaId);
   const builtins=approvedTools(personaId,tools==='read'?'read':phase==='review'?'review':'work');
   assert.deepEqual(options.tools,builtins,'組み込みツールは部門の権限のまま');
   assert.deepEqual(options.allowedTools,[...preapprovedTools(builtins),...granted]);
