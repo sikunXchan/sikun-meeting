@@ -11,7 +11,7 @@ AIが「答えが一つに決まる確認」（計算・集計・照合・引用
 - 画面系は作業フォルダのローカルHTMLだけを、外部通信を遮断した分離ブラウザ（Chrome / Edge）で開く。AIが書いたスクリプトは実行しない。
 - 近似値（標準偏差・年平均成長率・内部収益率）は結果に approximate と明示する。祝日・為替・税率のように更新が必要なデータは持たない。
 
-## ツール一覧（40個）
+## ツール一覧（41個）
 
 | グループ | ツール |
 |---|---|
@@ -19,14 +19,14 @@ AIが「答えが一つに決まる確認」（計算・集計・照合・引用
 | 表（6） | read_table, describe_table, query_table, reconcile_tables, validate_table, read_structured_data |
 | 文書（8） | extract_text, text_diff, find_quote, text_statistics, check_placeholders, check_links, document_outline, check_terms |
 | 配色・画像（6） | color_contrast, color_palette, compare_colors, image_info, compare_images, optimize_svg |
-| 画面（3） | screenshot_page, audit_accessibility, check_layout |
+| 画面（4） | screenshot_page, audit_accessibility, check_layout, check_design_patterns |
 | コード（5） | test_regex, compare_versions, validate_config, validate_json_schema, explain_cron |
 | 出典（2） | record_source, list_sources |
 | 確認記録（2） | record_criterion, list_criteria |
 
 ## 部門ごとのツール
 
-スキルと同じく、部門ごとに渡すツールを固定する（`src/core/tools/catalog.ts` の `ROLE_TOOLS`）。AIが40個から選ぶ必要をなくすため、部門の仕事で確かめる対象に合うものだけを5〜10個にしている。
+スキルと同じく、部門ごとに渡すツールを固定する（`src/core/tools/catalog.ts` の `ROLE_TOOLS`）。AIが41個から選ぶ必要をなくすため、部門の仕事で確かめる対象に合うものだけを5〜10個にしている。
 
 - 作業：下表の部門のツールだけ。
 - 確認・目標確認・KGI確認：下表に `record_criterion`・`list_criteria` を加える（7〜12個）。目標確認・KGI確認では `record_source` を渡さない。
@@ -48,7 +48,7 @@ AIが「答えが一つに決まる確認」（計算・集計・照合・引用
 | Analyst（analyst） | 9 | calculate, describe_statistics, growth_rate, read_table, describe_table, query_table, reconcile_tables, validate_table, extract_text |
 | Finance（finance） | 9 | calculate, growth_rate, npv_irr, loan_payment, sensitivity_table, calculate_dates, read_table, query_table, reconcile_tables |
 | Legal（legal） | 8 | calculate_dates, extract_text, find_quote, text_diff, document_outline, check_terms, record_source, list_sources |
-| Designer（designer） | 10 | text_statistics, color_contrast, color_palette, compare_colors, image_info, compare_images, optimize_svg, screenshot_page, audit_accessibility, check_layout |
+| Designer（designer） | 10 | color_contrast, color_palette, compare_colors, image_info, compare_images, optimize_svg, screenshot_page, audit_accessibility, check_layout, check_design_patterns |
 | Marketing（marketing） | 10 | calculate, growth_rate, sensitivity_table, read_table, query_table, text_statistics, check_terms, color_contrast, image_info, screenshot_page |
 | DevOps（devops） | 8 | convert_units, calculate_dates, read_structured_data, test_regex, compare_versions, validate_config, validate_json_schema, explain_cron |
 | QA（qa） | 10 | calculate, reconcile_tables, text_diff, compare_images, screenshot_page, audit_accessibility, check_layout, test_regex, validate_config, validate_json_schema |
@@ -77,6 +77,12 @@ AIが「答えが一つに決まる確認」（計算・集計・照合・引用
 | EducationSpecialist（education） | 8 | calculate_dates, extract_text, text_statistics, document_outline, check_terms, color_contrast, screenshot_page, check_layout |
 
 公式資料では、一度に読み込むツールが30〜50個を超えると選択精度が落ちるとされる。部門ごとの固定により、1回に渡す数は最大12個になった（以前は最大38個）。
+
+`check_design_patterns` は、次の2つを所見として返す（良し悪しは判定しない）。
+- 絵文字：本文・aria-label・alt・::before/::after の中から探す。© や ™、矢印のような記号は数えない。
+- 題材に関係なく出やすい定番の型：同じ角丸と影のカードの割合、英大文字の小ラベル、見出しの一部だけの強調、01/02 番号、グラデーション、アニメーション、書体の割合。
+
+定番の型の例は、Anthropic 公開の frontend-design スキル（github.com/anthropics/skills の skills/frontend-design/SKILL.md）が「AI生成のデザインが集まりやすい特徴」として挙げるものを参考にした。
 
 ## 使っているOSS
 

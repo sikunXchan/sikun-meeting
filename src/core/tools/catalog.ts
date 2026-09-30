@@ -4,7 +4,7 @@ import { describeTable, queryTable, readStructured, readTable, reconcileTables, 
 import { listCriteria, recordCriterion } from './review';
 import { checkLinks, checkPlaceholders, checkTerms, documentOutline, extractText, findQuote, textDiff, textStats } from './docs';
 import { colorContrast, colorPalette, compareColors, compareImages, imageInfo, optimizeSvg } from './design';
-import { auditAccessibility, checkLayout, screenshotPage } from './browser';
+import { auditAccessibility, checkDesignPatterns, checkLayout, screenshotPage } from './browser';
 import { compareVersions, explainCron, testRegex, validateConfig, validateJsonSchema } from './code';
 import { listSources, recordSource } from './sources';
 
@@ -258,6 +258,12 @@ export const TOOL_GROUPS: Record<ToolGroup, ToolDefinition[]> = {
       inputSchema: object({ file: str('作業フォルダ内の .html の相対パス'), widths: { type: 'array', items: { type: 'integer', minimum: 320, maximum: 2560 }, maxItems: 6 } }, ['file']),
       handler: (args, context) => checkLayout(context, args.file, args.widths),
     },
+    {
+      name: 'check_design_patterns',
+      description: 'モックアップや画面の絵文字（本文・aria-label・alt・::before/::after）と、題材に関係なく出やすい定番の型（同じ角丸と影のカードの割合・英大文字の小ラベル・見出しの一部だけの強調・01/02 番号・グラデーション・アニメーション）、使っている書体の割合を調べる。良し悪しは判定せず所見を返す。',
+      inputSchema: object({ file: str('作業フォルダ内の .html の相対パス'), width: int('画面幅（既定1280）', 320, 2560) }, ['file']),
+      handler: (args, context) => checkDesignPatterns(context, args.file, args.width),
+    },
   ],
   code: [
     {
@@ -341,7 +347,7 @@ export const ROLE_TOOLS: Record<string, string[]> = {
   analyst: ['calculate', 'describe_statistics', 'growth_rate', 'read_table', 'describe_table', 'query_table', 'reconcile_tables', 'validate_table', 'extract_text'],
   finance: ['calculate', 'growth_rate', 'npv_irr', 'loan_payment', 'sensitivity_table', 'calculate_dates', 'read_table', 'query_table', 'reconcile_tables'],
   legal: ['calculate_dates', 'extract_text', 'find_quote', 'text_diff', 'document_outline', 'check_terms', 'record_source', 'list_sources'],
-  designer: ['text_statistics', 'color_contrast', 'color_palette', 'compare_colors', 'image_info', 'compare_images', 'optimize_svg', 'screenshot_page', 'audit_accessibility', 'check_layout'],
+  designer: ['color_contrast', 'color_palette', 'compare_colors', 'image_info', 'compare_images', 'optimize_svg', 'screenshot_page', 'audit_accessibility', 'check_layout', 'check_design_patterns'],
   marketing: ['calculate', 'growth_rate', 'sensitivity_table', 'read_table', 'query_table', 'text_statistics', 'check_terms', 'color_contrast', 'image_info', 'screenshot_page'],
   devops: ['convert_units', 'calculate_dates', 'read_structured_data', 'test_regex', 'compare_versions', 'validate_config', 'validate_json_schema', 'explain_cron'],
   qa: ['calculate', 'reconcile_tables', 'text_diff', 'compare_images', 'screenshot_page', 'audit_accessibility', 'check_layout', 'test_regex', 'validate_config', 'validate_json_schema'],

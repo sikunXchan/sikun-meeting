@@ -70,10 +70,10 @@ test('read_table reads csv/tsv/xlsx inside allowed folders only and totals numer
 
 test('verification tools depend on phase and role, and only work and review phases get them',async t=>{
  const names=(...tools)=>tools.map(name=>'mcp__sikun__'+name);
- assert.equal(Object.values(TOOL_GROUPS).flat().length,40);
+ assert.equal(Object.values(TOOL_GROUPS).flat().length,41);
  assert.deepEqual(verificationToolsFor('work','finance'),names('calculate','growth_rate','npv_irr','loan_payment','sensitivity_table','calculate_dates','read_table','query_table','reconcile_tables'),'作業では部門のツールだけで、確認記録を渡さない');
  assert.deepEqual(verificationToolsFor('review','finance'),[...verificationToolsFor('work','finance'),...names('record_criterion','list_criteria')],'確認では部門のツールに確認記録を加える');
- assert.deepEqual(verificationToolsFor('work','designer'),names('text_statistics','color_contrast','color_palette','compare_colors','image_info','compare_images','optimize_svg','screenshot_page','audit_accessibility','check_layout'));
+ assert.deepEqual(verificationToolsFor('work','designer'),names('color_contrast','color_palette','compare_colors','image_info','compare_images','optimize_svg','screenshot_page','audit_accessibility','check_layout','check_design_patterns'));
  assert.ok(!verificationToolsFor('work','designer').includes('mcp__sikun__npv_irr'),'デザイナーに財務計算は渡さない');
  assert.ok(!verificationToolsFor('work','finance').includes('mcp__sikun__screenshot_page'),'財務に画面検査は渡さない');
  assert.deepEqual(verificationToolsFor('work','researcher').slice(-2),names('record_source','list_sources'));
