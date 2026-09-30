@@ -23,7 +23,8 @@
 | --- | --- | --- | --- |
 | Researcher・Legal・Healthcare・PublicPolicy・Privacy・Sustainability | 作業・レビュー | Claude: WebSearch / WebFetch。Codex: live Web検索とページ閲覧 | シェルのネットワーク権限は追加しない。取得失敗・認証が必要な資料は未確認と記録。Claudeでは読み取りツールを名前だけで事前許可せず、作業フォルダと参考資料フォルダ以外の読み取りを `dontAsk` で拒否する（任意のファイルを読んでURLで送る経路を防ぐ） |
 | QA・Frontend・Accessibility・Mobile | 作業・レビュー | ローカルHTMLを分離したChrome/Edgeで開く。入力、クリック、キー操作、画面幅変更、アクセシビリティツリー、状態確認、再読込 | Chrome/Edgeが必要。外部URL・開発サーバー・任意JavaScript実行は提供しない。音声読み上げ・モバイル実機・OSネイティブUIは未検証 |
-| 全員 | 作業・レビュー・達成判定・KGI確認 | Claude: `calculate`（厳密な計算。名前付きの段階計算、%・べき乗・丸め）と `read_table`（csv/tsv/xlsxの読み取りと数値列の合計） | 書き込み・コマンド・外部通信なし。作業フォルダと参考資料フォルダの外、シンボリックリンクで外へ出るファイルは読まない。Codex実行には未提供 |
+| 全員 | 作業・レビュー・達成判定・KGI確認 | 同梱MCPサーバー `sikun`（Claude・Codex共通）。計算: `calculate`・`describe_statistics`・`growth_rate`・`npv_irr`・`loan_payment`・`sensitivity_table`・`convert_units`・`calculate_dates`。表: `read_table`・`describe_table`・`query_table`・`reconcile_tables`・`validate_table`・`read_structured_data` | コマンド・外部通信なし。作業フォルダと参考資料フォルダの外、シンボリックリンクで外へ出るファイルは読まない。無理数（標準偏差・CAGR・IRR）は近似値と明示。祝日データは持たず、除外する祝日は呼び出し側が渡す |
+| 確認役 | レビュー・達成判定・KGI確認 | `record_criterion`・`list_criteria`（受け入れ条件ごとの pass / fail / unverified と証拠） | 記録先はアプリのデータ領域（`commission-checks/<案件ID>/<実行ID>.json`）で作業フォルダには書かない。fail・unverified が残る承認・達成判定はアプリが差し戻す |
 | 全員 | 会議・相談・計画・納品 | 既存の閲覧またはテキスト処理 | Web・ブラウザ・計算の検証ツールは提供しない |
 
 内部確認では、担当AIのツール使用記録（コマンド・URL・計算の名前。結果は含まない）を確認役に渡す。報告で実行済みとされた検証が記録にない場合は未実施として扱う。記録の認証情報らしい値は伏せる。

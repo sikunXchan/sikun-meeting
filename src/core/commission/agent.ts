@@ -3,7 +3,8 @@ import { getPersonaById } from '../personas';
 import { loadQuery, resolveClaudeBinaryPath } from '../agent/claudeAgent';
 import { AgentClient, AgentRequest, AgentResponse } from './types';
 import { approvedTools, methodFor, preapprovedTools, verificationToolsFor } from '../capabilities';
-import { createVerificationServer, VERIFICATION_SERVER } from './verificationTools';
+import { claudeToolServers } from '../tools/launch';
+import { verificationGuide } from '../tools/catalog';
 import { redactSecrets } from './redact';
 import { skillPromptFor } from '../skills/catalog';
 
@@ -36,12 +37,8 @@ export class SdkAgentClient implements AgentClient {
       const tools = approvedTools(request.personaId,
         request.tools === 'read' ? 'read' : request.phase === 'review' ? 'review' : 'work');
       const verification = verificationToolsFor(request.phase);
-      const mcpServers = verification.length ? {
-        [VERIFICATION_SERVER]: await createVerificationServer({ workingDirectory: request.workingDirectory, readableDirectories: request.readableDirectories }),
-      } : undefined;
-      const toolGuide = verification.length
-        ? '\n検証ツール: calculate（厳密な計算）と read_table（csv/tsv/xlsxの読み取りと列合計）を使える。報告に書く金額・合計・率・件数は暗算せずツールで求め、報告の数値をツールの結果と照合する。ツールで確かめていない数値は未検算と明記する。'
-        : '';
+      const mcpServers = claudeToolServers({ phase: request.phase, workingDirectory: request.workingDirectory, readableDirectories: request.readableDirectories, reviewFile: request.reviewFile });
+      const toolGuide = verificationGuide(request.phase);
       const conversation = query({
         prompt: request.prompt,
         options: {

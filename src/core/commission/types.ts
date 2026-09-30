@@ -74,6 +74,8 @@ export interface WorkDecision {
   decidedAt?: string;
 }
 
+import type { CriterionRecord } from '../tools/review';
+
 export interface ReviewDecision {
   id: string;
   workItemId: string;
@@ -83,6 +85,8 @@ export interface ReviewDecision {
   reviewerPersonaId: string;
   approved: boolean;
   note: string;
+  /** 確認役が record_criterion で記録した受け入れ条件ごとの判定。 */
+  criteria?: CriterionRecord[];
   artifactIds: string[];
   decidedAt: string;
 }
@@ -97,6 +101,8 @@ export interface ProjectMemory {
 
 export interface AgentRun {
   id: string;
+  /** 確認段階で記録された受け入れ条件ごとの判定。 */
+  criteria?: CriterionRecord[];
   provider?: CommissionProvider;
   phase: 'consultation' | 'planning' | 'work' | 'review' | 'goal_check' | 'kgi_check' | 'delivery';
   workItemId?: string;
@@ -205,6 +211,8 @@ export interface AgentRequest {
   tools: 'read' | 'full';
   /** 作業フォルダ以外で読み取りを認めるフォルダ（参考資料の保存先など）。絶対パス。 */
   readableDirectories?: string[];
+  /** 確認段階で受け入れ条件の判定を記録するファイル（アプリのデータ領域）。 */
+  reviewFile?: string;
   maxTurns: number;
   abortSignal: AbortSignal;
   onTool?: (detail: string) => void | Promise<void>;
@@ -212,6 +220,8 @@ export interface AgentRequest {
 
 export interface AgentResponse {
   text: string;
+  /** アプリが確認記録ファイルから読んだ判定（エージェントは返さない）。 */
+  criteria?: CriterionRecord[];
   observedModels: string[];
   effectiveModel?: string;
   estimatedCostUsd: number;
