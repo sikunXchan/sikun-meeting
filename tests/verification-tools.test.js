@@ -69,18 +69,18 @@ test('read_table reads csv/tsv/xlsx inside allowed folders only and totals numer
 });
 
 test('verification tools depend on phase and role, and only work and review phases get them',async t=>{
- const names=(...groups)=>groups.flatMap(group=>TOOL_GROUPS[group].map(tool=>'mcp__sikun__'+tool.name));
+ const names=(...tools)=>tools.map(name=>'mcp__sikun__'+name);
  assert.equal(Object.values(TOOL_GROUPS).flat().length,40);
- assert.deepEqual(verificationToolsFor('work','finance'),names('calc','data','docs'),'作業では確認記録を渡さない');
- assert.deepEqual(verificationToolsFor('review','finance'),names('calc','data','docs','browser','review'),'確認役は画面の検査と確認記録を使える');
- assert.deepEqual(verificationToolsFor('work','designer'),names('calc','data','docs','design','browser'));
- assert.deepEqual(verificationToolsFor('work','qa'),names('calc','data','docs','browser','code'));
- assert.deepEqual(verificationToolsFor('work','engineer'),names('calc','data','docs','code'));
- assert.deepEqual(verificationToolsFor('work','researcher'),names('calc','data','docs','sources'));
- assert.deepEqual(verificationToolsFor('goal_check','critic'),names('calc','data','docs','browser','review'));
+ assert.deepEqual(verificationToolsFor('work','finance'),names('calculate','growth_rate','npv_irr','loan_payment','sensitivity_table','calculate_dates','read_table','query_table','reconcile_tables'),'作業では部門のツールだけで、確認記録を渡さない');
+ assert.deepEqual(verificationToolsFor('review','finance'),[...verificationToolsFor('work','finance'),...names('record_criterion','list_criteria')],'確認では部門のツールに確認記録を加える');
+ assert.deepEqual(verificationToolsFor('work','designer'),names('text_statistics','color_contrast','color_palette','compare_colors','image_info','compare_images','optimize_svg','screenshot_page','audit_accessibility','check_layout'));
+ assert.ok(!verificationToolsFor('work','designer').includes('mcp__sikun__npv_irr'),'デザイナーに財務計算は渡さない');
+ assert.ok(!verificationToolsFor('work','finance').includes('mcp__sikun__screenshot_page'),'財務に画面検査は渡さない');
+ assert.deepEqual(verificationToolsFor('work','researcher').slice(-2),names('record_source','list_sources'));
+ assert.ok(verificationToolsFor('goal_check','critic').includes('mcp__sikun__list_criteria'));
+ assert.ok(!verificationToolsFor('goal_check','researcher').includes('mcp__sikun__record_source'),'目標確認では出典を増やさない');
+ assert.deepEqual(verificationToolsFor('work','custom_ai'),names('calculate','read_table','extract_text','find_quote'),'表に無い部門は最小限');
  for(const phase of ['meeting','consultation','planning','delivery'])assert.deepEqual(verificationToolsFor(phase,'designer'),[]);
- const {PERSONAS}=require('../dist/core/personas');
- for(const p of PERSONAS)for(const phase of ['work','review'])assert.ok(verificationToolsFor(phase,p.id).length<=38,p.id+' '+phase);
  assert.deepEqual(verificationToolsFor('work','finance'),toolNamesFor('work','finance'));
  const claude=require('../dist/core/agent/claudeAgent'),original=claude.loadQuery,seen=[];
  claude.loadQuery=async()=>async function* (input){seen.push(input);yield {type:'result',subtype:'success',is_error:false,result:'ok',modelUsage:{},total_cost_usd:0,num_turns:1};};
@@ -98,7 +98,7 @@ test('verification tools depend on phase and role, and only work and review phas
    assert.ok(server.args[0].endsWith(path.join('dist','mcp','stdio.js')));assert.equal(server.env.ELECTRON_RUN_AS_NODE,'1');
    assert.equal(server.env.SIKUN_WORKDIR,process.cwd());assert.equal(server.env.SIKUN_READABLE_DIRS,'["/refs"]');
    assert.equal(server.env.SIKUN_REVIEW_FILE,phase==='work'?undefined:'/data/checks/run.json');
-   assert.match(options.systemPrompt,/calculate/);assert.equal(/record_criterion/.test(options.systemPrompt),phase!=='work');
+   assert.match(options.systemPrompt,/検証ツール（sikun。この部門用）/);for(const name of granted)assert.ok(options.systemPrompt.includes(name.replace('mcp__sikun__','')),name);assert.deepEqual(server.args.slice(-1)[0].split(',').map(n=>'mcp__sikun__'+n),granted,'サーバーも部門のツールだけを公開');assert.equal(/record_criterion/.test(options.systemPrompt),phase!=='work');
   }
   else{assert.equal(options.mcpServers,undefined);assert.doesNotMatch(options.systemPrompt,/検証ツール/);}
  }
@@ -164,4 +164,18 @@ test('Haiku is not used by default anywhere and old Haiku defaults are migrated 
  const store=new CommissionStore(root);
  assert.equal(store.get(legacy.id).settings.fallbackModel,'');
  assert.equal(store.get(custom.id).settings.fallbackModel,'claude-sonnet-5');
+});
+
+test('every persona has a fixed tool set like its skill, drawn from the catalog',()=>{
+ const {ROLE_TOOLS,DEFAULT_TOOLS}=require('../dist/core/tools/catalog');
+ const catalog=new Set(Object.values(TOOL_GROUPS).flat().map(tool=>tool.name));
+ for(const p of PERSONAS){
+  assert.ok(ROLE_TOOLS[p.id],p.id+' にツールの表がない');
+  for(const name of ROLE_TOOLS[p.id])assert.ok(catalog.has(name),p.id+': '+name);
+  assert.equal(new Set(ROLE_TOOLS[p.id]).size,ROLE_TOOLS[p.id].length,p.id+' に重複');
+  assert.ok(!ROLE_TOOLS[p.id].some(name=>name==='record_criterion'||name==='list_criteria'),'確認記録は段階で加える');
+  for(const phase of ['work','review'])assert.ok(verificationToolsFor(phase,p.id).length<=12,p.id+' '+phase+' は12個以下');
+ }
+ assert.deepEqual(Object.keys(ROLE_TOOLS).sort(),PERSONAS.map(p=>p.id).sort(),'表の部門と実在の部門が一致');
+ for(const name of DEFAULT_TOOLS)assert.ok(catalog.has(name));
 });

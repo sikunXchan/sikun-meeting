@@ -3,7 +3,7 @@
  * Claude Code と Codex がこのスクリプトを子プロセスとして起動し、1行1メッセージの JSON-RPC で通信する。
  * 標準出力はプロトコル専用なので、ログは出さない。
  *
- * 起動: node dist/mcp/stdio.js --groups calc,data,review
+ * 起動: node dist/mcp/stdio.js --tools calculate,read_table,record_criterion（--groups calc,data でグループ単位も可）
  * 環境変数: SIKUN_WORKDIR（作業フォルダ）, SIKUN_READABLE_DIRS（読み取り可能な追加フォルダのJSON配列）,
  *          SIKUN_REVIEW_FILE（確認記録の保存先。確認段階だけ）, SIKUN_SOURCES_FILE（出典の記録先。調査部門だけ）
  */
@@ -17,10 +17,17 @@ const LATEST_VERSION = '2025-06-18';
 
 interface JsonRpcMessage { jsonrpc: '2.0'; id?: string | number | null; method?: string; params?: Record<string, unknown> }
 
-export function selectedTools(groupsArg: string | undefined): ToolDefinition[] {
-  const groups = (groupsArg ?? '').split(',').map((group) => group.trim()).filter(Boolean) as ToolGroup[];
-  for (const group of groups) if (!TOOL_GROUPS[group]) throw new Error(`不明なツールグループ: ${group}`);
-  return groups.flatMap((group) => TOOL_GROUPS[group]);
+/** カンマ区切りのツール名またはグループ名から、公開するツールを決める。 */
+export function selectedTools(namesArg: string | undefined): ToolDefinition[] {
+  const all = Object.values(TOOL_GROUPS).flat();
+  const selected = new Set<ToolDefinition>();
+  for (const name of (namesArg ?? '').split(',').map((entry) => entry.trim()).filter(Boolean)) {
+    const group = Object.prototype.hasOwnProperty.call(TOOL_GROUPS, name) ? TOOL_GROUPS[name as ToolGroup] : undefined;
+    const tool = all.find((entry) => entry.name === name);
+    if (!group && !tool) throw new Error(`不明なツール: ${name}`);
+    for (const entry of group ?? [tool!]) selected.add(entry);
+  }
+  return [...selected];
 }
 
 export function contextFromEnv(env: NodeJS.ProcessEnv): ToolContext {
@@ -82,8 +89,8 @@ export async function handleMessage(message: JsonRpcMessage, tools: ToolDefiniti
 }
 
 function main(): void {
-  const groupsIndex = process.argv.indexOf('--groups');
-  const tools = selectedTools(groupsIndex >= 0 ? process.argv[groupsIndex + 1] : '');
+  const flag = ['--tools', '--groups'].map((name) => process.argv.indexOf(name)).find((index) => index >= 0);
+  const tools = selectedTools(flag !== undefined ? process.argv[flag + 1] : '');
   const context = contextFromEnv(process.env);
   const write = (value: unknown) => process.stdout.write(`${JSON.stringify(value)}\n`);
   const lines = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });

@@ -321,48 +321,92 @@ export const TOOL_GROUPS: Record<ToolGroup, ToolDefinition[]> = {
   ],
 };
 
-/** 1つのstdioプロセスで、段階に応じたグループのツールだけを公開する。 */
+/** 1つのstdioプロセスで、部門と段階に応じたツールだけを公開する。 */
 export const SERVER_NAME = 'sikun';
 
-/** 画面・画像を扱う部門。 */
-const DESIGN_ROLES = new Set(['designer', 'frontend', 'mobile', 'accessibility', 'marketing', 'education', 'product']);
-/** 画面を操作して確かめる部門（配色・画像のツールは持たないQAを含む）。 */
-const SCREEN_ROLES = new Set([...DESIGN_ROLES, 'qa']);
-/** コードや設定を扱う部門（capabilities の CODE_ROLES から、画面の検査が中心の accessibility を除く）。 */
-const CODE_ROLES = new Set(['architect', 'engineer', 'backend', 'devops', 'cloud', 'data_engineer', 'security', 'qa', 'ai_researcher', 'frontend', 'mobile', 'embedded', 'data_scientist']);
-/** Web取得で原資料を調べる部門（capabilities の WEB_ROLES と同じ範囲）。 */
-const SOURCE_ROLES = new Set(['researcher', 'legal', 'healthcare', 'public_policy', 'privacy', 'sustainability']);
+/**
+ * 部門ごとの固定のツール。スキル（ROLE_SKILLS）と同じく部門で決まり、AIが多数の中から選ぶ必要をなくす。
+ * 部門の仕事で実際に確かめる対象（数値・表・文書・画面・設定・出典）に合うものだけを8〜10個に絞る。
+ */
+export const ROLE_TOOLS: Record<string, string[]> = {
+  it_consultant: ['calculate', 'calculate_dates', 'read_table', 'extract_text', 'find_quote', 'text_diff', 'document_outline'],
+  architect: ['calculate', 'convert_units', 'extract_text', 'document_outline', 'validate_config', 'validate_json_schema', 'compare_versions'],
+  engineer: ['calculate', 'read_structured_data', 'text_diff', 'test_regex', 'compare_versions', 'validate_config', 'validate_json_schema', 'explain_cron'],
+  backend: ['calculate', 'calculate_dates', 'read_structured_data', 'text_diff', 'test_regex', 'compare_versions', 'validate_config', 'validate_json_schema', 'explain_cron'],
+  product: ['calculate', 'growth_rate', 'sensitivity_table', 'read_table', 'query_table', 'document_outline', 'screenshot_page', 'check_layout'],
+  researcher: ['calculate', 'growth_rate', 'read_table', 'extract_text', 'find_quote', 'check_links', 'record_source', 'list_sources'],
+  critic: ['calculate', 'read_table', 'reconcile_tables', 'extract_text', 'find_quote', 'text_diff', 'screenshot_page', 'check_layout'],
+  security: ['read_structured_data', 'extract_text', 'find_quote', 'test_regex', 'compare_versions', 'validate_config', 'validate_json_schema', 'explain_cron'],
+  innovator: ['calculate', 'describe_statistics', 'growth_rate', 'sensitivity_table', 'read_table', 'extract_text'],
+  analyst: ['calculate', 'describe_statistics', 'growth_rate', 'read_table', 'describe_table', 'query_table', 'reconcile_tables', 'validate_table', 'extract_text'],
+  finance: ['calculate', 'growth_rate', 'npv_irr', 'loan_payment', 'sensitivity_table', 'calculate_dates', 'read_table', 'query_table', 'reconcile_tables'],
+  legal: ['calculate_dates', 'extract_text', 'find_quote', 'text_diff', 'document_outline', 'check_terms', 'record_source', 'list_sources'],
+  designer: ['text_statistics', 'color_contrast', 'color_palette', 'compare_colors', 'image_info', 'compare_images', 'optimize_svg', 'screenshot_page', 'audit_accessibility', 'check_layout'],
+  marketing: ['calculate', 'growth_rate', 'sensitivity_table', 'read_table', 'query_table', 'text_statistics', 'check_terms', 'color_contrast', 'image_info', 'screenshot_page'],
+  devops: ['convert_units', 'calculate_dates', 'read_structured_data', 'test_regex', 'compare_versions', 'validate_config', 'validate_json_schema', 'explain_cron'],
+  qa: ['calculate', 'reconcile_tables', 'text_diff', 'compare_images', 'screenshot_page', 'audit_accessibility', 'check_layout', 'test_regex', 'validate_config', 'validate_json_schema'],
+  writer: ['extract_text', 'text_diff', 'find_quote', 'text_statistics', 'check_placeholders', 'check_links', 'document_outline', 'check_terms'],
+  ai_researcher: ['calculate', 'describe_statistics', 'read_table', 'query_table', 'reconcile_tables', 'read_structured_data', 'text_diff', 'validate_json_schema'],
+  support: ['calculate_dates', 'query_table', 'extract_text', 'find_quote', 'text_statistics', 'document_outline', 'check_terms'],
+  data_engineer: ['read_table', 'describe_table', 'query_table', 'reconcile_tables', 'validate_table', 'read_structured_data', 'test_regex', 'validate_config', 'validate_json_schema', 'explain_cron'],
+  cloud: ['calculate', 'sensitivity_table', 'convert_units', 'compare_versions', 'validate_config', 'validate_json_schema', 'explain_cron'],
+  visionary: ['calculate', 'describe_statistics', 'growth_rate', 'sensitivity_table', 'extract_text'],
+  frontend: ['color_contrast', 'image_info', 'compare_images', 'optimize_svg', 'screenshot_page', 'audit_accessibility', 'check_layout', 'test_regex', 'compare_versions', 'validate_config'],
+  mobile: ['color_contrast', 'image_info', 'compare_images', 'screenshot_page', 'audit_accessibility', 'check_layout', 'compare_versions', 'validate_config'],
+  embedded: ['calculate', 'convert_units', 'read_table', 'test_regex', 'compare_versions', 'validate_config'],
+  accessibility: ['document_outline', 'color_contrast', 'compare_colors', 'screenshot_page', 'audit_accessibility', 'check_layout'],
+  privacy: ['calculate_dates', 'validate_table', 'read_structured_data', 'extract_text', 'text_diff', 'find_quote', 'check_terms', 'record_source', 'list_sources'],
+  sales: ['calculate', 'growth_rate', 'sensitivity_table', 'calculate_dates', 'read_table', 'query_table'],
+  data_scientist: ['calculate', 'describe_statistics', 'growth_rate', 'sensitivity_table', 'read_table', 'describe_table', 'query_table', 'reconcile_tables', 'validate_table'],
+  human_resources: ['calculate', 'calculate_dates', 'read_table', 'query_table', 'validate_table', 'text_statistics', 'check_terms'],
+  procurement: ['calculate', 'sensitivity_table', 'convert_units', 'calculate_dates', 'read_table', 'query_table', 'reconcile_tables', 'text_diff'],
+  accountant: ['calculate', 'loan_payment', 'calculate_dates', 'read_table', 'describe_table', 'query_table', 'reconcile_tables', 'validate_table'],
+  healthcare: ['calculate', 'describe_statistics', 'convert_units', 'calculate_dates', 'extract_text', 'find_quote', 'record_source', 'list_sources'],
+  localization: ['read_structured_data', 'extract_text', 'text_diff', 'text_statistics', 'check_placeholders', 'check_terms', 'screenshot_page', 'check_layout'],
+  public_policy: ['calculate', 'growth_rate', 'calculate_dates', 'read_table', 'extract_text', 'find_quote', 'record_source', 'list_sources'],
+  manufacturing: ['calculate', 'describe_statistics', 'sensitivity_table', 'convert_units', 'calculate_dates', 'read_table', 'query_table'],
+  logistics: ['calculate', 'sensitivity_table', 'convert_units', 'calculate_dates', 'read_table', 'query_table', 'reconcile_tables'],
+  sustainability: ['calculate', 'growth_rate', 'convert_units', 'read_table', 'query_table', 'extract_text', 'find_quote', 'record_source', 'list_sources'],
+  education: ['calculate_dates', 'extract_text', 'text_statistics', 'document_outline', 'check_terms', 'color_contrast', 'screenshot_page', 'check_layout'],
+};
+/** 表に無い部門（利用者が追加したAIなど）の最小限のツール。 */
+export const DEFAULT_TOOLS = ['calculate', 'read_table', 'extract_text', 'find_quote'];
+/** 確認の段階で全部門に加えるツール。 */
+const REVIEW_TOOLS = ['record_criterion', 'list_criteria'];
 const REVIEW_PHASES = new Set(['review', 'goal_check', 'kgi_check']);
+const ALL_TOOLS = (Object.keys(TOOL_GROUPS) as ToolGroup[]).flatMap((group) => TOOL_GROUPS[group].map((tool) => ({ group, tool })));
 
 /**
- * 段階と部門ごとに接続するツール群。計算・表・文書は全部門。画面の検査は画面を扱う部門と全確認役、
- * 画像・配色は画面を扱う部門、コード補助はコードを扱う部門、出典は調査部門、確認記録は確認の段階だけ。
- * 1回に渡すツール数を抑える（一度に30〜50を超えると選択精度が落ちるため）。
+ * 段階と部門で決まるツール。作業では部門のツール、確認の段階ではそれに確認記録を加える。会議・相談・計画・納品では渡さない。
+ * 出典の記録は作業と所管の確認だけ（目標確認・KGI確認は出典を増やさない）。並びはカタログの順。
  */
-export function toolGroupsFor(phase: string, personaId = ''): ToolGroup[] {
+export function toolsFor(phase: string, personaId = ''): ToolDefinition[] {
   const review = REVIEW_PHASES.has(phase);
   if (phase !== 'work' && !review) return [];
-  const groups: ToolGroup[] = ['calc', 'data', 'docs'];
-  if (DESIGN_ROLES.has(personaId)) groups.push('design');
-  if (SCREEN_ROLES.has(personaId) || review) groups.push('browser');
-  if (CODE_ROLES.has(personaId)) groups.push('code');
-  if (SOURCE_ROLES.has(personaId) && (phase === 'work' || phase === 'review')) groups.push('sources');
-  if (review) groups.push('review');
-  return groups;
+  const names = new Set([...(ROLE_TOOLS[personaId] ?? DEFAULT_TOOLS), ...(review ? REVIEW_TOOLS : [])]);
+  if (phase !== 'work' && phase !== 'review') names.delete('record_source');
+  return ALL_TOOLS.filter(({ tool }) => names.has(tool.name)).map(({ tool }) => tool);
+}
+
+/** 公開するツールが属するグループ（案内文の見出しに使う）。 */
+export function toolGroupsFor(phase: string, personaId = ''): ToolGroup[] {
+  const names = new Set(toolsFor(phase, personaId).map((tool) => tool.name));
+  return [...new Set(ALL_TOOLS.filter(({ tool }) => names.has(tool.name)).map(({ group }) => group))];
 }
 
 export function toolNamesFor(phase: string, personaId = ''): string[] {
-  return toolGroupsFor(phase, personaId).flatMap((group) => TOOL_GROUPS[group].map((tool) => `mcp__${SERVER_NAME}__${tool.name}`));
+  return toolsFor(phase, personaId).map((tool) => `mcp__${SERVER_NAME}__${tool.name}`);
 }
 
 const GROUP_LABELS: Record<ToolGroup, string> = { calc: '計算', data: '表', docs: '文書', design: '配色・画像', browser: '画面', code: 'コード', sources: '出典', review: '確認記録' };
 
 /** 検証ツールの使い方。ClaudeとCodexで同じ文面を使う。 */
 export function verificationGuide(phase: string, personaId = ''): string {
-  const groups = toolGroupsFor(phase, personaId);
-  if (!groups.length) return '';
-  const list = groups.map((group) => `${GROUP_LABELS[group]}: ${TOOL_GROUPS[group].map((tool) => tool.name).join('・')}`).join('。');
-  return `\n検証ツール（sikun）: ${list}。答えが一つに決まる確認（計算・集計・照合・引用の実在・差分・色のコントラスト・画面の崩れ）はツールで行い、報告の数値や判定をツールの結果と照合する。ツールで確かめていない数値は未検算、画面は未確認と明記する。`
-    + (groups.includes('sources') ? '調べた原資料は record_source で記録し、報告では [S番号] で示す。' : '')
-    + (groups.includes('review') ? '確認では受け入れ条件ごとに record_criterion で pass / fail / unverified と証拠を記録し、list_criteria で漏れがないか確かめてから判定する。fail か unverified が残る場合は承認しない。' : '');
+  const tools = toolsFor(phase, personaId);
+  if (!tools.length) return '';
+  const names = new Set(tools.map((tool) => tool.name));
+  const list = toolGroupsFor(phase, personaId).map((group) => `${GROUP_LABELS[group]}: ${TOOL_GROUPS[group].filter((tool) => names.has(tool.name)).map((tool) => tool.name).join('・')}`).join('。');
+  return `\n検証ツール（sikun。この部門用）: ${list}。答えが一つに決まる確認（計算・集計・照合・引用の実在・差分・色のコントラスト・画面の崩れ）はツールで行い、報告の数値や判定をツールの結果と照合する。ツールで確かめていない数値は未検算、画面は未確認と明記する。`
+    + (names.has('record_source') ? '調べた原資料は record_source で記録し、報告では [S番号] で示す。' : '')
+    + (names.has('record_criterion') ? '確認では受け入れ条件ごとに record_criterion で pass / fail / unverified と証拠を記録し、list_criteria で漏れがないか確かめてから判定する。fail か unverified が残る場合は承認しない。' : '');
 }

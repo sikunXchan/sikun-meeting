@@ -7,6 +7,7 @@ import * as QRCode from 'qrcode';
 import { MobileSyncService } from '../core/mobile/service';
 import * as fs from 'fs';
 import { skillDetailsFor } from '../core/skills/catalog';
+import { toolsFor } from '../core/tools/catalog';
 import { skillMetricsFor } from '../core/skills/metrics';
 import { AppContext, PERSONAS, MEETING_TYPES } from '../core';
 import { CreateMeetingInput } from '../core/services/meetingService';
@@ -142,7 +143,7 @@ export function registerIpcHandlers(ctx: AppContext, getWindow: () => BrowserWin
   handle(IPC_CHANNELS.meetingsPauseAuto,(_e,id:string)=>automatic.pause(id));
   handle(IPC_CHANNELS.personasList, () => PERSONAS);
   handle(IPC_CHANNELS.personasSkills, () => PERSONAS.map(({ id, name, roleTitle, expertise, avatar }) =>
-    ({ id, name, roleTitle, expertise, avatar, skills: skillDetailsFor(id) })));
+    ({ id, name, roleTitle, expertise, avatar, skills: skillDetailsFor(id), tools: toolsFor('work', id).map((tool) => tool.name) })));
   handle(IPC_CHANNELS.personasSkillMetrics, () => skillMetricsFor(ctx.commissionService.list()));
   handle(IPC_CHANNELS.meetingTypesList, () => MEETING_TYPES);
 

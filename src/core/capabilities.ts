@@ -21,7 +21,7 @@ export function canResearchWeb(personaId: string, phase: string): boolean {
   return WEB_ROLES.has(personaId) && (phase === 'work' || phase === 'review');
 }
 /**
- * 同梱MCPの検証ツール（計算・表・確認記録）の事前許可名。全部門に同じものを渡す。
+ * 同梱MCPの検証ツールの事前許可名。スキルと同じく部門ごとに固定（tools/catalog の ROLE_TOOLS）。
  * ファイル書き込み（確認記録を除く）・コマンド・外部通信を持たないため、部門の権限境界は広がらない。
  */
 export function verificationToolsFor(phase: string, personaId = ''): string[] {
