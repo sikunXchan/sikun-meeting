@@ -1,15 +1,16 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {approvedTools,canReviewInBrowser}=require('../dist/core/capabilities');
+const {approvedTools,canReviewInBrowser,verificationToolsFor}=require('../dist/core/capabilities');
+const WEB_ROLES=['researcher','legal','healthcare','public_policy','privacy','sustainability'];
 const {codexThreadOptions}=require('../dist/core/commission/codexAgent');
 const {PERSONAS}=require('../dist/core/personas');
-test('Web research is available only to Researcher and Legal during work/review, without enabling their shell network',()=>{
+test('Web research is available only to source-driven roles during work/review, without enabling their shell network',()=>{
  for(const p of PERSONAS)for(const phase of ['work','review','read','meeting']){
-  const enabled=['researcher','legal'].includes(p.id)&&['work','review'].includes(phase);
+  const enabled=WEB_ROLES.includes(p.id)&&['work','review'].includes(phase);
   assert.equal(approvedTools(p.id,phase).includes('WebSearch'),enabled);
   assert.equal(approvedTools(p.id,phase).includes('WebFetch'),enabled);
   const options=codexThreadOptions({personaId:p.id,phase:phase==='read'||phase==='meeting'?'planning':phase,tools:phase==='read'||phase==='meeting'?'read':'full',model:'test',workingDirectory:process.cwd()});
   assert.equal(options.webSearchMode,enabled?'live':'disabled');
-  if(['researcher','legal'].includes(p.id)){assert.equal(options.networkAccessEnabled,false);assert.equal(approvedTools(p.id,phase).includes('Bash'),false);}
+  if(WEB_ROLES.includes(p.id)){assert.equal(options.networkAccessEnabled,false);assert.equal(approvedTools(p.id,phase).includes('Bash'),false);}
  }
 });
 test('UI roles receive browser tools for work and review, failures remain unverified and every session closes',async t=>{
@@ -45,7 +46,7 @@ test('Web-enabled roles do not pre-approve reads outside the workspace and refer
  claude.loadQuery=async()=>async function* (input){seen.push(input);yield {type:'result',subtype:'success',is_error:false,result:'ok',modelUsage:{},total_cost_usd:0,num_turns:1};};
  t.after(()=>{claude.loadQuery=original;});
  const {SdkAgentClient}=require('../dist/core/commission/agent'),client=new SdkAgentClient(),refs=path.join(os.tmpdir(),'sikun-refs');
- for(const role of ['researcher','legal'])for(const phase of ['work','review']){
+ for(const role of WEB_ROLES)for(const phase of ['work','review']){
   await client.run({provider:'claude',phase,personaId:role,prompt:'x',workingDirectory:process.cwd(),model:'test',tools:'full',readableDirectories:[refs],maxTurns:1,abortSignal:new AbortController().signal});
   const options=seen.at(-1).options;
   assert.ok(options.tools.includes('Read')&&options.tools.includes('WebFetch'));
@@ -58,7 +59,7 @@ test('Web-enabled roles do not pre-approve reads outside the workspace and refer
   assert.equal(preapprovedTools(tools).includes('Read'),!web,p.id+' '+phase);
  }
  await client.run({provider:'claude',phase:'work',personaId:'engineer',prompt:'x',workingDirectory:process.cwd(),model:'test',tools:'full',maxTurns:1,abortSignal:new AbortController().signal});
- assert.deepEqual(seen.at(-1).options.allowedTools,approvedTools('engineer','work'));assert.equal(seen.at(-1).options.additionalDirectories,undefined);
+ assert.deepEqual(seen.at(-1).options.allowedTools,[...approvedTools('engineer','work'),...verificationToolsFor('work')]);assert.equal(seen.at(-1).options.additionalDirectories,undefined);
 });
 test('Reference folder is passed as the only extra readable directory',async t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'sikun-role-refs-'));

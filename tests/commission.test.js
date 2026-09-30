@@ -167,7 +167,7 @@ test('企画確定後だけ実作業し、内部確認後に納品と修正を�
   assert.equal(calls.find((call) => call.personaId === 'engineer').model, 'special-model');
   assert.equal(calls.find((call) => call.personaId === 'product').model, 'claude-opus-5-5');
   assert.equal(calls.find((call) => call.personaId === 'qa').model, 'claude-sonnet-5');
-  assert.equal(calls.find((call) => call.personaId === 'qa').fallbackModel, 'claude-haiku-4-5-20251001');
+  assert.equal(calls.find((call) => call.personaId === 'qa').fallbackModel, undefined, '既定では代替モデルを使わない');
   assert.equal(f.store.events(item.id).some((event) => event.detail.includes('内部確認を通過')), true);
   await f.service.requestRevision(item.id, '改訂版にする');
   await waitFor(() => f.store.get(item.id).status === 'delivered');

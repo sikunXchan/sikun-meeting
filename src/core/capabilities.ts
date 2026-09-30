@@ -1,5 +1,6 @@
 import { SPECIALIST_PROFILES } from './specialties';
 import { skillIdsFor } from './skills/catalog';
+import { VERIFICATION_TOOLS } from './commission/verificationTools';
 /** 実行時に参照する部門別能力。プロンプト上の肩書きだけで権限を決めない。 */
 export interface PersonaCapability {
   model: string;
@@ -12,19 +13,26 @@ export interface PersonaCapability {
 const READ = ['Read', 'Grep', 'Glob'];
 const EDIT = [...READ, 'Edit', 'Write'];
 const CODE = [...EDIT, 'Bash'];
-const WEB_ROLES = new Set(['researcher', 'legal']);
+/** 原資料・出典の確認が成果の中心になる部門。読み取り範囲は preapprovedTools で作業フォルダと参考資料に限る。 */
+const WEB_ROLES = new Set(['researcher', 'legal', 'healthcare', 'public_policy', 'privacy', 'sustainability']);
 const BROWSER_ROLES = new Set(['qa', 'frontend', 'accessibility', 'mobile']);
 export function canReviewInBrowser(personaId: string): boolean { return BROWSER_ROLES.has(personaId); }
 export function canResearchWeb(personaId: string, phase: string): boolean {
   return WEB_ROLES.has(personaId) && (phase === 'work' || phase === 'review');
 }
+/**
+ * 計算・表読み取りの検証ツールを使える段階。全部門に同じものを渡す。
+ * ファイル書き込み・コマンド・外部通信を持たないため、部門の権限境界は広がらない。
+ */
+const VERIFICATION_PHASES = new Set(['work', 'review', 'goal_check', 'kgi_check']);
+export function verificationToolsFor(phase: string): string[] {
+  return VERIFICATION_PHASES.has(phase) ? [...VERIFICATION_TOOLS] : [];
+}
 const STRONG = 'claude-opus-5-5';
 const STANDARD = 'claude-sonnet-5';
-const FAST = 'claude-haiku-4-5-20251001';
 
 const CODE_ROLES = new Set(['architect', 'engineer', 'backend', 'devops', 'cloud', 'data_engineer', 'security', 'qa', 'ai_researcher']);
 const STRONG_ROLES = new Set(['critic', 'security', 'finance', 'legal', 'architect', 'auditor']);
-const FAST_ROLES = new Set(['innovator']);
 for (const profile of SPECIALIST_PROFILES) {
   if (profile.canRunCode) CODE_ROLES.add(profile.id);
   if (profile.highReasoning) STRONG_ROLES.add(profile.id);
@@ -47,7 +55,7 @@ export function methodFor(personaId: string): string {
 }
 
 export function capabilityFor(personaId: string): PersonaCapability {
-  const model = STRONG_ROLES.has(personaId) ? STRONG : FAST_ROLES.has(personaId) ? FAST : STANDARD;
+  const model = STRONG_ROLES.has(personaId) ? STRONG : STANDARD;
   const canRunCode = CODE_ROLES.has(personaId);
   return {
     model,

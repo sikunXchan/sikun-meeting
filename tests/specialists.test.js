@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {PERSONAS,getPersonaById}=require('../dist/core/personas');
 const {SPECIALIST_PROFILES}=require('../dist/core/specialties');
 const {MEETING_TYPES}=require('../dist/core/meetingTypes');
-const {approvedTools,codexPolicy}=require('../dist/core/capabilities');
+const {approvedTools,codexPolicy,preapprovedTools,verificationToolsFor}=require('../dist/core/capabilities');
 const {appliedSkillsFor,skillPromptFor,skillDetailsFor}=require('../dist/core/skills/catalog');
 const {JsonStore}=require('../dist/core/store/jsonStore'),{Repository}=require('../dist/core/store/repository');
 const {ProjectService}=require('../dist/core/services/projectService'),{MeetingService}=require('../dist/core/services/meetingService');
@@ -73,5 +73,5 @@ test('Claudeの実行クライアントへ新分野の専門手順とツール�
  claude.loadQuery=async()=>async function* (input){seen.push(input);yield {type:'result',subtype:'success',is_error:false,result:'検証用の応答',modelUsage:{},total_cost_usd:0,num_turns:1};};
  t.after(()=>{claude.loadQuery=original;});
  const {SdkAgentClient}=require('../dist/core/commission/agent'),client=new SdkAgentClient();
- for(const profile of SPECIALIST_PROFILES){await client.run({provider:'claude',phase:'work',personaId:profile.id,prompt:'検証用',workingDirectory:process.cwd(),model:'test',tools:'full',maxTurns:1,abortSignal:new AbortController().signal});const options=seen.at(-1).options;assert.ok(options.systemPrompt.includes(skillDetailsFor(profile.id)[0].instructions));assert.ok(options.systemPrompt.includes(profile.outputs[0]));assert.deepEqual(options.allowedTools,approvedTools(profile.id,'work'));}
+ for(const profile of SPECIALIST_PROFILES){await client.run({provider:'claude',phase:'work',personaId:profile.id,prompt:'検証用',workingDirectory:process.cwd(),model:'test',tools:'full',maxTurns:1,abortSignal:new AbortController().signal});const options=seen.at(-1).options;assert.ok(options.systemPrompt.includes(skillDetailsFor(profile.id)[0].instructions));assert.ok(options.systemPrompt.includes(profile.outputs[0]));assert.deepEqual(options.allowedTools,[...preapprovedTools(approvedTools(profile.id,'work')),...verificationToolsFor('work')]);}
 });

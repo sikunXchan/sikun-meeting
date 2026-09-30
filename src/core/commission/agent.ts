@@ -2,14 +2,18 @@ import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { getPersonaById } from '../personas';
 import { loadQuery, resolveClaudeBinaryPath } from '../agent/claudeAgent';
 import { AgentClient, AgentRequest, AgentResponse } from './types';
-import { approvedTools, methodFor, preapprovedTools } from '../capabilities';
+import { approvedTools, methodFor, preapprovedTools, verificationToolsFor } from '../capabilities';
+import { createVerificationServer, VERIFICATION_SERVER } from './verificationTools';
+import { redactSecrets } from './redact';
 import { skillPromptFor } from '../skills/catalog';
 
 function toolSummary(name: string, input: unknown): string {
   if (input && typeof input === 'object') {
     const values = input as Record<string, unknown>;
-    const target = values.file_path ?? values.path ?? values.pattern;
-    if (typeof target === 'string') return `${name}: ${target.slice(0, 240)}`;
+    // 確認役が報告と照合できるよう、コマンド・URL・検索語も記録する。
+    const target = values.file_path ?? values.path ?? values.pattern ?? values.command ?? values.url ?? values.query ?? values.file;
+    if (typeof target === 'string') return `${name}: ${redactSecrets(target).slice(0, 240)}`;
+    if (Array.isArray(values.items)) return `${name}: ${values.items.map((item) => (item as { name?: unknown }).name).filter((value) => typeof value === 'string').join(', ').slice(0, 240)}`;
   }
   return `${name} を使用`;
 }
@@ -31,15 +35,23 @@ export class SdkAgentClient implements AgentClient {
     try {
       const tools = approvedTools(request.personaId,
         request.tools === 'read' ? 'read' : request.phase === 'review' ? 'review' : 'work');
+      const verification = verificationToolsFor(request.phase);
+      const mcpServers = verification.length ? {
+        [VERIFICATION_SERVER]: await createVerificationServer({ workingDirectory: request.workingDirectory, readableDirectories: request.readableDirectories }),
+      } : undefined;
+      const toolGuide = verification.length
+        ? '\n検証ツール: calculate（厳密な計算）と read_table（csv/tsv/xlsxの読み取りと列合計）を使える。報告に書く金額・合計・率・件数は暗算せずツールで求め、報告の数値をツールの結果と照合する。ツールで確かめていない数値は未検算と明記する。'
+        : '';
       const conversation = query({
         prompt: request.prompt,
         options: {
-          systemPrompt: `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}${skillPromptFor(persona.id, request.phase)}\n選択した進め方に従って採用された企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。`,
+          systemPrompt: `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}${skillPromptFor(persona.id, request.phase)}\n選択した進め方に従って採用された企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。${toolGuide}`,
           cwd: request.workingDirectory,
           model: request.model,
           fallbackModel: request.fallbackModel,
           tools,
-          allowedTools: preapprovedTools(tools),
+          allowedTools: [...preapprovedTools(tools), ...verification],
+          mcpServers,
           additionalDirectories: request.readableDirectories?.length ? [...request.readableDirectories] : undefined,
           permissionMode: 'dontAsk',
           settingSources: [],
