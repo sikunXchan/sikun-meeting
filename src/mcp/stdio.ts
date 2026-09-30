@@ -5,11 +5,13 @@
  *
  * 起動: node dist/mcp/stdio.js --groups calc,data,review
  * 環境変数: SIKUN_WORKDIR（作業フォルダ）, SIKUN_READABLE_DIRS（読み取り可能な追加フォルダのJSON配列）,
- *          SIKUN_REVIEW_FILE（確認記録の保存先。確認段階だけ）
+ *          SIKUN_REVIEW_FILE（確認記録の保存先。確認段階だけ）, SIKUN_SOURCES_FILE（出典の記録先。調査部門だけ）
  */
 import * as readline from 'readline';
 import { SERVER_NAME, TOOL_GROUPS, ToolContext, ToolDefinition, ToolGroup } from '../core/tools/catalog';
 
+/** アプリのデータ領域の記録だけを書くツール（作業フォルダは変更しない）。 */
+const WRITES_APP_RECORD = new Set(['record_criterion', 'record_source']);
 const SUPPORTED_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const LATEST_VERSION = '2025-06-18';
 
@@ -30,7 +32,7 @@ export function contextFromEnv(env: NodeJS.ProcessEnv): ToolContext {
     if (!Array.isArray(parsed) || !parsed.every((entry) => typeof entry === 'string')) throw new Error('SIKUN_READABLE_DIRS はパスのJSON配列にしてください');
     readableDirectories = parsed;
   }
-  return { workingDirectory, readableDirectories, reviewFile: env.SIKUN_REVIEW_FILE || undefined };
+  return { workingDirectory, readableDirectories, reviewFile: env.SIKUN_REVIEW_FILE || undefined, sourcesFile: env.SIKUN_SOURCES_FILE || undefined };
 }
 
 /** 1件のメッセージを処理して応答を返す。通知（idなし）には応答しない。 */
@@ -54,7 +56,7 @@ export async function handleMessage(message: JsonRpcMessage, tools: ToolDefiniti
       return reply({
         tools: tools.map((tool) => ({
           name: tool.name, description: tool.description, inputSchema: tool.inputSchema,
-          annotations: tool.name === 'record_criterion'
+          annotations: WRITES_APP_RECORD.has(tool.name)
             ? { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
             : { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
         })),
@@ -66,7 +68,9 @@ export async function handleMessage(message: JsonRpcMessage, tools: ToolDefiniti
       const args = message.params?.arguments;
       try {
         const result = await tool.handler(args && typeof args === 'object' ? args as Record<string, unknown> : {}, context);
-        return reply({ content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] });
+        // 画像などを返すツールは mcpContent に MCP の content ブロックをそのまま入れる。
+        const blocks = result && typeof result === 'object' && Array.isArray((result as { mcpContent?: unknown }).mcpContent) ? (result as { mcpContent: unknown[] }).mcpContent : undefined;
+        return reply({ content: blocks ?? [{ type: 'text', text: JSON.stringify(result, null, 2) }] });
       } catch (failure) {
         // ツールの失敗はAIが読んで直せるように結果として返す（プロトコルエラーにしない）。
         return reply({ content: [{ type: 'text', text: `エラー: ${failure instanceof Error ? failure.message : String(failure)}` }], isError: true });

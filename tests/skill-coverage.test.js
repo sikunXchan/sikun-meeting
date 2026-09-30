@@ -56,7 +56,7 @@ test('不足していた14分野の手順をClaude実行に渡し、ツール権
   await client.run({provider:'claude',phase,personaId:role,prompt:'検証用',workingDirectory:process.cwd(),model:'test',tools:'full',maxTurns:1,abortSignal:new AbortController().signal});
   const options=seen.at(-1).options;assert.ok(options.systemPrompt.includes(skillDetailsFor(role)[0].instructions),role);
   assert.equal(options.systemPrompt.split(COMMON_SKILL_RULES).length-1,1,role);
-  assert.deepEqual(options.tools,approvedTools(role,phase));assert.deepEqual(options.allowedTools,[...preapprovedTools(approvedTools(role,phase)),...verificationToolsFor(phase)]);
+  assert.deepEqual(options.tools,approvedTools(role,phase));assert.deepEqual(options.allowedTools,[...preapprovedTools(approvedTools(role,phase)),...verificationToolsFor(phase,role)]);
  }
 });
 

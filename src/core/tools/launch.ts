@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { SERVER_NAME, toolGroupsFor } from './catalog';
 
-export interface ToolLaunchContext { phase: string; workingDirectory: string; readableDirectories?: string[]; reviewFile?: string }
+export interface ToolLaunchContext { phase: string; personaId?: string; workingDirectory: string; readableDirectories?: string[]; reviewFile?: string; sourcesFile?: string }
 export interface StdioLaunch { command: string; args: string[]; env: Record<string, string> }
 
 /**
@@ -9,7 +9,7 @@ export interface StdioLaunch { command: string; args: string[]; env: Record<stri
  * 配布版でも別途 Node を必要としない。開発時・試験時は node がそのまま使われる。
  */
 export function toolServerLaunch(context: ToolLaunchContext): StdioLaunch | undefined {
-  const groups = toolGroupsFor(context.phase);
+  const groups = toolGroupsFor(context.phase, context.personaId);
   if (!groups.length) return undefined;
   const env: Record<string, string> = {
     ELECTRON_RUN_AS_NODE: '1',
@@ -17,6 +17,7 @@ export function toolServerLaunch(context: ToolLaunchContext): StdioLaunch | unde
     SIKUN_READABLE_DIRS: JSON.stringify(context.readableDirectories ?? []),
   };
   if (groups.includes('review') && context.reviewFile) env.SIKUN_REVIEW_FILE = context.reviewFile;
+  if (groups.includes('sources') && context.sourcesFile) env.SIKUN_SOURCES_FILE = context.sourcesFile;
   return { command: process.execPath, args: [path.join(__dirname, '..', '..', 'mcp', 'stdio.js'), '--groups', groups.join(',')], env };
 }
 

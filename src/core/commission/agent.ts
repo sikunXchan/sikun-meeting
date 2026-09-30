@@ -36,9 +36,9 @@ export class SdkAgentClient implements AgentClient {
     try {
       const tools = approvedTools(request.personaId,
         request.tools === 'read' ? 'read' : request.phase === 'review' ? 'review' : 'work');
-      const verification = verificationToolsFor(request.phase);
-      const mcpServers = claudeToolServers({ phase: request.phase, workingDirectory: request.workingDirectory, readableDirectories: request.readableDirectories, reviewFile: request.reviewFile });
-      const toolGuide = verificationGuide(request.phase);
+      const verification = verificationToolsFor(request.phase, request.personaId);
+      const mcpServers = claudeToolServers({ phase: request.phase, personaId: request.personaId, workingDirectory: request.workingDirectory, readableDirectories: request.readableDirectories, reviewFile: request.reviewFile, sourcesFile: request.sourcesFile });
+      const toolGuide = verificationGuide(request.phase, request.personaId);
       const conversation = query({
         prompt: request.prompt,
         options: {

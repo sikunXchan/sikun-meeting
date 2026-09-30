@@ -2,20 +2,25 @@ import { calculate } from './rational';
 import { dateCalc, growthRate, loanPayment, npvIrr, sensitivityTable, statistics, unitConvert } from './calc';
 import { describeTable, queryTable, readStructured, readTable, reconcileTables, validateTable } from './data';
 import { listCriteria, recordCriterion } from './review';
+import { checkLinks, checkPlaceholders, checkTerms, documentOutline, extractText, findQuote, textDiff, textStats } from './docs';
+import { colorContrast, colorPalette, compareColors, compareImages, imageInfo, optimizeSvg } from './design';
+import { auditAccessibility, checkLayout, screenshotPage } from './browser';
+import { compareVersions, explainCron, testRegex, validateConfig, validateJsonSchema } from './code';
+import { listSources, recordSource } from './sources';
 
 /**
  * アプリ同梱のMCPツール一覧。どれも答えが一つに決まる検証用で、ファイル書き込み（確認記録を除く）・
  * コマンド実行・外部通信を持たない。ClaudeとCodexの双方へ同じ stdio サーバーとして渡す。
  */
 
-export interface ToolContext { workingDirectory: string; readableDirectories: string[]; reviewFile?: string }
+export interface ToolContext { workingDirectory: string; readableDirectories: string[]; reviewFile?: string; sourcesFile?: string }
 export interface ToolDefinition {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
   handler: (args: Record<string, any>, context: ToolContext) => unknown | Promise<unknown>;
 }
-export type ToolGroup = 'calc' | 'data' | 'review';
+export type ToolGroup = 'calc' | 'data' | 'docs' | 'design' | 'browser' | 'code' | 'sources' | 'review';
 
 const str = (description: string) => ({ type: 'string', description });
 const int = (description: string, minimum?: number, maximum?: number) => ({ type: 'integer', description, ...(minimum !== undefined ? { minimum } : {}), ...(maximum !== undefined ? { maximum } : {}) });
@@ -140,6 +145,166 @@ export const TOOL_GROUPS: Record<ToolGroup, ToolDefinition[]> = {
       handler: (args, context) => readStructured(args.file, context.workingDirectory, context.readableDirectories, args.path),
     },
   ],
+  docs: [
+    {
+      name: 'extract_text',
+      description: 'PDF・Word（.docx）・HTML・Markdown・テキストから本文を取り出す（PDFはページ区切り付き）。長い場合は offset で続きを読む。資料の内容確認や引用の前に使う。',
+      inputSchema: object({ file: str('作業フォルダからの相対パス、または参考資料の絶対パス'), offset: int('読み始める文字位置（既定0。nextOffset を渡すと続き）', 0) }, ['file']),
+      handler: (args, context) => extractText(args.file, context, args.offset ?? 0),
+    },
+    {
+      name: 'text_diff',
+      description: '2つの文章（ファイルまたは文字列）の差分を、行・単語・文字の単位で返す。修正前後の比較、原文と訳文・契約書の版の比較、指摘が反映されたかの確認に使う。',
+      inputSchema: object({
+        before: object({ file: str('ファイル（pdf・docx・html・md・txt など）'), text: str('文字列') }), after: object({ file: str('ファイル'), text: str('文字列') }),
+        unit: { type: 'string', enum: ['lines', 'words', 'chars'], description: '比較の単位（既定 lines）' },
+      }, ['before', 'after']),
+      handler: (args, context) => textDiff(args.before, args.after, context, args.unit ?? 'lines'),
+    },
+    {
+      name: 'find_quote',
+      description: '引用した文が資料に実在するかを確かめる。全角/半角・空白・改行の違いは正規化して探し、見つからなければ最も近い箇所と一致度を返す。報告の引用・数値の出典確認に使う。',
+      inputSchema: object({ file: str('資料のファイル（pdf・docx・html・md・txt など）'), quote: str('確かめる引用文（4文字以上）') }, ['file', 'quote']),
+      handler: (args, context) => findQuote(args.file, args.quote, context),
+    },
+    {
+      name: 'text_statistics',
+      description: '文章の文字数・行数・段落数・文の数と平均の長さ・長い文の一覧・80字超の文の数・漢字とカタカナの比率・読む時間の目安を返す。読みやすさの確認や文字数制限の確認に使う。',
+      inputSchema: object({ file: str('ファイル'), text: str('文字列（file の代わり）') }),
+      handler: (args, context) => textStats(args, context),
+    },
+    {
+      name: 'check_placeholders',
+      description: '翻訳の前後で変数（{name}・{{x}}・%s・%1$d・${x}）とタグが同じかを調べる。JSONの翻訳ファイルならキーの過不足・空の訳・未翻訳らしい訳も調べる。',
+      inputSchema: object({ source: object({ file: str('原文（.json の翻訳ファイルや文章）'), text: str('原文の文字列') }), target: object({ file: str('訳文'), text: str('訳文の文字列') }) }, ['source', 'target']),
+      handler: (args, context) => checkPlaceholders(args.source, args.target, context),
+    },
+    {
+      name: 'check_links',
+      description: 'Markdown / HTML のローカルリンク・画像の参照先が存在するか、#見出し・id のアンカーが実在するかを調べる。外部URLは一覧にするだけで接続しない。',
+      inputSchema: object({ file: str('.md / .html のファイル') }, ['file']),
+      handler: (args, context) => checkLinks(args.file, context),
+    },
+    {
+      name: 'document_outline',
+      description: '文書の見出しの構成（階層・行番号）を返し、階層の飛び（h2→h4）・h1の数・重複した見出しを指摘する。マニュアルや報告書の構成確認に使う。',
+      inputSchema: object({ file: str('.md / .html / .docx / .pdf などのファイル') }, ['file']),
+      handler: (args, context) => documentOutline(args.file, context),
+    },
+    {
+      name: 'check_terms',
+      description: '用語集にある表記の揺れ（例: ユーザー / ユーザ、ログイン / サインイン）の出現を行番号付きで返し、全角英数字を含む行も示す。用語の統一の確認に使う。',
+      inputSchema: object({
+        file: str('ファイル'), text: str('文字列（file の代わり）'),
+        terms: { type: 'array', minItems: 1, items: object({ preferred: str('使う表記'), variants: { type: 'array', items: str('揺れとして探す表記') } }, ['preferred', 'variants']) },
+      }, ['terms']),
+      handler: (args, context) => checkTerms(args, args.terms, context),
+    },
+  ],
+  design: [
+    {
+      name: 'color_contrast',
+      description: '文字色と背景色のコントラスト比（WCAG 2.2）と、通常文字・大きい文字・UI部品の AA / AAA の合否を返す。半透明の文字色は背景と合成して測る。',
+      inputSchema: object({ foreground: str('文字・前景の色（#hex, rgb(), hsl(), oklch(), 色名）'), background: str('背景色（不透明）') }, ['foreground', 'background']),
+      handler: (args) => colorContrast(args.foreground, args.background),
+    },
+    {
+      name: 'color_palette',
+      description: '基準色から明るさの段階（100〜900 など）を OKLCH で作り、各色に白・黒の文字を載せたときのコントラストと読みやすい文字色を返す。配色やデザイントークンの作成に使う。',
+      inputSchema: object({ base: str('基準色'), steps: int('段階の数（既定9）', 3, 15) }, ['base']),
+      handler: (args) => colorPalette(args.base, args.steps ?? 9),
+    },
+    {
+      name: 'compare_colors',
+      description: '複数の色の全組み合わせのコントラスト比と色差（CIEDE2000）を返す。見分けにくい色（グラフ・状態表示）や、読めない文字色の組み合わせを見つける。',
+      inputSchema: object({ colors: { type: 'array', minItems: 2, maxItems: 30, items: { anyOf: [str('色'), object({ name: str('名前'), color: str('色') }, ['color'])] } } }, ['colors']),
+      handler: (args) => compareColors(args.colors),
+    },
+    {
+      name: 'image_info',
+      description: '画像の形式・幅と高さ・縦横比・容量・透過の有無と、PNG / JPEG の主要な色（上位8色）・平均色を返す。書き出しサイズやブランド色の確認に使う。',
+      inputSchema: object({ file: str('画像ファイル（png・jpg・gif・webp・svg など）') }, ['file']),
+      handler: (args, context) => imageInfo(args.file, context),
+    },
+    {
+      name: 'compare_images',
+      description: '同じ大きさの2枚の画像（PNG / JPEG）を比べ、変化したピクセルの数と割合、変化箇所を赤で示した画像を返す。修正前後の見た目の差（screenshot_page で撮った画像など）の確認に使う。',
+      inputSchema: object({ before: str('比較元の画像'), after: str('比較先の画像'), threshold: { type: 'number', minimum: 0, maximum: 1, description: '色の違いを無視する度合い（既定0.1、小さいほど厳しい）' } }, ['before', 'after']),
+      handler: (args, context) => compareImages(args.before, args.after, context, args.threshold ?? 0.1),
+    },
+    {
+      name: 'optimize_svg',
+      description: 'SVG を svgo で最適化した結果（容量の変化と最適化後のコード）と、viewBox なし・代替テキストなし・script・外部参照・埋め込み画像といった問題を返す。ファイルは変更しない。',
+      inputSchema: object({ file: str('.svg ファイル') }, ['file']),
+      handler: (args, context) => optimizeSvg(args.file, context),
+    },
+  ],
+  browser: [
+    {
+      name: 'screenshot_page',
+      description: '作業フォルダのローカルHTMLを分離ブラウザで開き、指定した画面幅の画像を返す（fullPage で縦長の全体）。デザインの見た目・崩れの確認や、修正前後の比較に使う。外部サイト・開発サーバーは開けない。',
+      inputSchema: object({ file: str('作業フォルダ内の .html の相対パス'), width: int('画面幅（既定1280。スマホは375など）', 320, 2560), height: int('画面の高さ（既定800）', 240, 4000), fullPage: { type: 'boolean', description: 'ページ全体を撮る（高さ8000pxまで）' } }, ['file']),
+      handler: (args, context) => screenshotPage(context, args.file, args.width, args.height, args.fullPage),
+    },
+    {
+      name: 'audit_accessibility',
+      description: 'axe-core で WCAG 2.x（A / AA）とベストプラクティスの自動検査を行い、違反（影響度・該当要素・解説URL）と要確認項目を返す。自動検査で分かるのは一部の問題だけ。',
+      inputSchema: object({ file: str('作業フォルダ内の .html の相対パス'), width: int('画面幅（既定1280）', 320, 2560) }, ['file']),
+      handler: (args, context) => auditAccessibility(context, args.file, args.width),
+    },
+    {
+      name: 'check_layout',
+      description: '画面幅ごと（既定 375・768・1280）に、横スクロール・画面外へはみ出す要素・切れた文字・24px未満のタップ領域・12px未満の文字・alt のない画像を調べる。レスポンシブ対応の確認に使う。',
+      inputSchema: object({ file: str('作業フォルダ内の .html の相対パス'), widths: { type: 'array', items: { type: 'integer', minimum: 320, maximum: 2560 }, maxItems: 6 } }, ['file']),
+      handler: (args, context) => checkLayout(context, args.file, args.widths),
+    },
+  ],
+  code: [
+    {
+      name: 'test_regex',
+      description: '正規表現（JavaScript）を複数の入力に当て、一致の有無・位置・グループ・全体一致を返す。入力チェックや抽出ルールの確認に使う。',
+      inputSchema: object({ pattern: str('正規表現（/ で囲まない）'), flags: str('フラグ（例: i, m, u）'), inputs: { type: 'array', items: str('試す文字列'), minItems: 1, maxItems: 50 } }, ['pattern', 'inputs']),
+      handler: (args) => testRegex(args.pattern, args.flags, args.inputs),
+    },
+    {
+      name: 'compare_versions',
+      description: 'バージョン番号（semver）を並べ替え、最新版を求め、範囲指定（^1.2.0、~2.0、>=3 <4）を満たすものを返す。依存関係の更新可否の確認に使う。',
+      inputSchema: object({ versions: { type: 'array', items: str('バージョン番号'), minItems: 1 }, range: str('範囲指定（省略可）') }, ['versions']),
+      handler: (args) => compareVersions(args.versions, args.range),
+    },
+    {
+      name: 'validate_config',
+      description: 'JSON / YAML / TOML の構文を検査し、誤りの行・列、または読めた場合の最上位キーを返す。設定ファイル・CI定義・マニフェストの確認に使う。',
+      inputSchema: object({ file: str('.json / .yaml / .yml / .toml のファイル') }, ['file']),
+      handler: (args, context) => validateConfig(args.file, context),
+    },
+    {
+      name: 'validate_json_schema',
+      description: 'データが JSON Schema に合うかを ajv で検証し、違反の場所と理由を返す。API の入出力例や設定ファイルが仕様どおりかの確認に使う。',
+      inputSchema: object({ dataFile: str('データのファイル（.json / .yaml）'), data: { description: 'データを直接渡す場合' }, schemaFile: str('スキーマのファイル'), schema: { type: 'object', description: 'スキーマを直接渡す場合' } }),
+      handler: (args, context) => validateJsonSchema(args, context),
+    },
+    {
+      name: 'explain_cron',
+      description: 'cron 式（5項目または秒付き6項目）の各項目と、指定したタイムゾーンでの次回以降の実行日時を返す。定期実行の設定確認に使う。',
+      inputSchema: object({ expression: str('cron 式（例: 0 9 * * 1-5）'), count: int('列挙する回数（既定5）', 1, 50), timezone: str('タイムゾーン（既定 Asia/Tokyo）'), from: str('起点の日時（既定は現在）') }, ['expression']),
+      handler: (args) => explainCron(args.expression, args.count ?? 5, args.timezone ?? 'Asia/Tokyo', args.from),
+    },
+  ],
+  sources: [
+    {
+      name: 'record_source',
+      description: '調べた原資料を出典として記録する（URL・資料名・発行者・発行日・確認日・根拠の引用・支える主張）。報告では返された [S番号] で出典を示す。取得できなかった資料は記録しない。',
+      inputSchema: object({ url: str('原資料のURL'), title: str('資料名'), publisher: str('発行者'), published: str('発行日・改訂日 YYYY-MM-DD（不明なら省略）'), accessed: str('確認日 YYYY-MM-DD（既定は今日）'), quote: str('根拠となる原文の引用'), claim: str('この資料が支える主張') }, ['url', 'title']),
+      handler: (args, context) => recordSource(context.sourcesFile, args),
+    },
+    {
+      name: 'list_sources',
+      description: 'この依頼で記録された出典の一覧と、発行日・引用が欠けている出典を返す。報告の出典表や確認に使う。',
+      inputSchema: object({}),
+      handler: (_args, context) => listSources(context.sourcesFile),
+    },
+  ],
   review: [
     {
       name: 'record_criterion',
@@ -159,22 +324,45 @@ export const TOOL_GROUPS: Record<ToolGroup, ToolDefinition[]> = {
 /** 1つのstdioプロセスで、段階に応じたグループのツールだけを公開する。 */
 export const SERVER_NAME = 'sikun';
 
-/** 段階ごとに接続するサーバー。確認の記録は確認役の段階だけ。 */
-export function toolGroupsFor(phase: string): ToolGroup[] {
-  if (phase === 'work') return ['calc', 'data'];
-  if (phase === 'review' || phase === 'goal_check' || phase === 'kgi_check') return ['calc', 'data', 'review'];
-  return [];
+/** 画面・画像を扱う部門。 */
+const DESIGN_ROLES = new Set(['designer', 'frontend', 'mobile', 'accessibility', 'marketing', 'education', 'product']);
+/** 画面を操作して確かめる部門（配色・画像のツールは持たないQAを含む）。 */
+const SCREEN_ROLES = new Set([...DESIGN_ROLES, 'qa']);
+/** コードや設定を扱う部門（capabilities の CODE_ROLES から、画面の検査が中心の accessibility を除く）。 */
+const CODE_ROLES = new Set(['architect', 'engineer', 'backend', 'devops', 'cloud', 'data_engineer', 'security', 'qa', 'ai_researcher', 'frontend', 'mobile', 'embedded', 'data_scientist']);
+/** Web取得で原資料を調べる部門（capabilities の WEB_ROLES と同じ範囲）。 */
+const SOURCE_ROLES = new Set(['researcher', 'legal', 'healthcare', 'public_policy', 'privacy', 'sustainability']);
+const REVIEW_PHASES = new Set(['review', 'goal_check', 'kgi_check']);
+
+/**
+ * 段階と部門ごとに接続するツール群。計算・表・文書は全部門。画面の検査は画面を扱う部門と全確認役、
+ * 画像・配色は画面を扱う部門、コード補助はコードを扱う部門、出典は調査部門、確認記録は確認の段階だけ。
+ * 1回に渡すツール数を抑える（一度に30〜50を超えると選択精度が落ちるため）。
+ */
+export function toolGroupsFor(phase: string, personaId = ''): ToolGroup[] {
+  const review = REVIEW_PHASES.has(phase);
+  if (phase !== 'work' && !review) return [];
+  const groups: ToolGroup[] = ['calc', 'data', 'docs'];
+  if (DESIGN_ROLES.has(personaId)) groups.push('design');
+  if (SCREEN_ROLES.has(personaId) || review) groups.push('browser');
+  if (CODE_ROLES.has(personaId)) groups.push('code');
+  if (SOURCE_ROLES.has(personaId) && (phase === 'work' || phase === 'review')) groups.push('sources');
+  if (review) groups.push('review');
+  return groups;
 }
 
-export function toolNamesFor(phase: string): string[] {
-  return toolGroupsFor(phase).flatMap((group) => TOOL_GROUPS[group].map((tool) => `mcp__${SERVER_NAME}__${tool.name}`));
+export function toolNamesFor(phase: string, personaId = ''): string[] {
+  return toolGroupsFor(phase, personaId).flatMap((group) => TOOL_GROUPS[group].map((tool) => `mcp__${SERVER_NAME}__${tool.name}`));
 }
+
+const GROUP_LABELS: Record<ToolGroup, string> = { calc: '計算', data: '表', docs: '文書', design: '配色・画像', browser: '画面', code: 'コード', sources: '出典', review: '確認記録' };
 
 /** 検証ツールの使い方。ClaudeとCodexで同じ文面を使う。 */
-export function verificationGuide(phase: string): string {
-  const names = toolNamesFor(phase);
-  if (!names.length) return '';
-  const review = names.some((name) => name.endsWith('__record_criterion'));
-  return '\n検証ツール（sikun）: 計算は calculate・describe_statistics・growth_rate・npv_irr・loan_payment・sensitivity_table・convert_units・calculate_dates、表は read_table・describe_table・query_table・reconcile_tables・validate_table・read_structured_data。報告に書く金額・合計・率・件数・日付は暗算せずツールで求め、報告の数値をツールの結果と照合する。ツールで確かめていない数値は未検算と明記する。'
-    + (review ? '確認では受け入れ条件ごとに record_criterion で pass / fail / unverified と証拠を記録し、list_criteria で漏れがないか確かめてから判定する。fail か unverified が残る場合は承認しない。' : '');
+export function verificationGuide(phase: string, personaId = ''): string {
+  const groups = toolGroupsFor(phase, personaId);
+  if (!groups.length) return '';
+  const list = groups.map((group) => `${GROUP_LABELS[group]}: ${TOOL_GROUPS[group].map((tool) => tool.name).join('・')}`).join('。');
+  return `\n検証ツール（sikun）: ${list}。答えが一つに決まる確認（計算・集計・照合・引用の実在・差分・色のコントラスト・画面の崩れ）はツールで行い、報告の数値や判定をツールの結果と照合する。ツールで確かめていない数値は未検算、画面は未確認と明記する。`
+    + (groups.includes('sources') ? '調べた原資料は record_source で記録し、報告では [S番号] で示す。' : '')
+    + (groups.includes('review') ? '確認では受け入れ条件ごとに record_criterion で pass / fail / unverified と証拠を記録し、list_criteria で漏れがないか確かめてから判定する。fail か unverified が残る場合は承認しない。' : '');
 }
