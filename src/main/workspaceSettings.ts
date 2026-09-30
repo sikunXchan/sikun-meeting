@@ -18,6 +18,8 @@ export function normalizeWorkspacePreferences(raw: Partial<WorkspacePreferences>
     fields[key]=value.trim();
   }
   if(fields['commission-provider']&&!['claude','codex'].includes(fields['commission-provider']))throw new Error('AIの設定が不正です');
+  // 旧既定の代替モデル（Haiku）を保存済み設定から外し、既定の「代替なし」を使う。
+  if(fields['commission-model-fallback']==='claude-haiku-4-5-20251001')delete fields['commission-model-fallback'];
   for(const key of ['commission-autonomy'])if(typeof raw?.flags?.[key]==='boolean')flags[key]=raw.flags[key];
   if(!flags['commission-autonomy']&&Number(fields['commission-max-calls'])>200)throw new Error('自動再試行を無効にする場合、AIの最大呼び出し回数は200回までです');
   return {fields,flags,executionMode:raw?.executionMode==='review'?'review':'automatic',modelMode:raw?.modelMode==='custom'?'custom':'recommended'};

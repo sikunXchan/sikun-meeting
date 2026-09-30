@@ -5,6 +5,7 @@ import { getPersonaById } from '../personas';
 import { AgentClient, AgentRequest, AgentResponse } from './types';
 import { codexPolicy, methodFor, canResearchWeb } from '../capabilities';
 import { skillPromptFor } from '../skills/catalog';
+import { redactSecrets } from './redact';
 
 type CodexModule = typeof import('@openai/codex-sdk');
 
@@ -91,7 +92,7 @@ export class CodexAgentClient implements AgentClient {
             if (item.type === 'agent_message') text = item.text;
             if (item.type === 'command_execution') {
               toolCalls++;
-              await request.onTool?.(`コマンド実行: ${item.status}`);
+              await request.onTool?.(`コマンド実行: ${redactSecrets(item.command).slice(0, 240)}（${item.status}${typeof item.exit_code === 'number' ? `・終了コード ${item.exit_code}` : ''}）`);
             }
             if (item.type === 'file_change') {
               toolCalls++;

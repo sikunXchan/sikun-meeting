@@ -37,7 +37,8 @@ export class CommissionStore {
       }
       commission.settings.executionMode ??= 'review';
       commission.settings.criticalModel ??= 'claude-opus-5-5';
-      commission.settings.fallbackModel ??= 'claude-haiku-4-5-20251001';
+      // 旧既定のHaiku代替は使わない。未設定・旧既定は「代替なし」にそろえる。
+      if (commission.settings.fallbackModel === undefined || commission.settings.fallbackModel === 'claude-haiku-4-5-20251001') commission.settings.fallbackModel = '';
       if (commission.status === 'running') {
         commission.status = 'interrupted';
         commission.error = 'アプリ終了により実行が中断しました。作業結果を確認してから再開してください。';

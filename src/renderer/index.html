@@ -276,11 +276,11 @@
               <label class="claude-only">実作業 <input id="commission-model-worker" value="claude-sonnet-5" /></label>
               <label class="claude-only">内部確認 <input id="commission-model-reviewer" value="claude-sonnet-5" /></label>
               <label class="claude-only">重要判断 <input id="commission-model-critical" value="claude-opus-5-5" /></label>
-              <label class="claude-only">混雑・利用不可時の代替 <input id="commission-model-fallback" value="claude-haiku-4-5-20251001" /></label>
+              <label class="claude-only">混雑・利用不可時の代替（空欄は代替なし） <input id="commission-model-fallback" value="" placeholder="代替なし" /></label>
               <label class="codex-only hidden">Codexモデル <input id="commission-model-codex" value="gpt-6-sol" /></label>
               <label class="claude-only">1回の最大ターン数 <input id="commission-max-turns" type="number" min="1" max="100" value="12" /></label>
             </div>
-            <label class="claude-only">役割別モデル（1行につき personaId=model）<textarea id="commission-model-by-persona" rows="3" placeholder="engineer=claude-sonnet-5&#10;qa=claude-haiku-4-5-20251001"></textarea></label>
+            <label class="claude-only">役割別モデル（1行につき personaId=model）<textarea id="commission-model-by-persona" rows="3" placeholder="engineer=claude-sonnet-5&#10;finance=claude-opus-5-5"></textarea></label>
             </details></section>
                 <section id="request-settings-autonomy" class="request-settings-pane hidden" role="tabpanel" aria-labelledby="request-tab-autonomy">            <section id="commission-autonomy-settings" class="settings-subsection"><h3>自動で作業を続ける</h3>
             <p class="field-help">企画が決まった後、失敗時の再試行やアプリ再起動後の再開を行います。</p>
