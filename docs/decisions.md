@@ -204,3 +204,20 @@
     - 生成画像が作業フォルダへ取り込まれ、記録に残る。
   - 実際の OpenAI 環境で画像が生成されるかは、認証情報が無いため未確認。
 
+## D-025：利用者の UI/UX 原則集を Designer のスキルとツールに組み込む
+
+- 日付・状態：2026-09-30・採用
+- 根拠：ユーザーが UI/UX の原則集（500項目、約166KB）を提供した。スキルの同梱資料は1ファイル16KBまでで、内容をすべてプロンプトに入れる（`src/core/skills/catalog.ts` の `readSkill`）ため、全文は入れられない。
+- 選択：
+  - 全文は `interface-design/knowledge/ux-principles.md` に置く。`lookup_ux_principles`（番号・語で検索、目次）で必要な項目だけを返す。
+  - 要点は項目番号付きの確認リスト（`references/ux-checklist.md`、約6KB）にまとめ、interface-design 1.3.0 で常に適用する。
+  - スキルの手順にも次を加える。
+    - 操作の慣習は守り、独自性は配色・書体・構成・言葉で出す（ヤコブの法則と、定番の型を避ける方針の両立）。
+    - 指摘に項目番号を添える。
+  - `lookup_ux_principles` は Designer・Frontend・Mobile・Accessibility・Product に渡す。1回12個以下を保つため、Designer の optimize_svg と Frontend の image_info を外した。
+- 確認：
+  - 原則集が1〜500の番号で過不足なく読めることを試験で確認した。
+  - 確認リストが引用する項目番号がすべて実在すること、全文がプロンプトに入らないことを試験で確認した。
+  - ビルドで dist に同梱されることを試験で確認した。
+  - 実際の成果物の質がどれだけ変わるかは未測定。
+
