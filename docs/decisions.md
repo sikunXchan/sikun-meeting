@@ -182,3 +182,42 @@
   - © ™ → は絵文字として数えないことも確認した。
   - 実際の Designer の出力がどれだけ変わるかは未測定。
 
+## D-024：Codex の作業では画像を作る部門に画像生成を使わせる
+
+- 日付・状態：2026-09-30・採用
+- 根拠：
+  - ユーザーは、Codex では画像生成もできるようにしたいと求めた。
+  - Claude は画像を生成できない（Anthropic Vision ドキュメントの FAQ「Can Claude generate or edit images?」：cannot generate, produce, edit, manipulate, or create images）。
+  - 同梱の Codex CLI 0.156.1 は `codex features list` で `image_generation stable true` と表示し、組み込みの image_gen を既定で有効にしている。CLI 同梱の imagegen スキルの説明では、組み込みの image_gen は OPENAI_API_KEY を要さず、生成物を `$CODEX_HOME/generated_images/` に保存する。
+- 選択：
+  - Codex の作業段階の designer・marketing・frontend・mobile・education だけ `features.image_generation=true` とする。それ以外の部門と段階では明示的に false にする（既定で有効なため）。
+  - 生成物は実行イベント（SDK の ThreadItem）に現れない。そのため実行後に、実行中に作られた画像を作業フォルダの `generated-images/` へ取り込み、「画像生成: …」として操作記録に残す。確認役は、この記録で画像の有無を確かめられる。
+  - 同じ内容の画像が作業フォルダにあれば、コピーしない。既存のファイルは上書きしない。
+  - Claude の同じ部門には、画像を生成できないこと、SVG で描くか画像の指示書を残して未作成と報告することを伝える。
+- 境界：
+  - 画像生成の料金と利用枠は、利用者の Codex（ChatGPT）アカウントに従う。
+  - 画像生成を使えない環境では、Codex が生成に失敗し、その旨を報告する。
+- 確認：
+  - `-c features.image_generation=false/true` で、同梱 CLI の機能一覧が切り替わることを確認した。
+  - 偽の Codex 実行ファイルを使った試験で、次のことを確認した。
+    - Designer の作業で `features.image_generation=true` と image_gen の指示が渡る。
+    - 生成画像が作業フォルダへ取り込まれ、記録に残る。
+  - 実際の OpenAI 環境で画像が生成されるかは、認証情報が無いため未確認。
+
+## D-025：利用者の UI/UX 原則集を Designer のスキルとツールに組み込む
+
+- 日付・状態：2026-09-30・採用
+- 根拠：ユーザーが UI/UX の原則集（500項目、約166KB）を提供した。スキルの同梱資料は1ファイル16KBまでで、内容をすべてプロンプトに入れる（`src/core/skills/catalog.ts` の `readSkill`）ため、全文は入れられない。
+- 選択：
+  - 全文は `interface-design/knowledge/ux-principles.md` に置く。`lookup_ux_principles`（番号・語で検索、目次）で必要な項目だけを返す。
+  - 要点は項目番号付きの確認リスト（`references/ux-checklist.md`、約6KB）にまとめ、interface-design 1.3.0 で常に適用する。
+  - スキルの手順にも次を加える。
+    - 操作の慣習は守り、独自性は配色・書体・構成・言葉で出す（ヤコブの法則と、定番の型を避ける方針の両立）。
+    - 指摘に項目番号を添える。
+  - `lookup_ux_principles` は Designer・Frontend・Mobile・Accessibility・Product に渡す。1回12個以下を保つため、Designer の optimize_svg と Frontend の image_info を外した。
+- 確認：
+  - 原則集が1〜500の番号で過不足なく読めることを試験で確認した。
+  - 確認リストが引用する項目番号がすべて実在すること、全文がプロンプトに入らないことを試験で確認した。
+  - ビルドで dist に同梱されることを試験で確認した。
+  - 実際の成果物の質がどれだけ変わるかは未測定。
+

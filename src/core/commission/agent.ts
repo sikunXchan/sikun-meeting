@@ -2,7 +2,7 @@ import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { getPersonaById } from '../personas';
 import { loadQuery, resolveClaudeBinaryPath } from '../agent/claudeAgent';
 import { AgentClient, AgentRequest, AgentResponse } from './types';
-import { approvedTools, methodFor, preapprovedTools, verificationToolsFor } from '../capabilities';
+import { approvedTools, imageGuide, methodFor, preapprovedTools, verificationToolsFor } from '../capabilities';
 import { claudeToolServers } from '../tools/launch';
 import { verificationGuide } from '../tools/catalog';
 import { redactSecrets } from './redact';
@@ -42,7 +42,7 @@ export class SdkAgentClient implements AgentClient {
       const conversation = query({
         prompt: request.prompt,
         options: {
-          systemPrompt: `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}${skillPromptFor(persona.id, request.phase)}\n選択した進め方に従って採用された企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。${toolGuide}`,
+          systemPrompt: `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}${skillPromptFor(persona.id, request.phase)}\n選択した進め方に従って採用された企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。${toolGuide}${imageGuide(persona.id, request.phase, 'claude')}`,
           cwd: request.workingDirectory,
           model: request.model,
           fallbackModel: request.fallbackModel,

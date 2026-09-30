@@ -20,6 +20,19 @@ export function canReviewInBrowser(personaId: string): boolean { return BROWSER_
 export function canResearchWeb(personaId: string, phase: string): boolean {
   return WEB_ROLES.has(personaId) && (phase === 'work' || phase === 'review');
 }
+/** 画像素材を作る部門。Codex の作業段階だけ組み込みの画像生成（image_gen）を使える。Claude は画像を生成できない。 */
+const IMAGE_ROLES = new Set(['designer', 'marketing', 'frontend', 'mobile', 'education']);
+export function canGenerateImages(personaId: string, phase: string, provider: 'claude' | 'codex'): boolean {
+  return provider === 'codex' && phase === 'work' && IMAGE_ROLES.has(personaId);
+}
+/** 画像素材についての指示。Codex では生成と取り込み方、Claude では生成できないことと代わりの手段を伝える。 */
+export function imageGuide(personaId: string, phase: string, provider: 'claude' | 'codex'): string {
+  if (phase !== 'work' || !IMAGE_ROLES.has(personaId)) return '';
+  if (canGenerateImages(personaId, phase, provider)) {
+    return '\n画像生成: 写真・イラストなどSVGやHTMLで描けない素材が必要な場合に限り、組み込みの image_gen で生成できる。生成物は $CODEX_HOME/generated_images/ に保存されるため、採用する画像を作業フォルダの generated-images/ へコピーして成果物から参照する（コピーしなかった生成画像もアプリが generated-images/ に取り込む）。報告には画像ごとの用途と生成に使った指示文を書く。題材と無関係な定番の絵（つるっとした質感の人物、紫系の抽象グラデーションなど）は避け、題材・利用者・ブランドから画像の方向性を決める。';
+  }
+  return '\n画像生成: この実行環境では画像を生成できない。写真・イラストが必要な箇所は SVG で描くか、必要な画像の内容・構図・サイズを指示書として残し、未作成と報告する。';
+}
 /**
  * 同梱MCPの検証ツールの事前許可名。スキルと同じく部門ごとに固定（tools/catalog の ROLE_TOOLS）。
  * ファイル書き込み（確認記録を除く）・コマンド・外部通信を持たないため、部門の権限境界は広がらない。

@@ -115,8 +115,8 @@ test('Codexの企画相談・計画・納品では探索ツールを有効化し
     assert.equal(options.config.features.code_mode_host, false);
     assert.equal(options.config.features.apps, false);
   }
-  assert.equal(codexOptionsForPhase('work').config, undefined);
-  assert.equal(codexOptionsForPhase('review').config, undefined);
+  assert.deepEqual(codexOptionsForPhase('work').config, { features: { image_generation: false } });
+  assert.deepEqual(codexOptionsForPhase('review').config, { features: { image_generation: false } });
 });
 
 test('無人運用では一時的な失敗を自動で再試行して納品まで進む', async (t) => {

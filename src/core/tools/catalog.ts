@@ -7,6 +7,7 @@ import { colorContrast, colorPalette, compareColors, compareImages, imageInfo, o
 import { auditAccessibility, checkDesignPatterns, checkLayout, screenshotPage } from './browser';
 import { compareVersions, explainCron, testRegex, validateConfig, validateJsonSchema } from './code';
 import { listSources, recordSource } from './sources';
+import { lookupUxPrinciples } from './knowledge';
 
 /**
  * アプリ同梱のMCPツール一覧。どれも答えが一つに決まる検証用で、ファイル書き込み（確認記録を除く）・
@@ -20,7 +21,7 @@ export interface ToolDefinition {
   inputSchema: Record<string, unknown>;
   handler: (args: Record<string, any>, context: ToolContext) => unknown | Promise<unknown>;
 }
-export type ToolGroup = 'calc' | 'data' | 'docs' | 'design' | 'browser' | 'code' | 'sources' | 'review';
+export type ToolGroup = 'calc' | 'data' | 'docs' | 'design' | 'browser' | 'code' | 'knowledge' | 'sources' | 'review';
 
 const str = (description: string) => ({ type: 'string', description });
 const int = (description: string, minimum?: number, maximum?: number) => ({ type: 'integer', description, ...(minimum !== undefined ? { minimum } : {}), ...(maximum !== undefined ? { maximum } : {}) });
@@ -297,6 +298,14 @@ export const TOOL_GROUPS: Record<ToolGroup, ToolDefinition[]> = {
       handler: (args) => explainCron(args.expression, args.count ?? 5, args.timezone ?? 'Asia/Tokyo', args.from),
     },
   ],
+  knowledge: [
+    {
+      name: 'lookup_ux_principles',
+      description: '利用者が整理した UI/UX の原則集（500項目: ヤコブ・フィッツ・ヒックの法則、フォーム、エラー、アクセシビリティ、ダークパターン、評価手法など）を引く。numbers で番号指定（例: [3, 97]）、query で語を検索（例: "フォーム エラー"）、どちらも無ければ目次。設計や確認の判断の根拠に、該当する項目の番号を示す。',
+      inputSchema: object({ query: str('検索語。空白区切りで複数可（例: 空状態 オンボーディング）'), numbers: { type: 'array', items: { type: 'integer', minimum: 1, maximum: 500 }, maxItems: 10 }, limit: int('本文を返す最大件数（既定5）', 1, 10) }),
+      handler: (args) => lookupUxPrinciples(args),
+    },
+  ],
   sources: [
     {
       name: 'record_source',
@@ -339,7 +348,7 @@ export const ROLE_TOOLS: Record<string, string[]> = {
   architect: ['calculate', 'convert_units', 'extract_text', 'document_outline', 'validate_config', 'validate_json_schema', 'compare_versions'],
   engineer: ['calculate', 'read_structured_data', 'text_diff', 'test_regex', 'compare_versions', 'validate_config', 'validate_json_schema', 'explain_cron'],
   backend: ['calculate', 'calculate_dates', 'read_structured_data', 'text_diff', 'test_regex', 'compare_versions', 'validate_config', 'validate_json_schema', 'explain_cron'],
-  product: ['calculate', 'growth_rate', 'sensitivity_table', 'read_table', 'query_table', 'document_outline', 'screenshot_page', 'check_layout'],
+  product: ['calculate', 'growth_rate', 'sensitivity_table', 'read_table', 'query_table', 'document_outline', 'screenshot_page', 'check_layout', 'lookup_ux_principles'],
   researcher: ['calculate', 'growth_rate', 'read_table', 'extract_text', 'find_quote', 'check_links', 'record_source', 'list_sources'],
   critic: ['calculate', 'read_table', 'reconcile_tables', 'extract_text', 'find_quote', 'text_diff', 'screenshot_page', 'check_layout'],
   security: ['read_structured_data', 'extract_text', 'find_quote', 'test_regex', 'compare_versions', 'validate_config', 'validate_json_schema', 'explain_cron'],
@@ -347,7 +356,7 @@ export const ROLE_TOOLS: Record<string, string[]> = {
   analyst: ['calculate', 'describe_statistics', 'growth_rate', 'read_table', 'describe_table', 'query_table', 'reconcile_tables', 'validate_table', 'extract_text'],
   finance: ['calculate', 'growth_rate', 'npv_irr', 'loan_payment', 'sensitivity_table', 'calculate_dates', 'read_table', 'query_table', 'reconcile_tables'],
   legal: ['calculate_dates', 'extract_text', 'find_quote', 'text_diff', 'document_outline', 'check_terms', 'record_source', 'list_sources'],
-  designer: ['color_contrast', 'color_palette', 'compare_colors', 'image_info', 'compare_images', 'optimize_svg', 'screenshot_page', 'audit_accessibility', 'check_layout', 'check_design_patterns'],
+  designer: ['color_contrast', 'color_palette', 'compare_colors', 'image_info', 'compare_images', 'screenshot_page', 'audit_accessibility', 'check_layout', 'check_design_patterns', 'lookup_ux_principles'],
   marketing: ['calculate', 'growth_rate', 'sensitivity_table', 'read_table', 'query_table', 'text_statistics', 'check_terms', 'color_contrast', 'image_info', 'screenshot_page'],
   devops: ['convert_units', 'calculate_dates', 'read_structured_data', 'test_regex', 'compare_versions', 'validate_config', 'validate_json_schema', 'explain_cron'],
   qa: ['calculate', 'reconcile_tables', 'text_diff', 'compare_images', 'screenshot_page', 'audit_accessibility', 'check_layout', 'test_regex', 'validate_config', 'validate_json_schema'],
@@ -357,10 +366,10 @@ export const ROLE_TOOLS: Record<string, string[]> = {
   data_engineer: ['read_table', 'describe_table', 'query_table', 'reconcile_tables', 'validate_table', 'read_structured_data', 'test_regex', 'validate_config', 'validate_json_schema', 'explain_cron'],
   cloud: ['calculate', 'sensitivity_table', 'convert_units', 'compare_versions', 'validate_config', 'validate_json_schema', 'explain_cron'],
   visionary: ['calculate', 'describe_statistics', 'growth_rate', 'sensitivity_table', 'extract_text'],
-  frontend: ['color_contrast', 'image_info', 'compare_images', 'optimize_svg', 'screenshot_page', 'audit_accessibility', 'check_layout', 'test_regex', 'compare_versions', 'validate_config'],
-  mobile: ['color_contrast', 'image_info', 'compare_images', 'screenshot_page', 'audit_accessibility', 'check_layout', 'compare_versions', 'validate_config'],
+  frontend: ['color_contrast', 'compare_images', 'optimize_svg', 'screenshot_page', 'audit_accessibility', 'check_layout', 'test_regex', 'compare_versions', 'validate_config', 'lookup_ux_principles'],
+  mobile: ['color_contrast', 'image_info', 'compare_images', 'screenshot_page', 'audit_accessibility', 'check_layout', 'compare_versions', 'validate_config', 'lookup_ux_principles'],
   embedded: ['calculate', 'convert_units', 'read_table', 'test_regex', 'compare_versions', 'validate_config'],
-  accessibility: ['document_outline', 'color_contrast', 'compare_colors', 'screenshot_page', 'audit_accessibility', 'check_layout'],
+  accessibility: ['document_outline', 'color_contrast', 'compare_colors', 'screenshot_page', 'audit_accessibility', 'check_layout', 'lookup_ux_principles'],
   privacy: ['calculate_dates', 'validate_table', 'read_structured_data', 'extract_text', 'text_diff', 'find_quote', 'check_terms', 'record_source', 'list_sources'],
   sales: ['calculate', 'growth_rate', 'sensitivity_table', 'calculate_dates', 'read_table', 'query_table'],
   data_scientist: ['calculate', 'describe_statistics', 'growth_rate', 'sensitivity_table', 'read_table', 'describe_table', 'query_table', 'reconcile_tables', 'validate_table'],
@@ -404,7 +413,7 @@ export function toolNamesFor(phase: string, personaId = ''): string[] {
   return toolsFor(phase, personaId).map((tool) => `mcp__${SERVER_NAME}__${tool.name}`);
 }
 
-const GROUP_LABELS: Record<ToolGroup, string> = { calc: '計算', data: '表', docs: '文書', design: '配色・画像', browser: '画面', code: 'コード', sources: '出典', review: '確認記録' };
+const GROUP_LABELS: Record<ToolGroup, string> = { calc: '計算', data: '表', docs: '文書', design: '配色・画像', browser: '画面', code: 'コード', knowledge: 'UI/UXの原則', sources: '出典', review: '確認記録' };
 
 /** 検証ツールの使い方。ClaudeとCodexで同じ文面を使う。 */
 export function verificationGuide(phase: string, personaId = ''): string {
@@ -413,6 +422,7 @@ export function verificationGuide(phase: string, personaId = ''): string {
   const names = new Set(tools.map((tool) => tool.name));
   const list = toolGroupsFor(phase, personaId).map((group) => `${GROUP_LABELS[group]}: ${TOOL_GROUPS[group].filter((tool) => names.has(tool.name)).map((tool) => tool.name).join('・')}`).join('。');
   return `\n検証ツール（sikun。この部門用）: ${list}。答えが一つに決まる確認（計算・集計・照合・引用の実在・差分・色のコントラスト・画面の崩れ）はツールで行い、報告の数値や判定をツールの結果と照合する。ツールで確かめていない数値は未検算、画面は未確認と明記する。`
+    + (names.has('lookup_ux_principles') ? '画面の設計・確認では lookup_ux_principles で該当する原則を引き、判断の根拠に番号（例: #97 プレースホルダーはラベルの代わりではない）を示す。' : '')
     + (names.has('record_source') ? '調べた原資料は record_source で記録し、報告では [S番号] で示す。' : '')
     + (names.has('record_criterion') ? '確認では受け入れ条件ごとに record_criterion で pass / fail / unverified と証拠を記録し、list_criteria で漏れがないか確かめてから判定する。fail か unverified が残る場合は承認しない。' : '');
 }

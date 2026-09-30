@@ -152,7 +152,7 @@ test('Codex receives the same stdio server through config.mcp_servers',()=>{
  assert.equal(server.env.SIKUN_WORKDIR,'/w');assert.equal(server.env.SIKUN_REVIEW_FILE,'/d/c.json');
  assert.equal(codexOptionsForPhase('work',undefined,{workingDirectory:'/w'}).config.mcp_servers.sikun.env.SIKUN_REVIEW_FILE,undefined);
  assert.equal(codexOptionsForPhase('planning',undefined,{workingDirectory:'/w'}).config.mcp_servers,undefined,'文章だけの段階はツールなし');
- assert.equal(codexOptionsForPhase('work').config,undefined);
+ assert.deepEqual(codexOptionsForPhase('work').config,{features:{image_generation:false}});
 });
 
 test('reviewers that record an unmet criterion cannot approve, even if their JSON says approved',async t=>{

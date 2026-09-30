@@ -11,7 +11,7 @@ AIが「答えが一つに決まる確認」（計算・集計・照合・引用
 - 画面系は作業フォルダのローカルHTMLだけを、外部通信を遮断した分離ブラウザ（Chrome / Edge）で開く。AIが書いたスクリプトは実行しない。
 - 近似値（標準偏差・年平均成長率・内部収益率）は結果に approximate と明示する。祝日・為替・税率のように更新が必要なデータは持たない。
 
-## ツール一覧（41個）
+## ツール一覧（42個）
 
 | グループ | ツール |
 |---|---|
@@ -21,12 +21,13 @@ AIが「答えが一つに決まる確認」（計算・集計・照合・引用
 | 配色・画像（6） | color_contrast, color_palette, compare_colors, image_info, compare_images, optimize_svg |
 | 画面（4） | screenshot_page, audit_accessibility, check_layout, check_design_patterns |
 | コード（5） | test_regex, compare_versions, validate_config, validate_json_schema, explain_cron |
+| UI/UXの原則（1） | lookup_ux_principles |
 | 出典（2） | record_source, list_sources |
 | 確認記録（2） | record_criterion, list_criteria |
 
 ## 部門ごとのツール
 
-スキルと同じく、部門ごとに渡すツールを固定する（`src/core/tools/catalog.ts` の `ROLE_TOOLS`）。AIが41個から選ぶ必要をなくすため、部門の仕事で確かめる対象に合うものだけを5〜10個にしている。
+スキルと同じく、部門ごとに渡すツールを固定する（`src/core/tools/catalog.ts` の `ROLE_TOOLS`）。AIが42個から選ぶ必要をなくすため、部門の仕事で確かめる対象に合うものだけを5〜10個にしている。
 
 - 作業：下表の部門のツールだけ。
 - 確認・目標確認・KGI確認：下表に `record_criterion`・`list_criteria` を加える（7〜12個）。目標確認・KGI確認では `record_source` を渡さない。
@@ -40,7 +41,7 @@ AIが「答えが一つに決まる確認」（計算・集計・照合・引用
 | Architect（architect） | 7 | calculate, convert_units, extract_text, document_outline, validate_config, validate_json_schema, compare_versions |
 | Engineer（engineer） | 8 | calculate, read_structured_data, text_diff, test_regex, compare_versions, validate_config, validate_json_schema, explain_cron |
 | Backend（backend） | 9 | calculate, calculate_dates, read_structured_data, text_diff, test_regex, compare_versions, validate_config, validate_json_schema, explain_cron |
-| Product（product） | 8 | calculate, growth_rate, sensitivity_table, read_table, query_table, document_outline, screenshot_page, check_layout |
+| Product（product） | 9 | calculate, growth_rate, sensitivity_table, read_table, query_table, document_outline, screenshot_page, check_layout, lookup_ux_principles |
 | Researcher（researcher） | 8 | calculate, growth_rate, read_table, extract_text, find_quote, check_links, record_source, list_sources |
 | Critic（critic） | 8 | calculate, read_table, reconcile_tables, extract_text, find_quote, text_diff, screenshot_page, check_layout |
 | Security（security） | 8 | read_structured_data, extract_text, find_quote, test_regex, compare_versions, validate_config, validate_json_schema, explain_cron |
@@ -48,7 +49,7 @@ AIが「答えが一つに決まる確認」（計算・集計・照合・引用
 | Analyst（analyst） | 9 | calculate, describe_statistics, growth_rate, read_table, describe_table, query_table, reconcile_tables, validate_table, extract_text |
 | Finance（finance） | 9 | calculate, growth_rate, npv_irr, loan_payment, sensitivity_table, calculate_dates, read_table, query_table, reconcile_tables |
 | Legal（legal） | 8 | calculate_dates, extract_text, find_quote, text_diff, document_outline, check_terms, record_source, list_sources |
-| Designer（designer） | 10 | color_contrast, color_palette, compare_colors, image_info, compare_images, optimize_svg, screenshot_page, audit_accessibility, check_layout, check_design_patterns |
+| Designer（designer） | 10 | color_contrast, color_palette, compare_colors, image_info, compare_images, screenshot_page, audit_accessibility, check_layout, check_design_patterns, lookup_ux_principles |
 | Marketing（marketing） | 10 | calculate, growth_rate, sensitivity_table, read_table, query_table, text_statistics, check_terms, color_contrast, image_info, screenshot_page |
 | DevOps（devops） | 8 | convert_units, calculate_dates, read_structured_data, test_regex, compare_versions, validate_config, validate_json_schema, explain_cron |
 | QA（qa） | 10 | calculate, reconcile_tables, text_diff, compare_images, screenshot_page, audit_accessibility, check_layout, test_regex, validate_config, validate_json_schema |
@@ -58,10 +59,10 @@ AIが「答えが一つに決まる確認」（計算・集計・照合・引用
 | DataEngineer（data_engineer） | 10 | read_table, describe_table, query_table, reconcile_tables, validate_table, read_structured_data, test_regex, validate_config, validate_json_schema, explain_cron |
 | CloudEngineer（cloud） | 7 | calculate, sensitivity_table, convert_units, compare_versions, validate_config, validate_json_schema, explain_cron |
 | Visionary（visionary） | 5 | calculate, describe_statistics, growth_rate, sensitivity_table, extract_text |
-| FrontendEngineer（frontend） | 10 | color_contrast, image_info, compare_images, optimize_svg, screenshot_page, audit_accessibility, check_layout, test_regex, compare_versions, validate_config |
-| MobileEngineer（mobile） | 8 | color_contrast, image_info, compare_images, screenshot_page, audit_accessibility, check_layout, compare_versions, validate_config |
+| FrontendEngineer（frontend） | 10 | color_contrast, compare_images, optimize_svg, screenshot_page, audit_accessibility, check_layout, test_regex, compare_versions, validate_config, lookup_ux_principles |
+| MobileEngineer（mobile） | 9 | color_contrast, image_info, compare_images, screenshot_page, audit_accessibility, check_layout, compare_versions, validate_config, lookup_ux_principles |
 | EmbeddedEngineer（embedded） | 6 | calculate, convert_units, read_table, test_regex, compare_versions, validate_config |
-| AccessibilitySpecialist（accessibility） | 6 | document_outline, color_contrast, compare_colors, screenshot_page, audit_accessibility, check_layout |
+| AccessibilitySpecialist（accessibility） | 7 | document_outline, color_contrast, compare_colors, screenshot_page, audit_accessibility, check_layout, lookup_ux_principles |
 | PrivacySpecialist（privacy） | 9 | calculate_dates, validate_table, read_structured_data, extract_text, text_diff, find_quote, check_terms, record_source, list_sources |
 | Sales（sales） | 6 | calculate, growth_rate, sensitivity_table, calculate_dates, read_table, query_table |
 | DataScientist（data_scientist） | 9 | calculate, describe_statistics, growth_rate, sensitivity_table, read_table, describe_table, query_table, reconcile_tables, validate_table |
@@ -83,6 +84,8 @@ AIが「答えが一つに決まる確認」（計算・集計・照合・引用
 - 題材に関係なく出やすい定番の型：同じ角丸と影のカードの割合、英大文字の小ラベル、見出しの一部だけの強調、01/02 番号、グラデーション、アニメーション、書体の割合。
 
 定番の型の例は、Anthropic 公開の frontend-design スキル（github.com/anthropics/skills の skills/frontend-design/SKILL.md）が「AI生成のデザインが集まりやすい特徴」として挙げるものを参考にした。
+
+`lookup_ux_principles` は、利用者が整理した UI/UX の原則集（`src/core/skills/catalog/interface-design/knowledge/ux-principles.md`、500項目）を、番号か語で引く。全文はプロンプトに入れず、必要な項目だけを返す。Designer のスキルには、その要点を項目番号付きでまとめた確認リスト（`references/ux-checklist.md`）を同梱している。
 
 ## 使っているOSS
 
