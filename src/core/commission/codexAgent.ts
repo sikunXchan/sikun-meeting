@@ -3,7 +3,8 @@ import * as path from 'path';
 import type { CodexOptions, ThreadEvent, ThreadOptions } from '@openai/codex-sdk';
 import { getPersonaById } from '../personas';
 import { AgentClient, AgentRequest, AgentResponse } from './types';
-import { codexPolicy, methodFor, canResearchWeb } from '../capabilities';
+import { codexPolicy, methodFor, canResearchWeb, canGenerateImages, imageGuide } from '../capabilities';
+import { collectGeneratedImages, codexHomeDirectory } from './codexImages';
 import { skillPromptFor } from '../skills/catalog';
 import { redactSecrets } from './redact';
 import { codexToolServers } from '../tools/launch';
@@ -34,12 +35,14 @@ export function codexOptionsForPhase(phase: AgentRequest['phase'], codexPathOver
   const textOnly = phase === 'consultation' || phase === 'planning' || phase === 'delivery';
   // 同梱の検証ツールはClaudeと同じstdio MCPサーバーを config.toml の mcp_servers として渡す。
   const mcpServers = tools ? codexToolServers({ phase, ...tools }) : undefined;
+  // 組み込みの画像生成は既定で有効なため、画像を作る部門の作業段階以外では明示的に切る。
+  const imageGeneration = canGenerateImages(tools?.personaId ?? '', phase, 'codex');
   return {
     ...(codexPathOverride ? { codexPathOverride } : {}),
-    ...(textOnly ? { config: { features: {
+    config: textOnly ? { features: {
       shell_tool: false, code_mode_host: false, apps: false, plugins: false,
-      multi_agent: false, remote_plugin: false, browser_use: false, skill_search: false,
-    } } } : mcpServers ? { config: { mcp_servers: mcpServers } } : {}),
+      multi_agent: false, remote_plugin: false, browser_use: false, skill_search: false, image_generation: false,
+    } } : { features: { image_generation: imageGeneration }, ...(mcpServers ? { mcp_servers: mcpServers } : {}) },
   };
 }
 
@@ -75,10 +78,12 @@ export class CodexAgentClient implements AgentClient {
     let cachedInputTokens = 0;
     let outputTokens = 0;
     let toolCalls = 0;
+    const startedAt = Date.now();
     try {
       const thread = codex.startThread(codexThreadOptions(request));
+      const generatesImages = canGenerateImages(request.personaId, request.phase, 'codex');
       const restricted = codexPhase(request) === 'work' && !codexPolicy(request.personaId, 'work').canRunCode
-        ? 'あなたの部門はコード実行部門ではありません。コマンドはファイルの閲覧と成果の確認に限り、コマンドからネットワークには接続できません。調査担当で提供される組み込みWeb検索・ページ閲覧は利用できます。\n'
+        ? `あなたの部門はコード実行部門ではありません。コマンドはファイルの閲覧と成果の確認${generatesImages ? '、生成画像の作業フォルダへのコピー' : ''}に限り、コマンドからネットワークには接続できません。調査担当で提供される組み込みWeb検索・ページ閲覧は利用できます。\n`
         : '';
       const phaseInstruction = request.phase === 'planning'
         ? 'この段階は仕事の割当だけを行います。与えられた企画と担当一覧からJSONを返し、ファイル閲覧やコマンド実行はしないでください。'
@@ -87,7 +92,7 @@ export class CodexAgentClient implements AgentClient {
           : request.phase === 'consultation'
             ? 'この段階は企画相談です。発注者の意図から短い企画案を返してください。ファイル調査やツール実行は行わず、既存機能で未確認の点は未確認と明記してください。質問は最大2件に絞り、コードの事実確認・実装・テストは企画確定後に行います。'
             : '必要なファイルだけを読み、.venv、node_modulesなどの依存ディレクトリは探索しないでください。';
-      const prompt = `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}${skillPromptFor(persona.id, request.phase)}\n選択した進め方に従って採用された企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。${verificationGuide(request.phase, request.personaId)}\n${request.tools === 'read' ? 'この段階ではファイルを変更しないでください。' : '実際に必要な作業を行ってください。'}\n${restricted}${phaseInstruction}\n\n${request.prompt}`;
+      const prompt = `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}${skillPromptFor(persona.id, request.phase)}\n選択した進め方に従って採用された企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。${verificationGuide(request.phase, request.personaId)}${imageGuide(persona.id, request.phase, 'codex')}\n${request.tools === 'read' ? 'この段階ではファイルを変更しないでください。' : '実際に必要な作業を行ってください。'}\n${restricted}${phaseInstruction}\n\n${request.prompt}`;
       const execute = async (): Promise<void> => {
         const turn = await thread.runStreamed(prompt, { signal: controller.signal });
         for await (const event of turn.events as AsyncGenerator<ThreadEvent>) {
@@ -119,6 +124,13 @@ export class CodexAgentClient implements AgentClient {
       };
       await Promise.race([execute(), cancelled]);
       if (controller.signal.aborted) throw new Error('Codex実行が中断されました');
+      // 組み込みの画像生成は作業フォルダ外（$CODEX_HOME/generated_images）に保存し、実行イベントにも現れないため、ここで取り込んで記録する。
+      if (generatesImages) {
+        for (const image of collectGeneratedImages(codexHomeDirectory(process.env), startedAt, request.workingDirectory)) {
+          toolCalls++;
+          await request.onTool?.(image.copied ? `画像生成: ${image.relativePath}（作業フォルダへ取り込み）` : `画像生成: ${image.relativePath}（作業フォルダに配置済み）`);
+        }
+      }
       if (!completed || !text.trim()) throw new Error('Codexの実行結果を取得できませんでした');
       return {
         text,
