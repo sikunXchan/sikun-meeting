@@ -82,3 +82,63 @@ export async function checkLayout(scope: Scope, file: string, widthsInput?: unkn
     return { file, results, note: 'タップ領域の基準は WCAG 2.2 の 2.5.8（24×24 CSS px 以上）。文字サイズ12px未満は目安' };
   });
 }
+
+const PATTERN_SCRIPT = `(() => {
+  const sel = (e) => { if (e.id) return '#' + CSS.escape(e.id); let s = e.tagName.toLowerCase(); if (e.classList.length) s += '.' + [...e.classList].slice(0, 2).map((c) => CSS.escape(c)).join('.'); return s; };
+  const emojiRe = /\\p{Emoji_Presentation}|\\p{Extended_Pictographic}\\uFE0F/gu;
+  const visible = (e) => { const r = e.getBoundingClientRect(), cs = getComputedStyle(e); return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 0 && r.height > 0; };
+  const emoji = [], eyebrow = [], accents = [], numbered = [], gradients = [], animated = [], radii = new Map(), fonts = new Map();
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n && emoji.length < 50; n = walker.nextNode()) {
+    const found = n.textContent.match(emojiRe);
+    if (found && n.parentElement && visible(n.parentElement)) emoji.push({ selector: sel(n.parentElement), emoji: [...new Set(found)].join(' '), text: n.textContent.trim().slice(0, 60) });
+  }
+  const elements = [...document.body.querySelectorAll('*')].slice(0, 5000);
+  for (const e of elements) {
+    if (!visible(e)) continue;
+    const cs = getComputedStyle(e), r = e.getBoundingClientRect();
+    for (const attr of ['aria-label', 'title', 'alt', 'placeholder']) { const v = e.getAttribute(attr); if (v && emojiRe.test(v)) emoji.push({ selector: sel(e), attribute: attr, text: v.slice(0, 60) }); emojiRe.lastIndex = 0; }
+    for (const pseudo of ['::before', '::after']) { const c = getComputedStyle(e, pseudo).content; if (c && c !== 'none' && emojiRe.test(c)) emoji.push({ selector: sel(e) + pseudo, text: c.slice(0, 60) }); emojiRe.lastIndex = 0; }
+    const text = [...e.childNodes].filter((c) => c.nodeType === 3).map((c) => c.textContent).join('').trim();
+    if (text) { const family = cs.fontFamily.split(',')[0].replace(/["']/g, '').trim(); fonts.set(family, (fonts.get(family) || 0) + text.length); }
+    if (text && text.length <= 40 && cs.textTransform === 'uppercase' && parseFloat(cs.letterSpacing) > 0) eyebrow.push({ selector: sel(e), text });
+    if (/^0\\d[.)]?$/.test(text)) numbered.push({ selector: sel(e), text });
+    if (/^H[1-3]$/.test(e.tagName)) {
+      for (const child of e.querySelectorAll('span,em,strong,i,b,mark')) {
+        const c = getComputedStyle(child);
+        if (child.textContent.trim() && child.textContent.trim().length < e.textContent.trim().length && (c.color !== cs.color || c.fontStyle !== cs.fontStyle || c.backgroundImage !== 'none')) { accents.push({ selector: sel(e), accent: child.textContent.trim().slice(0, 30) }); break; }
+      }
+    }
+    if (cs.backgroundImage.includes('gradient')) gradients.push({ selector: sel(e), value: cs.backgroundImage.slice(0, 120) });
+    if (cs.animationName && cs.animationName !== 'none') animated.push({ selector: sel(e), animation: cs.animationName });
+    const radius = cs.borderTopLeftRadius;
+    if (parseFloat(radius) > 0 && r.width >= 120 && r.height >= 60 && (cs.boxShadow !== 'none' || parseFloat(cs.borderTopWidth) > 0)) radii.set(radius, (radii.get(radius) || 0) + 1);
+  }
+  const boxes = [...radii.values()].reduce((a, b) => a + b, 0);
+  const [topRadius, topCount] = [...radii.entries()].sort((a, b) => b[1] - a[1])[0] || ['', 0];
+  const totalText = [...fonts.values()].reduce((a, b) => a + b, 0) || 1;
+  return {
+    emoji: emoji.slice(0, 50),
+    uppercaseLabels: eyebrow.slice(0, 30),
+    headingPartialAccent: accents.slice(0, 20),
+    numberedMarkers: numbered.slice(0, 20),
+    gradients: gradients.slice(0, 20),
+    animatedElements: { count: animated.length, examples: animated.slice(0, 10) },
+    cardRadius: { boxes, mostCommon: topRadius || null, share: boxes ? Math.round(topCount / boxes * 100) : 0 },
+    fonts: [...fonts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([family, chars]) => ({ family, sharePercent: Math.round(chars / totalText * 100) })),
+  };
+})()`;
+
+/**
+ * 絵文字と、題材に関係なく出やすい定番の型（同じ角丸カードの羅列・英大文字の小ラベル・見出しの一部だけの強調・
+ * 01/02 番号・グラデーション・アニメーション）の有無と、使っている書体を調べる。良し悪しの判定はせず、所見を返す。
+ */
+export async function checkDesignPatterns(scope: Scope, file: string, widthInput?: unknown) {
+  return withPage(scope, file, size(widthInput, 1280), 800, async (session) => {
+    const found = await session.runTrustedScript(PATTERN_SCRIPT);
+    return {
+      file, ...found,
+      note: '誤りの判定ではなく所見。絵文字は依頼者が求めた場合を除き、アイコン（SVGなど）か文言に置き換える。定番の型を残す場合は、この題材で必要な理由を仕様に書く',
+    };
+  });
+}

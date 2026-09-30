@@ -135,3 +135,24 @@ test('browser tools screenshot, audit and check layout of local HTML',{skip:!bro
  assert.ok(narrow.smallTapTargets.some(o=>o.selector==='#tiny'));assert.ok(narrow.smallText.some(o=>o.selector==='#small'));assert.equal(narrow.imagesWithoutAlt.length,1);
  await assert.rejects(browser.screenshotPage(scope,'../secret.html'),/ファイル名が不正|作業フォルダ外|no such file|ENOENT/);
 });
+
+test('check_design_patterns reports emoji and generic template traits without flagging plain symbols',{skip:!browserExecutable()&&'Chrome/Edge unavailable'},async t=>{
+ const work=tempDir(t,'sikun-design-patterns-'),scope={workingDirectory:work,readableDirectories:[]};
+ const card='<div class="card" style="width:200px;height:100px;border-radius:16px;box-shadow:0 2px 8px #0003">カード</div>';
+ fs.writeFileSync(path.join(work,'generic.html'),'<!doctype html><html lang="ja"><head><title>t</title><style>.fade{animation:up 1s} @keyframes up{from{opacity:0}to{opacity:1}} #icon::before{content:"✨"}</style></head><body style="font-family:Georgia,serif">'
+  +'<p id="eyebrow" style="text-transform:uppercase;letter-spacing:2px">features</p><h1 id="title">速く<span style="color:#7c3aed">安全</span>な予約</h1>'
+  +'<p id="rocket">🚀 すぐ始められる</p><span id="icon"></span><button aria-label="保存 💾">保存</button><p id="num">01</p>'
+  +'<section class="fade" style="background:linear-gradient(90deg,#7c3aed,#2563eb)">帯</section>'+card.repeat(6)+'<p id="plain">© 2026 ™ → 1/2</p></body></html>');
+ const found=await browser.checkDesignPatterns(scope,'generic.html');
+ const emojiText=found.emoji.map(e=>e.emoji||e.text).join(' ');
+ assert.ok(found.emoji.some(e=>e.selector==='#rocket'&&e.emoji==='🚀'));
+ assert.ok(found.emoji.some(e=>e.selector==='#icon::before'),emojiText);assert.ok(found.emoji.some(e=>e.attribute==='aria-label'),emojiText);
+ assert.ok(!found.emoji.some(e=>e.selector==='#plain'),'©・™・矢印は絵文字として数えない');
+ assert.ok(found.uppercaseLabels.some(e=>e.selector==='#eyebrow'));assert.ok(found.headingPartialAccent.some(e=>e.selector==='#title'&&e.accent==='安全'));
+ assert.ok(found.numberedMarkers.some(e=>e.selector==='#num'));assert.equal(found.gradients.length,1);assert.equal(found.animatedElements.count,1);
+ assert.deepEqual(found.cardRadius,{boxes:6,mostCommon:'16px',share:100});assert.equal(found.fonts[0].family,'Georgia');
+ fs.writeFileSync(path.join(work,'plain.html'),'<!doctype html><html lang="ja"><head><title>t</title></head><body><h1>予約</h1><p>空き枠を選んでください。</p></body></html>');
+ const plain=await browser.checkDesignPatterns(scope,'plain.html');
+ for(const key of ['emoji','uppercaseLabels','headingPartialAccent','numberedMarkers','gradients'])assert.deepEqual(plain[key],[],key);
+ assert.equal(plain.animatedElements.count,0);assert.equal(plain.cardRadius.boxes,0);
+});

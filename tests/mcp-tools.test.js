@@ -92,7 +92,8 @@ test('stdio server speaks MCP JSON-RPC and exposes only the requested groups',as
  const context={workingDirectory:work,readableDirectories:[],reviewFile:path.join(work,'..',path.basename(work)+'-review.json')};
  t.after(()=>fs.rmSync(context.reviewFile,{force:true}));
  const tools=selectedTools('calc,data,review');assert.equal(tools.length,16);
- assert.throws(()=>selectedTools('calc,shell'),/不明なツールグループ/);
+ assert.throws(()=>selectedTools('calc,shell'),/不明なツール/);
+ assert.deepEqual(selectedTools('calculate,read_table,calc').map(tool=>tool.name).slice(0,2),['calculate','read_table'],'ツール名とグループ名を混ぜても重複しない');assert.equal(selectedTools('calculate,read_table,calc').length,9);
  const init=await handleMessage({jsonrpc:'2.0',id:1,method:'initialize',params:{protocolVersion:'2099-01-01'}},tools,context);
  assert.equal(init.result.protocolVersion,'2025-06-18');assert.deepEqual(init.result.capabilities,{tools:{listChanged:false}});
  assert.equal((await handleMessage({jsonrpc:'2.0',id:2,method:'initialize',params:{protocolVersion:'2025-03-26'}},tools,context)).result.protocolVersion,'2025-03-26');
@@ -123,7 +124,7 @@ test('stdio server speaks MCP JSON-RPC and exposes only the requested groups',as
  const outside=await client.callTool({name:'read_table',arguments:{file:'/etc/passwd'}});
  assert.equal(outside.isError,true);
  const workLaunch=toolServerLaunch({phase:'work',workingDirectory:work});
- assert.deepEqual(workLaunch.args.slice(1),['--groups','calc,data,docs']);assert.equal(workLaunch.env.SIKUN_REVIEW_FILE,undefined);
+ assert.deepEqual(workLaunch.args.slice(1),['--tools','calculate,read_table,extract_text,find_quote']);assert.equal(workLaunch.env.SIKUN_REVIEW_FILE,undefined);
  assert.equal(toolServerLaunch({phase:'planning',workingDirectory:work}),undefined);
 });
 
@@ -147,7 +148,7 @@ test('the server survives malformed input and answers in order over real stdio',
 test('Codex receives the same stdio server through config.mcp_servers',()=>{
  const options=codexOptionsForPhase('review',undefined,{workingDirectory:'/w',readableDirectories:['/r'],reviewFile:'/d/c.json'});
  const server=options.config.mcp_servers.sikun;
- assert.equal(server.command,process.execPath);assert.deepEqual(server.args.slice(1),['--groups','calc,data,docs,browser,review']);
+ assert.equal(server.command,process.execPath);assert.deepEqual(server.args.slice(1),['--tools','calculate,read_table,extract_text,find_quote,record_criterion,list_criteria']);
  assert.equal(server.env.SIKUN_WORKDIR,'/w');assert.equal(server.env.SIKUN_REVIEW_FILE,'/d/c.json');
  assert.equal(codexOptionsForPhase('work',undefined,{workingDirectory:'/w'}).config.mcp_servers.sikun.env.SIKUN_REVIEW_FILE,undefined);
  assert.equal(codexOptionsForPhase('planning',undefined,{workingDirectory:'/w'}).config.mcp_servers,undefined,'文章だけの段階はツールなし');

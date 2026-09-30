@@ -124,6 +124,7 @@
     skillMembers=members;
     for(const member of members){const row=make('details','specialist-skill');row.dataset.personaId=member.id;row.dataset.search=(member.name+' '+member.roleTitle+' '+member.expertise).toLocaleLowerCase();
       const heading=make('summary'),img=make('img');img.src='assets/personas/'+member.avatar;img.alt='';const copy=make('span');copy.append(make('strong','',member.name),make('small','',member.roleTitle));heading.append(img,copy);row.append(heading);
+      if(member.tools?.length)row.append(make('p','field-help','検証ツール（作業・確認で使用。確認では確認記録を追加）: '+member.tools.join('・')));
       for(const skill of member.skills){
         row.append(make('p','field-help',skill.phases.map(p=>phaseLabels[p]).join(' / ')));
         const body=make('div','markdown-body');
