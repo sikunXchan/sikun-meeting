@@ -6,6 +6,8 @@ import { AgentClient, AgentRequest, AgentResponse } from './types';
 import { codexPolicy, methodFor, canResearchWeb } from '../capabilities';
 import { skillPromptFor } from '../skills/catalog';
 import { redactSecrets } from './redact';
+import { codexToolServers } from '../tools/launch';
+import { verificationGuide } from '../tools/catalog';
 
 type CodexModule = typeof import('@openai/codex-sdk');
 
@@ -28,14 +30,16 @@ export function codexThreadOptions(request: Pick<AgentRequest, 'personaId' | 'to
 }
 const importCodex = new Function('return import("@openai/codex-sdk")') as () => Promise<CodexModule>;
 
-export function codexOptionsForPhase(phase: AgentRequest['phase'], codexPathOverride?: string): CodexOptions {
+export function codexOptionsForPhase(phase: AgentRequest['phase'], codexPathOverride?: string, tools?: Pick<AgentRequest, 'workingDirectory' | 'readableDirectories' | 'reviewFile'>): CodexOptions {
   const textOnly = phase === 'consultation' || phase === 'planning' || phase === 'delivery';
+  // 同梱の検証ツールはClaudeと同じstdio MCPサーバーを config.toml の mcp_servers として渡す。
+  const mcpServers = tools ? codexToolServers({ phase, ...tools }) : undefined;
   return {
     ...(codexPathOverride ? { codexPathOverride } : {}),
     ...(textOnly ? { config: { features: {
       shell_tool: false, code_mode_host: false, apps: false, plugins: false,
       multi_agent: false, remote_plugin: false, browser_use: false, skill_search: false,
-    } } } : {}),
+    } } } : mcpServers ? { config: { mcp_servers: mcpServers } } : {}),
   };
 }
 
@@ -50,7 +54,7 @@ export class CodexAgentClient implements AgentClient {
     if (!persona) throw new Error(`Unknown personaId: ${request.personaId}`);
     const { Codex } = await importCodex();
     const codexPathOverride = packagedCodexPath();
-    const codex = new Codex(codexOptionsForPhase(request.phase, codexPathOverride));
+    const codex = new Codex(codexOptionsForPhase(request.phase, codexPathOverride, request));
     const controller = new AbortController();
     let rejectCancellation: (error: Error) => void = () => undefined;
     const cancelled = new Promise<never>((_, reject) => { rejectCancellation = reject; });
@@ -83,7 +87,7 @@ export class CodexAgentClient implements AgentClient {
           : request.phase === 'consultation'
             ? 'この段階は企画相談です。発注者の意図から短い企画案を返してください。ファイル調査やツール実行は行わず、既存機能で未確認の点は未確認と明記してください。質問は最大2件に絞り、コードの事実確認・実装・テストは企画確定後に行います。'
             : '必要なファイルだけを読み、.venv、node_modulesなどの依存ディレクトリは探索しないでください。';
-      const prompt = `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}${skillPromptFor(persona.id, request.phase)}\n選択した進め方に従って採用された企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。\n${request.tools === 'read' ? 'この段階ではファイルを変更しないでください。' : '実際に必要な作業を行ってください。'}\n${restricted}${phaseInstruction}\n\n${request.prompt}`;
+      const prompt = `あなたは ${persona.name}（${persona.roleTitle}）です。専門は ${persona.expertise}。\n部門別の確認手順: ${methodFor(persona.id)}${skillPromptFor(persona.id, request.phase)}\n選択した進め方に従って採用された企画と仕事の担当範囲に従ってください。実行した内容と残る問題を正確に報告してください。${verificationGuide(request.phase)}\n${request.tools === 'read' ? 'この段階ではファイルを変更しないでください。' : '実際に必要な作業を行ってください。'}\n${restricted}${phaseInstruction}\n\n${request.prompt}`;
       const execute = async (): Promise<void> => {
         const turn = await thread.runStreamed(prompt, { signal: controller.signal });
         for await (const event of turn.events as AsyncGenerator<ThreadEvent>) {
@@ -100,6 +104,7 @@ export class CodexAgentClient implements AgentClient {
               await request.onTool?.(`ファイル変更: ${paths.slice(0, 240)}`);
             }
             if (item.type === 'mcp_tool_call' || item.type === 'web_search') toolCalls++;
+            if (item.type === 'mcp_tool_call') await request.onTool?.(`mcp__${item.server}__${item.tool}${item.status === 'failed' ? '（失敗）' : ''}`);
             if (item.type === 'web_search') await request.onTool?.('Web検索・ページ取得を実行');
           }
           if (event.type === 'turn.completed') {

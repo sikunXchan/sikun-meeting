@@ -1,6 +1,6 @@
 import { SPECIALIST_PROFILES } from './specialties';
 import { skillIdsFor } from './skills/catalog';
-import { VERIFICATION_TOOLS } from './commission/verificationTools';
+import { toolNamesFor } from './tools/catalog';
 /** 実行時に参照する部門別能力。プロンプト上の肩書きだけで権限を決めない。 */
 export interface PersonaCapability {
   model: string;
@@ -21,12 +21,11 @@ export function canResearchWeb(personaId: string, phase: string): boolean {
   return WEB_ROLES.has(personaId) && (phase === 'work' || phase === 'review');
 }
 /**
- * 計算・表読み取りの検証ツールを使える段階。全部門に同じものを渡す。
- * ファイル書き込み・コマンド・外部通信を持たないため、部門の権限境界は広がらない。
+ * 同梱MCPの検証ツール（計算・表・確認記録）の事前許可名。全部門に同じものを渡す。
+ * ファイル書き込み（確認記録を除く）・コマンド・外部通信を持たないため、部門の権限境界は広がらない。
  */
-const VERIFICATION_PHASES = new Set(['work', 'review', 'goal_check', 'kgi_check']);
 export function verificationToolsFor(phase: string): string[] {
-  return VERIFICATION_PHASES.has(phase) ? [...VERIFICATION_TOOLS] : [];
+  return toolNamesFor(phase);
 }
 const STRONG = 'claude-opus-5-5';
 const STANDARD = 'claude-sonnet-5';

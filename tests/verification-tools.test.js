@@ -1,5 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {calculate,readTable,VERIFICATION_TOOLS}=require('../dist/core/commission/verificationTools');
+const {calculate}=require('../dist/core/tools/rational');
+const {readTable}=require('../dist/core/tools/data');
+const {toolNamesFor,TOOL_GROUPS}=require('../dist/core/tools/catalog');
 const {verificationToolsFor,approvedTools,preapprovedTools,capabilityFor}=require('../dist/core/capabilities');
 const {redactSecrets}=require('../dist/core/commission/redact');
 const {PERSONAS}=require('../dist/core/personas');
@@ -66,21 +68,31 @@ test('read_table reads csv/tsv/xlsx inside allowed folders only and totals numer
  const limited=await readTable('cost.csv',work,[],{maxRows:2});assert.equal(limited.truncated,true);assert.equal(limited.rows.length,2);
 });
 
-test('every role gets the same read-only verification tools only in work, review and goal checks',async t=>{
- assert.deepEqual(VERIFICATION_TOOLS,['mcp__sikun__calculate','mcp__sikun__read_table']);
- for(const phase of ['work','review','goal_check','kgi_check'])assert.deepEqual(verificationToolsFor(phase),VERIFICATION_TOOLS);
+test('every role gets the same verification tools only in work, review and goal checks',async t=>{
+ const names=group=>TOOL_GROUPS[group].map(tool=>'mcp__sikun__'+tool.name);
+ assert.equal(names('calc').length+names('data').length+names('review').length,16);
+ assert.deepEqual(verificationToolsFor('work'),[...names('calc'),...names('data')],'作業では確認記録を渡さない');
+ for(const phase of ['review','goal_check','kgi_check'])assert.deepEqual(verificationToolsFor(phase),[...names('calc'),...names('data'),...names('review')]);
  for(const phase of ['meeting','consultation','planning','delivery'])assert.deepEqual(verificationToolsFor(phase),[]);
+ assert.deepEqual(verificationToolsFor('work'),toolNamesFor('work'));
  const claude=require('../dist/core/agent/claudeAgent'),original=claude.loadQuery,seen=[];
  claude.loadQuery=async()=>async function* (input){seen.push(input);yield {type:'result',subtype:'success',is_error:false,result:'ok',modelUsage:{},total_cost_usd:0,num_turns:1};};
  t.after(()=>{claude.loadQuery=original;});
  const {SdkAgentClient}=require('../dist/core/commission/agent'),client=new SdkAgentClient();
  for(const personaId of ['finance','critic','engineer','designer','researcher'])for(const [phase,tools] of [['work','full'],['review','full'],['goal_check','read'],['planning','read']]){
-  await client.run({provider:'claude',phase,personaId,prompt:'x',workingDirectory:process.cwd(),model:'test',tools,maxTurns:1,abortSignal:new AbortController().signal});
+  await client.run({provider:'claude',phase,personaId,prompt:'x',workingDirectory:process.cwd(),model:'test',tools,readableDirectories:['/refs'],reviewFile:'/data/checks/run.json',maxTurns:1,abortSignal:new AbortController().signal});
   const options=seen.at(-1).options,granted=verificationToolsFor(phase);
   const builtins=approvedTools(personaId,tools==='read'?'read':phase==='review'?'review':'work');
   assert.deepEqual(options.tools,builtins,'組み込みツールは部門の権限のまま');
   assert.deepEqual(options.allowedTools,[...preapprovedTools(builtins),...granted]);
-  if(granted.length){assert.equal(options.mcpServers.sikun.type,'sdk');assert.match(options.systemPrompt,/calculate/);}
+  if(granted.length){
+   const server=options.mcpServers.sikun;
+   assert.equal(server.type,'stdio');assert.equal(server.command,process.execPath);
+   assert.ok(server.args[0].endsWith(path.join('dist','mcp','stdio.js')));assert.equal(server.env.ELECTRON_RUN_AS_NODE,'1');
+   assert.equal(server.env.SIKUN_WORKDIR,process.cwd());assert.equal(server.env.SIKUN_READABLE_DIRS,'["/refs"]');
+   assert.equal(server.env.SIKUN_REVIEW_FILE,phase==='work'?undefined:'/data/checks/run.json');
+   assert.match(options.systemPrompt,/calculate/);assert.equal(/record_criterion/.test(options.systemPrompt),phase!=='work');
+  }
   else{assert.equal(options.mcpServers,undefined);assert.doesNotMatch(options.systemPrompt,/検証ツール/);}
  }
 });
